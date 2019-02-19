@@ -1,0 +1,97 @@
+<!DOCTYPE Html>
+
+<html>
+    <head>
+        <link rel="stylesheet" href="styles/guitarJemp.css">
+        <link rel="stylesheet" href="styles/guitarStyle.css">
+        <link rel="stylesheet" href="styles/display.css">
+        <link rel="stylesheet" href="styles/radiobutton.css">
+        <link rel="stylesheet" href="styles/sequencerbox.css">
+        <link rel="stylesheet" href="styles/recordStyle.css">
+        
+        <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+        <script src="https://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+        
+    </head>
+    
+    <body>
+        <div id="topfield">Guitar<span style="color: goldenrod">jemp</span></div>
+        
+    <!--box behind guitar-->
+        
+        <div id="backBox">
+            
+            <div id="guitarBackground">
+                
+        <!--guitarbuilder-->
+                <div id="guitar">
+                    
+                    <!--only active in record mode -->
+                    <div id="recordLayer"></div>
+                    
+                    <!-- fretboard-->
+                    <div id="board"></div>
+                    
+                    <!-- first bold bar-->
+                    <div class="bar" style="width:7px" ></div>
+                </div>
+                
+        <!--instantiation via script-->
+                <div id = "pointcontainer"></div>
+                <div id = "fretNumbers"></div>
+                
+        <!--box for sequencerinput-->
+                <div id="inputbox">
+                    <seqButton class="button" id="startbutton">Start</seqButton>
+                    <seqButton class="button" id="endbutton">Reset</seqButton>
+                    
+                    <div id="bpmBox">
+                        <input type="range" id="bpmSpeed" min="0" max="200" step="1" >
+                        <label id ="showBpm"></label>
+                    </div>
+                </div>
+                
+        <!--record system -->
+                <seqButton class="button" id="recordbutton">Record</seqButton>
+                
+                <seqButton class="button" id="savebutton">Save</seqButton>
+            </div>
+                <div id="myProgress">
+                    <div id="myBar"></div>
+                </div>
+        </div>
+        
+        
+<!--box for radiobuttons-->        
+        <div id="topfield" style="height:500px">
+            <div class="display">
+                <div class="displayContent" id="bar"></div>
+                <div class="displayContent" id="quaters"></div>
+            </div>
+            <div class="radio-toolbar">
+                <input type="radio" id="radioApple" name="radioFruit" value="apple" checked>
+                <label for="radioPenta">Am Pentatonik</label>
+
+                <input type="radio" id="radioBanana" name="radioFruit" value="banana">
+                <label for="radioDur">C Dur </label>
+
+                <input type="radio" id="radioOrange" name="radioFruit" value="orange">
+                <label for="radioMoll">D Moll</label> 
+            </div>       
+        </div>
+       
+
+        <script type="text/javascript" src="scripts/SetPoint.js"></script>
+        <script type="text/javascript" src="Songs/firstSong.js"></script>    
+        <script type="text/javascript" src="scripts/positioning.js"></script>
+        <script type="text/javascript" src="scripts/sequencer.js"></script>
+        <script type="text/javascript" src="scripts/guitarBuilder.js" ></script>
+        <script type="text/javascript" src="scripts/sounds.js"></script>
+        <script type="text/javascript" src="scripts/recordLayer.js"></script>
+        <script type="text/javascript" src="scripts/dataProcess.js"></script>
+        
+        <script type="text/javascript" src="scripts/init.js"></script>
+        <script type="text/javascript" src="scripts/input.js"></script>
+               
+    </body>  
+</html>

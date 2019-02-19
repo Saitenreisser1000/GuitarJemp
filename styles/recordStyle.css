@@ -1,0 +1,23 @@
+.recordPoint{
+    position: absolute;
+    height: 25px;
+    width: 35px;
+    background-color: grey;
+    z-index: 10;
+    opacity: 0.5;
+    border-radius: 6px;
+}
+
+.recordControl{
+    top:10px;
+}
+
+#recordbutton{
+    top:10px;
+    left: 85px;
+}
+
+#savebutton{
+    top:10px;
+    left:210px;
+}

@@ -1,0 +1,74 @@
+#inputbox{
+    position: absolute;
+    background-color: #f0f0f0;
+    z-index: 2;
+    top: 290px;
+    left: 90px;
+    height: 100px;
+    width: 275px;
+    border-style: solid;
+    border-width: 2px;
+    border-color: black;
+}
+
+#bpmBox{
+    position: absolute;
+    top:50px;
+}
+
+#bpmSpeed{
+    position:absolute;
+    width: 210px;
+    top:5px;
+    left: 50px;
+}
+
+#showBpm{
+    position:absolute;
+    background-color: white;
+    top: 5px;
+    left: 10px;
+   
+    padding: 5px;
+    border-color: black;
+}
+
+seqButton.button{
+    position:absolute;
+    /*top:290px;*/
+    z-index: 3;
+    display:inline-block;
+    padding:0.3em 1.2em;
+    margin:0 0.3em 0.3em 0;
+    border-radius:0.2em;
+    box-sizing: border-box;
+    
+    text-decoration:none;
+    font-family:'Arial',sans-serif;
+    font-weight:600;
+    color:black;
+    background-color:darkgoldenrod;
+    text-align:center;
+    transition: all 0.2s;
+}
+seqButton.button:hover{
+     background-color:goldenrod;
+    cursor: pointer;
+
+}
+seqButton.button:active{
+    background-color: gold;
+}
+
+#startbutton{
+    top: 10px;
+    left:10px;
+}
+#pausebutton{
+    top: 10px;
+    left:90px;
+}
+#endbutton{
+    top: 10px;
+    left:182px;
+}

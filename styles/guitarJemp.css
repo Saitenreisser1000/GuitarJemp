@@ -1,0 +1,42 @@
+
+body{
+    margin:0px;
+}
+
+#topfield{
+    background-color: #494D53;  
+    height: 150px;
+    width:auto;
+    text-align: center;
+    font-family: 'Arial',sans-serif;
+    padding-top: 5px;
+    color:aliceblue;
+    font-size: 80px;
+}
+
+#backBox{
+               
+    background-color:#959799;                
+    position:relative;
+    width:auto;
+    height:430px;
+    border-color:black;              
+}
+
+#point{   
+    position:absolute;
+    background-color: black;                
+    width:17px;
+    height:17px;
+    border-radius: 50%;
+    z-index: 5;
+    
+}
+.fretOrientPos{
+    position:absolute;
+    background-color: goldenrod;
+    height: 150px;
+    width:50px;
+    top:20px;
+    z-index: 0;
+}
