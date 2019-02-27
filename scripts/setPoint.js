@@ -24,7 +24,7 @@ SetPoint.prototype.createPoint = function(posX, posY, note){
 
     //point effects
     Sounds.playSound(posX, posY, note);
-    this.makeTransparent(point, 0.5, 300);
+    this.makeTransparent(point, 0.6, 300);
     this.sizeChange(point);
 }
 
@@ -36,7 +36,7 @@ SetPoint.prototype.makeTransparent = function(point, opacityVal, removeTime){
 }
 
 SetPoint.prototype.sizeChange = function(point){
-    let sizeto = 14;
+    let sizeto = 16;
     let xyoffsetWhenChanged = 300;
     let offset = 200;
     setTimeout(function(){

@@ -8,9 +8,11 @@
         <link rel="stylesheet" href="styles/radiobutton.css">
         <link rel="stylesheet" href="styles/sequencerbox.css">
         <link rel="stylesheet" href="styles/recordStyle.css">
+        <link href="https://unpkg.com/tabulator-tables@4.2.1/dist/css/tabulator.min.css" rel="stylesheet">
         
         <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
         <script src="https://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+        <script type="text/javascript" src="https://unpkg.com/tabulator-tables@4.2.1/dist/js/tabulator.min.js"></script>
         
     </head>
     
@@ -20,6 +22,18 @@
     <!--box behind guitar-->
         
         <div id="backBox">
+            
+        <!--popUpName-->
+            
+        <div id="overlay">
+            <div id="namePopup">
+                <div id="close">enter</div>
+                <div id="cancel">cancel</div>
+                
+                <h3>Name:</h3>
+                <input id="songName" placeholder="song name">
+            </div>
+        </div>
             
             <div id="guitarBackground">
                 
@@ -55,40 +69,42 @@
                 <seqButton class="button" id="recordbutton">Record</seqButton>
                 
                 <seqButton class="button" id="savebutton">Save</seqButton>
+                <seqButton class="button" id="loadbutton">Load</seqButton>
             </div>
-                <div id="myProgress">
-                    <div id="myBar"></div>
+                <div id="transportBox">
+                    <!--div id="transportLine"></div-->
+                    <input type="range" id="transportFader">
                 </div>
+
         </div>
         
         
 <!--box for radiobuttons-->        
         <div id="topfield" style="height:500px">
-            <div class="display">
+            <!--div class="display">
                 <div class="displayContent" id="bar"></div>
                 <div class="displayContent" id="quaters"></div>
-            </div>
-            <div class="radio-toolbar">
-                <input type="radio" id="radioApple" name="radioFruit" value="apple" checked>
-                <label for="radioPenta">Am Pentatonik</label>
-
-                <input type="radio" id="radioBanana" name="radioFruit" value="banana">
-                <label for="radioDur">C Dur </label>
-
-                <input type="radio" id="radioOrange" name="radioFruit" value="orange">
-                <label for="radioMoll">D Moll</label> 
+            </div-->
+                <div class="songlistBox">
+                    <div class="songlistHeading"></div>
+                    
+                    <div id="songTable"></div>
+                
+                </div>
+                
             </div>       
-        </div>
        
 
         <script type="text/javascript" src="scripts/SetPoint.js"></script>
-        <script type="text/javascript" src="Songs/firstSong.js"></script>    
+        <script type="text/javascript" src="Songs/songDataCrypt.js"></script>    
         <script type="text/javascript" src="scripts/positioning.js"></script>
         <script type="text/javascript" src="scripts/sequencer.js"></script>
         <script type="text/javascript" src="scripts/guitarBuilder.js" ></script>
         <script type="text/javascript" src="scripts/sounds.js"></script>
         <script type="text/javascript" src="scripts/recordLayer.js"></script>
         <script type="text/javascript" src="scripts/dataProcess.js"></script>
+        <script type="text/javascript" src="scripts/dataTransfer.js"></script>
+        <script type="text/javascript" src="scripts/songTable.js"></script>
         
         <script type="text/javascript" src="scripts/init.js"></script>
         <script type="text/javascript" src="scripts/input.js"></script>

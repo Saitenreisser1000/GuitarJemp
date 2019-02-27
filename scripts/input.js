@@ -1,3 +1,6 @@
+/*************************
+    basic start stop
+*************************/
 
 //start stop toggle
 $('#startbutton').click(function(){sequencer.polyStartStopToggle()});
@@ -7,7 +10,25 @@ $('#startbutton').click(function(){sequencer.polyStartStopToggle()});
 $("#bpmSpeed").on("input change", function(){sequencer.sliderChange(document.getElementById("bpmSpeed").value)});
 
 //resetbutton
-$('#endbutton').click(function(){sequencer.endSequencer();});
+$('#endbutton').click(function(){sequencer.endSequencer();                    
+document.getElementById("transportFader").value = 0;});
+
+
+
+/*******************
+    transporter
+*******************/
+
+//draggable transporter
+//change
+$("#transportFader").mousedown(function(){
+    sequencer.polyStartStopToggle();
+});
+//mouse release
+$("#transportFader").mouseup(function(){
+    sequencer.setTimeTo(this.value);
+    sequencer.polyStartStopToggle();
+});
 
 
 /************************
@@ -22,14 +43,27 @@ $('#recordbutton').click(function(){
 //which point is pressed
 $('.recordPoint').click(function(){
     recordlayer.clickRecorder(this);
-    /*var x = this.getAttribute("fretPos");
-    var y = this.getAttribute("stringPos");
-    Sounds.playSound(parseInt(x), parseInt(y)
-    )
-    $(this).css("background-color", "green");*/
+    $(this).css("background-color", "green");
 });
 
-//saves to storage
-$('#savebutton').click(function(){
-    localStorage.setItem('test', recordlayer.getRecorded());
-})
+//test send to php
+$('#loadbutton').click(function(){
+   new loadSong();
+
+});
+
+//song is saved
+$(document).ready(function() {
+    $('#savebutton').click(function() {
+        $('#overlay').fadeIn(300);  
+    });
+    $('#close').click(function() {
+    
+        //song saved by name
+        saveSong($('#songName').val(),recordlayer.getRecorded() );
+        $('#overlay').fadeOut(300);
+    });
+     $('#cancel').click(function() {
+        $('#overlay').fadeOut(300);
+    });
+});

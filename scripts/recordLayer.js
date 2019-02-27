@@ -72,6 +72,6 @@ const recordlayer = {
     
     //get temp song
     getRecorded: function(){
-        return this.recordContainer;
+        return this.recordContainer.toString();
     }
 }

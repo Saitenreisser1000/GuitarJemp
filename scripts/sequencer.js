@@ -16,7 +16,8 @@ var sequencer = {
         takt = 4;
         beats = 0;
         isRunning = false;
-        bpm = 100;
+        
+        //set speedslider two default 100 bpm
         this.sliderChange(document.getElementById("bpmSpeed").value);
     },
     
@@ -27,6 +28,7 @@ var sequencer = {
     sliderChange: function(value){
         bpm = value;
         document.getElementById("showBpm").innerHTML = bpm;
+        //this.bpmCalc(bpm);
     },
     
     //calculates realtime-bpm
@@ -39,7 +41,18 @@ var sequencer = {
         document.getElementById("bar").innerHTML = bar +"."; 
         document.getElementById("quaters").innerHTML = quaters;
         return this;
-    },    
+    },
+    
+    //set song
+    songToLoad: function(loadSong){
+        this.loadSong = loadSong;
+        //song is loaded after selection
+        dataProcess.loadSong(this.loadSong);
+    },
+    
+    setTimeTo(newTime){
+        beatIndex = newTime;
+    },
     
     
     //loads song
@@ -49,10 +62,6 @@ var sequencer = {
         
         //get rid of this problem in subfunction
         var self = this;
-        
-        //which song is loaded
-        //dataProcess.loadSong(new songData(recordlayer.getRecorded()));
-        dataProcess.loadSong(new testOne());
         
         //stop sequencer when song ended
         if(dataProcess.songEnded){
@@ -70,6 +79,8 @@ var sequencer = {
                 //this is the actual playerloop - beatindex is minimal timecounter
                 dataProcess.playLoop(beatIndex);
                 
+                //transport sync
+                document.getElementById("transportFader").value = beatIndex;
                 //sequencerspeed
             }, this.bpmCalc(bpm));
         }
@@ -84,11 +95,9 @@ var sequencer = {
     
     //ending sequencer when reset oder song ends
     endSequencer: function(){
-        isRunning = false;
-        
+        isRunning = false;        
         clearInterval(timer);                
         this.initValues();
-        this.showValues(bar, quaters);
         dataProcess.setTimerTo(0);
         positioning.unSetAll();
     },

@@ -11,6 +11,9 @@
     recordlayer.recordFields();
     $('.recordPoint').hide();
     
+    //set transport fader to 0 
+    document.getElementById("transportFader").value = 0;
+    
 })();
 
 
