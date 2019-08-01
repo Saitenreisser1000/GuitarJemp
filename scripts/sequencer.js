@@ -21,22 +21,27 @@ var sequencer = {
         this.sliderChange(document.getElementById("bpmSpeed").value);
     },
     
-    //multiplier for realtime
-    MULTIPLY : 6.25,   
+    ////////////////////////////
+    //speedcalculation
     
-    //changes sequencerspeed - bpm
-    sliderChange: function(value){
-        bpm = value;
-        document.getElementById("showBpm").innerHTML = bpm;
-        //this.bpmCalc(bpm);
-    },
+    //multiplier for realtime
+    MULTIPLY : 6.25, 
     
     //calculates realtime-bpm
     bpmCalc: function(bpm){
         return (100/bpm)* this.MULTIPLY;                
     },
     
-    //bar and quaters for display
+    ///////////////////////////
+    
+    //changes sequencerspeed - bpm
+    sliderChange: function(value){
+        bpm = value;
+        document.getElementById("showBpm").innerHTML = bpm;
+    },
+    
+    
+    //bar and quaters for display - NOT USED
     showValues: function(bar, quaters){
         document.getElementById("bar").innerHTML = bar +"."; 
         document.getElementById("quaters").innerHTML = quaters;
@@ -44,18 +49,21 @@ var sequencer = {
     },
     
     //set song
-    songToLoad: function(loadSong){
+    songToLoad: function(loadSong, songName){
         this.loadSong = loadSong;
+        this.loadedSongName = songName;
         //song is loaded after selection
         dataProcess.loadSong(this.loadSong);
+    },
+    
+    getNameOfLoadedSong:function(){
+        return this.loadedSongName;
     },
     
     setTimeTo(newTime){
         beatIndex = newTime;
     },
     
-    
-    //loads song
     //checks if song has ended
     //starts timer for tonesetting 
     startSequencer: function(){

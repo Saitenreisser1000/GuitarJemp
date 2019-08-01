@@ -35,7 +35,17 @@
             </div>
         </div>
             
+            
             <div id="guitarBackground">
+                
+        <!--record system -->
+                <div id="recordField">
+                    <seqButton class="button" id="recordbutton">Record</seqButton>               
+                    <seqButton class="button" id="savebutton">Save</seqButton>
+                    <seqButton class="button" id="loadbutton">Load</seqButton>
+                    <div id="loadedSong"></div>
+                </div>
+                
                 
         <!--guitarbuilder-->
                 <div id="guitar">
@@ -50,9 +60,11 @@
                     <div class="bar" style="width:7px" ></div>
                 </div>
                 
+                
         <!--instantiation via script-->
                 <div id = "pointcontainer"></div>
                 <div id = "fretNumbers"></div>
+                
                 
         <!--box for sequencerinput-->
                 <div id="inputbox">
@@ -63,14 +75,10 @@
                         <input type="range" id="bpmSpeed" min="0" max="200" step="1" >
                         <label id ="showBpm"></label>
                     </div>
-                </div>
-                
-        <!--record system -->
-                <seqButton class="button" id="recordbutton">Record</seqButton>
-                
-                <seqButton class="button" id="savebutton">Save</seqButton>
-                <seqButton class="button" id="loadbutton">Load</seqButton>
+                </div>               
             </div>
+            
+            
                 <div id="transportBox">
                     <!--div id="transportLine"></div-->
                     <input type="range" id="transportFader">

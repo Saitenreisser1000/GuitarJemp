@@ -12,6 +12,26 @@
     top:10px;
 }
 
+#recordField{
+    position: absolute;
+    height: 50px;
+    width: 100%;
+    background:#f0f0f0;
+    z-index: 5;
+}
+
+#loadedSong{
+    position:absolute;
+    font-size: 25px;
+    height:30px;
+    width:200px;
+    top:10px;
+    left:450px; 
+    text-align: right;
+    padding-right: 5px;
+    background: grey;
+}
+
 #recordbutton{
     top:10px;
     left: 85px;

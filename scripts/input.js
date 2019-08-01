@@ -7,7 +7,7 @@ $('#startbutton').click(function(){sequencer.polyStartStopToggle()});
                         
 
  //manipulate bpm
-$("#bpmSpeed").on("input change", function(){sequencer.sliderChange(document.getElementById("bpmSpeed").value)});
+$("#bpmSpeed").mouseup(function(){sequencer.sliderChange(document.getElementById("bpmSpeed").value)});
 
 //resetbutton
 $('#endbutton').click(function(){sequencer.endSequencer();                    
@@ -34,8 +34,8 @@ $("#transportFader").mouseup(function(){
 /************************
         recordlayer
 ************************/
+
 $('#recordbutton').click(function(){
-    console.log(localStorage.getItem('test'));
     $(".recordPoint").toggle("fast");
     $("#inputbox").toggle("fast");
 });

@@ -1,7 +1,7 @@
 
 const recordlayer = {
     
-    //declaration of one dot
+    //ONE DOT
     recordDot: function(posX, posY, whichString, whichFret){
         let marker = document.createElement('div');
         marker.setAttribute("stringPos", whichString);
@@ -11,6 +11,15 @@ const recordlayer = {
         marker.style.top = posY+'px';
         return marker;
     },
+    
+    /***************************
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    OOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+    /**************************/
     
     //draws the fields of records
     recordFields: function(){
@@ -54,6 +63,9 @@ const recordlayer = {
             xPosition = startX;
         }   
     },
+    
+    
+    /************************/
     
     //declare variables
     recordInit: function(){
