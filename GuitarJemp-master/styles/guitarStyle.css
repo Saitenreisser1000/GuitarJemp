@@ -1,0 +1,47 @@
+#guitar{
+    position:absolute;
+    margin-top:60px;
+    margin-left:90px;    
+}
+
+.gitString{
+    position:absolute;
+    background-color:black;
+    
+    height: 2px;
+    width: 800px;
+}
+
+.bar{
+    position:absolute;
+    background-color:black;
+    top: 20px;
+    height: 150px;
+    width: 4px;
+}
+#board{
+    position:absolute;
+    background-color:darkgoldenrod;
+    top:20px;
+    height: 150px;
+    width: 800px;
+    
+}
+#guitarBackground{
+    background-color:#959799; 
+    position:relative;
+    width:auto;
+    height:350px;
+}
+.fretNumbs{
+    font-family:'Arial',sans-serif;
+    top: 240px;
+    position:absolute;
+    color: black;
+}
+.stringlabel{
+    font-family:'Arial',sans-serif;
+    left: -25px;
+    position:absolute;
+    color: black;
+}

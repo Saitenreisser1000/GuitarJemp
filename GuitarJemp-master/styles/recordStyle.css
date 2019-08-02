@@ -1,0 +1,98 @@
+.recordPoint{
+    position: absolute;
+    height: 25px;
+    width: 35px;
+    background-color: grey;
+    z-index: 10;
+    opacity: 0.5;
+    border-radius: 6px;
+}
+
+.recordControl{
+    top:10px;
+}
+
+#recordField{
+    position: absolute;
+    height: 50px;
+    width: 100%;
+    background:#f0f0f0;
+    z-index: 5;
+}
+
+#loadedSong{
+    position:absolute;
+    font-size: 25px;
+    height:30px;
+    width:200px;
+    top:10px;
+    left:450px; 
+    text-align: right;
+    padding-right: 5px;
+    background: grey;
+}
+
+#recordbutton{
+    top:10px;
+    left: 85px;
+}
+
+#savebutton{
+    top:10px;
+    left:210px;
+}
+
+#loadbutton{
+    top:10px;
+    left:320px;
+}
+
+#overlay {
+    z-index: 10;
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0,0,0,0.8);
+    display: none;
+}
+
+#namePopup {
+    font-family: 'Arial',sans-serif;
+    max-width: 250px;
+    width: 80%;
+    max-height: 90px;
+    height: 80%;
+    padding: 10px;
+    position: relative;
+    background: goldenrod;
+    margin: 20px auto;
+}
+
+#close {
+    font-family: 'Arial',sans-serif;
+    position: absolute;
+    top: 10px;
+    right: 70px;
+    cursor: pointer;
+    color: #000;
+    background-color: grey;
+    height:20px;
+    width: 50px;
+}
+
+#cancel{
+    font-family: 'Arial',sans-serif;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    color: #000;
+    background-color: grey;
+    height:20px;
+    width: 50px;
+}
+

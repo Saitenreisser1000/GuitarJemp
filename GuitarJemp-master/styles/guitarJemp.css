@@ -1,0 +1,67 @@
+
+body{
+    margin:     0px;
+}
+
+#topfield{
+    background-color: #494D53;  
+    height:     150px;
+    width:      auto;
+    text-align: center;
+    font-family:'Arial',sans-serif;
+    padding-top:5px;
+    color:      aliceblue;
+    font-size:  80px;
+}
+
+#backBox{
+               
+    background-color:#959799;                
+    position:   relative;
+    width:      auto;
+    height:     550px;
+    border-color:black;              
+}
+
+#transportBox{
+    position: absolute;
+    background-color:white;
+    bottom:     70px;
+    margin-left:90px;
+    height:     50px;
+    width:      800px;
+}
+
+#transportLine{
+    position: absolute;
+    left: 50px;
+    background-color: black;
+    height:     50px;
+    width:      5px;
+    border-radius: 20%;
+    
+}
+
+#transportFader{
+    position:absolute;
+     height:     50px;
+    width:      800px;
+}
+
+#point{   
+    position:   absolute;
+    background-color: blue;                
+    width:      17px;
+    height:     17px;
+    border-radius:50%;
+    z-index:    5;
+    
+}
+.fretOrientPos{
+    position:   absolute;
+    background-color: goldenrod;
+    height:     150px;
+    width:      50px;
+    top:        20px;
+    z-index:    0;
+}
