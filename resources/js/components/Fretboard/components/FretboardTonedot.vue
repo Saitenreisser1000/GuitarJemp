@@ -11,40 +11,51 @@
 </template>
 
 <script>
-import { mapActions } from "vuex";
+import { mapActions, mapGetters } from "vuex";
+import samplermixin from "../../../mixins/sampler.js";
+
 export default {
   name: "toneDot",
   props: ["dotInfo"],
+  mixins: [samplermixin],
   data() {
     return {
-      isEditable: true,
+      isEditable: true,      
     };
   },
 
+  computed: {
+    ...mapGetters({
+      getTones: "getTones",
+    }),
+  },
+
   methods: {
-    ...mapActions(["addDot", "removeDot", "removeOthersFocus"]),
+    ...mapActions(["addTone", "removeTone", "removeOthersFocus"]),
     onClick() {
       //no jemp
+      this.playTone(this.getTones[this.dotInfo.string - 1][this.dotInfo.fret].tone);
+      
       if (this.isEditable) {
-        //if (!this.dotInfo.isActive) {
+        if (!this.dotInfo.isActive) {
           this.addActiveJemp();
           this.removeOthersFocus(this.dotInfo);
-        //}
-        //not focused anymore
-        //else if (this.dotInfo.isFocused) {
-          //this.dotInfo.isFocused = false;
-        //}
+        }
+        //focused -> add new tone
+        else if (this.dotInfo.isFocused) {
+          this.addActiveJemp();
+        }
         //now focused this others unfocused - this has at least on active jemp
-        //else {
-          //this.removeOthersFocus(this.dotInfo);
-        //}
+        else {
+          this.removeOthersFocus(this.dotInfo);
+        }
       }
     },
     addActiveJemp() {
-      this.addDot(this.dotInfo);
+      this.addTone(this.dotInfo);
     },
     removeActiveJemp() {
-      this.removeDot(this.dotInfo);
+      this.removeTone(this.dotInfo);
     },
   },
 };
@@ -74,6 +85,7 @@ export default {
   opacity: 1;
 }
 .isFocused {
-  background-color: brown;
+   height: 35px;
+   width: 35px;
 }
 </style>

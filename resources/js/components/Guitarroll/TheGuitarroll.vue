@@ -1,11 +1,6 @@
 <template>
 <div class="container">
 <v-card id="seqContainer" :style="seqContainer">
-    <v-card class="multiDotDisplay">
-        <div class="mx-2" v-for="focusedDot in getFocusedDot.activeJemps" :key="focusedDot.dot_ID">
-            {{`string: ${getFocusedDot.string}, fret: ${getFocusedDot.fret}, time: ${focusedDot.time}`}}
-        </div>
-    </v-card>
     <v-card-text>
       <v-row
         align="center"
@@ -13,41 +8,41 @@
       >
         <v-btn-toggle
           color="primary"
-          v-model="toneToggle"
           mandatory
+          v-model="timingValue"
         >
-          <v-btn value="1:0" text> 
+          <v-btn value="1m" text> 
             <p>1</p>
           </v-btn>
-          <v-btn value="0:2" text>
+          <v-btn value="2n" text>
             <p>1/2</p>
           </v-btn>
-          <v-btn value="0:1" text>
+          <v-btn value="4n" text>
             <p>1/4</p>
           </v-btn>
-          <v-btn value="0:0:2" text>
+          <v-btn value="8n" text>
             <p>1/8</p>
           </v-btn>
-          <v-btn value="0:0:1" text>
+          <v-btn value="16n" text>
             <p>1/16</p>
           </v-btn>
         </v-btn-toggle>
         <v-btn-toggle class="ml-2"
-            v-model="samePos"
+            
         >
             <v-btn>
                 <p>samePos</p>
             </v-btn>
         </v-btn-toggle>
         <v-btn-toggle class="ml-2"
-            v-model="punkt"
+            
         >
             <v-btn>
                 <p>punktiert</p>
             </v-btn>
         </v-btn-toggle>
         <v-btn-toggle class="ml-2"
-            v-model="triole"
+            
         >
             <v-btn value="1">
                 <p>triole</p>
@@ -69,8 +64,8 @@
 
                         :dot="box"
 
-                        :key="box.dot_ID"
-                        :newkey="box.dot_ID"
+                        :key="box.jt_ID"
+                        :newkey="box.jt_ID"
 
                         :y-pos="(box.boxData.string-1)*40"
                         :x-pos="box.boxData.xPos"
@@ -120,21 +115,30 @@
 
         computed: {
             ...mapGetters(['getActiveBoxes', 'getFocusedDot']),
+            timingValue:{
+                get(){
+                    return "4n"
+                },
+                set(value){
+                    this.changeTimeRadio(value)
+                    console.log(value)
+                }
+            }
         },
 
         methods: {
-            ...mapActions(['changeBoxPos']),
+            ...mapActions(['changeToneTime', 'changeTimeRadio']),
             updateXPos(xPos, width, key, strNr, dragResizeStart){
                 let self = this
-                let el = this.getActiveBoxes.find(el => el.dot_ID === key);
+                let el = this.getActiveBoxes.find(el => el.jt_ID === key);
 
                 el.boxData.xPos = xPos;
                 el.boxData.width = width;
                 el.time = "0:"+ (parseInt(el.boxData.xPos/40) + 1 );
 
-                this.changeBoxPos(el);
+                this.changeToneTime(el);
 
-                let changedOnActiveString = this.getActiveBoxes.filter(el => el.boxData.string === strNr && el.dot_ID !== key);
+                let changedOnActiveString = this.getActiveBoxes.filter(el => el.boxData.string === strNr && el.dotID !== key);
 
                 for(let box of changedOnActiveString){
                     //set position size back to start
@@ -145,12 +149,13 @@
                             el.boxData.xPos = dragResizeStart.startX;
                             el.boxData.width = dragResizeStart.startWidth;
                             el.time = "0:"+ (parseInt(el.boxData.xPos / 40) + 1);
-                            self.changeBoxPos(el);
+                            self.changeToneTime(el);
                         }, 10);
                         break;
                     }
                 }
             },
+
             isPosFree(box, newBox){
                 return !(box.xPos < newBox.xPos + newBox.width && box.xPos > newBox.xPos ||
                     box.xPos + box.width < newBox.xPos + newBox.width && box.xPos + box.width > newBox.xPos ||

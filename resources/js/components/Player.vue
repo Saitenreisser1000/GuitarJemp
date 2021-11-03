@@ -1,58 +1,76 @@
 <template>
-  <div class="container">
-    <div id="playerCard" class="card" style="width: 100%; height: 80px">
-      <button @click="playToggle" class="btn btn-primary m-2">{{ playButton }}</button>
-      <button @click="reset" class="btn btn-primary m-2">reset</button>
-      <v-checkbox
-        v-model="isLoop"
-            label="Loop"
+  <v-card>
+    <v-container>
+      <v-row>     
+        <v-col 
+          cols="2"        
+        >
+          <v-card outlined height="180" class="pa-6">
+            <v-btn height="80" width="100" @click="playToggle" color="primary">{{ playButton }}</v-btn>
+            <v-btn height="80" @click="reset" color="primary">reset</v-btn>
+            <v-btn @click="loadSong" color="primary my-2">load</v-btn>
+          </v-card>        
+        </v-col>
+
+        <v-col>
+          <v-card outlined class="pa-6">
+            <v-slider       
+            :min="0"
+            :max="(Math.floor(this.endSongTime * transMulti))"
+            @input="change(transPos)"
+            @mousedown="onMouseDown()"
+            @mouseup="onMouseUp()"
+            v-model="transPos"
+            />
+          <v-checkbox
+            v-model="isLoop"
             color="primary"
-            value="red"
-      ></v-checkbox>
-      <input
-        class="transportFader"
-        type="range"
-        :min="0"
-        :max="(this.endSongTime * transMulti)"
-        value="transPos"
-        @input="change(transPos)"
-        @mousedown="onMouseDown()"
-        @mouseup="onMouseUp(transPos)"
-        v-model="transPos"
-      />
-      <div>
-        <form>
-          <input
-            id="speedFader"
-            class="transportFader"
-            type="range"
-            min="20"
-            max="250"
-            v-model="speed"
-          />
-          <span class="label">speed: {{ speed }}</span>
-        </form>
-        <form>
-          <input
-            id="volumeFader"
-            class="transportFader"
-            type="range"
-            min="-50"
-            max="0"
+            label="Loop"
+            @change="loopSong(isLoop)">
+          ></v-checkbox>
+
+          <v-range-slider
+            :max="(this.endSongTime * transMulti)"
+            :min="0"
+            v-model="loopRange"
+          ></v-range-slider>
+          </v-card>        
+        </v-col>
+        <v-col
+          cols="2"
+        >
+          <v-card outlined height="180" class="pa-6">
+            <v-slider
+              label="Speed"
+              :min="20"
+              :max="250"
+              v-model="speed"
+              thumb-label="always"
+          >   
+          </v-slider>
+          <v-slider
+            :min="-50"
+            :max="0"
             v-model="volume"
-          />
-          <span class="label">volume:{{ parseInt(volume) + parseInt(50)}}</span>
-        </form>
-      </div>
-    </div>
-  </div>
+            thumb-label="always"
+            prepend-icon="mdi-volume-high"
+          >   
+          </v-slider>
+          </v-card>         
+        </v-col>
+      </v-row>      
+    </v-container>  
+  </v-card> 
 </template>
 
 <script>
 import * as Tone from "tone";
-import { mapGetters } from "vuex";
+import samplermixin from "../mixins/sampler";
+import songWrapper from "../mixins/songWrapper";
+import { mapGetters, mapActions } from "vuex";
 
 export default {
+  mixins: [samplermixin, songWrapper],
   data() {
     return {
       transport: Tone.Transport,
@@ -60,40 +78,18 @@ export default {
       playButton: "play",
       endSongOffset: 2,
       endSongTime: 0,
-      speed: 60,
-      volume: -20,
+      defaultspeed: 60,
+      defaultvolume: -20,
       transPos: 0,
       transMulti: 100,
       activeSong: "",
       dottsInSong: [],
-      isLoop: true,
-
-      sampler: new Tone.Sampler({
-        urls: {
-          A1: "A1.mp3",
-          A2: "A2.mp3",
-        },
-        baseUrl: "./sounds/",
-        volume: -5,
-        onload: () => {},
-      }).toDestination(),
+      isLoop: false,
+      loopRange: [20, 100],
     };
   },
 
   watch: {
-    speed: {
-      immediate: false,
-      handler() {
-        Tone.Transport.bpm.value = this.speed;
-        this.setSongEndTime();
-      },
-    },
-    volume: {
-      immediate: true,
-      handler() {
-        this.sampler.volume.value = this.volume;
-      },
-    },
     jempSong: function () {
       this.scheduleSong(this.jempSong);
       this.reset();
@@ -105,18 +101,43 @@ export default {
       allJemps: "getAllJemps",
       jempSong: "getActiveSong",
       getTones: "getTones",
+      getActiveBoxes: "getActiveBoxes"
     }),
+    speed:{
+      get(){
+        if(this.activeSong.speed){ return this.activeSong.speed }
+        else { return this.defaultspeed }
+      },
+      set(value){
+        Tone.Transport.bpm.value = value;
+        this.setSongEndTime();
+      }
+    },
+    volume:{
+      get(){
+        if(this.activeSong.volume){ return this.activeSong.volume }
+        else { return this.defaultvolume }
+          
+
+      },
+      set(value){
+        this.sampler.volume.value = value;
+      }
+    }
   },
 
   methods: {
+    ...mapActions(["removeAllFocuses", "setSongActive"]),
+
     /************* Transport System ***************/
     performAnimation() {
       this.animationRequest = requestAnimationFrame(this.performAnimation);
-      if (this.transPos > this.endSongTime * this.transMulti) {
-        Tone.Transport.position = 0;
-        this.pause();
-      }
       this.transPos = Tone.Transport.seconds * this.transMulti;
+      if (this.transPos >= (this.endSongTime * this.transMulti)-0.1) {
+      this.songEndPos();
+        //cancelAnimationFrame(this.animationRequest);
+      }
+      
     },
 
     onMouseDown() {
@@ -142,7 +163,8 @@ export default {
         }
       });
     },
-    onMouseUp(transPos) {
+
+    onMouseUp() {
       this.play();
     },
 
@@ -178,11 +200,12 @@ export default {
           let dot = this.dottsInSong.find(
             (dot) => dot.jt_ID === jempTone.dotID
           );
-          dot.isActive = true;
+
+          //dot.isActive = true;    Test
 
           /*******color activation ****/
           if (jempTone.color) {
-            dot.color = jempTone.color;
+            //dot.color = jempTone.color;
           }
 
           /*doteffect after dot is set*/
@@ -192,7 +215,7 @@ export default {
 
           //play sound
           let t = this.getTones[jempTone.string - 1][jempTone.fret];
-          this.sampler.triggerAttackRelease(t.tone, 0.6);
+          this.playTone(t.tone);
         }, jempTone.time);
       });
     },
@@ -201,8 +224,8 @@ export default {
      * activeSong manipulation
      */
     setSongEndTime() {
-      this.endSongTime =
-        Tone.Transport.toSeconds(this.getLastTone().time) + this.endSongOffset;
+      this.endSongTime = Tone.Transport.toSeconds(this.getLastTone().time) + this.endSongOffset;
+      Tone.Transport.setLoopPoints(0,this.endSongTime-0.1);
     },
 
     getLastTone() {
@@ -247,33 +270,24 @@ export default {
       this.transPos = 0;
       this.change(this.transPos);
     },
+
+    //song ended but dots are still on the fretboard
+    songEndPos(){
+      this.playButton = "play";
+      Tone.Transport.stop();
+      cancelAnimationFrame(this.animationRequest);
+      this.transPos = 0;
+    },
+
+    loopSong(loopIt){
+      Tone.Transport.loop = loopIt;
+    },
+
+    loadSong(){
+      this.removeAllFocuses();
+      this.setSongActive(this.getActiveBoxes);
+      //this.scheduleSong(this.prepareSong(this.getActiveBoxes))
+    }
   },
 };
 </script>
-
-<style>
-.transportFader {
-  margin: 2% 2%;
-  width: 50%;
-}
-
-#speedFader {
-  width: 50%;
-}
-
-#volumeFader {
-  width: 50%;
-}
-
-.label {
-  width: 10%;
-}
-
-#playerCard {
-  flex-direction: row;
-}
-
-button {
-  width: 100px;
-}
-</style>

@@ -1,10 +1,10 @@
 <template>
-  <div>
-    <fretboard></fretboard>
+  <v-app>
+    <fretboard></fretboard>  
     <guitarroll></guitarroll>
-    <player></player>
+    <player class="stickyCard"></player>
     <songlist></songlist>
-  </div>
+  </v-app>
 </template>
 
 <script>
@@ -18,7 +18,8 @@ import guitarroll from "./components/Guitarroll/TheGuitarroll.vue"
 export default {
   components: { fretboard, songlist, player, guitarroll },
   data() {
-    return {};
+    return {
+    };
   },
   computed: {
     ...mapGetters(["getActiveSong", "getAllSongs"]),
@@ -27,4 +28,10 @@ export default {
 </script>
 
 <style>
+  .stickyCard{
+    z-index: 10;
+    position:fixed;
+    bottom:0;
+    width: 100%;
+  }
 </style>

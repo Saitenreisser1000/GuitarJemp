@@ -1,7 +1,10 @@
+import { jempToneStore } from "./jempToneStore";
+
 export const songStore = {
     state: {
         activeSong: {},
-        allSongs: []
+        allSongs: [],
+        activeTones: []
     },
 
     mutations: {
@@ -10,10 +13,28 @@ export const songStore = {
 
         },
         activeSong(state, song) {
+            console.log(song)
             state.activeSong = song;
             state.activeSong.songdata = JSON.parse(state.activeSong.songdata);
+        },
 
+        prepareTempSong(state, activeTones){
+            //console.log(activeTones)
+            state.activeTones = jempToneStore.state.activeToneContainer;
+            let song = {
+                name:"",
+                songdata: {
+                    bpm:150,
+                    name:"",
+                    tones:state.activeTones,                  
+                }
+            }
+
+            song.songdata = JSON.stringify(song.songdata)
+                  
+            this.commit('activeSong', song)
         }
+
     },
 
     actions: {
