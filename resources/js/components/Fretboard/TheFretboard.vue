@@ -64,11 +64,13 @@ export default {
       "getDoubleFbMarker",
       "getFbData",
       "getActiveSong",
-      "getFocusedDot"
+      "getFocusedDot",
+      "getTones",
     ]),
   },
   methods: {
     ...mapActions(["removeTone", "changeToneColor", "setFocus"]),
+
     
     cardFocus(tone){
       this.setFocus(tone)

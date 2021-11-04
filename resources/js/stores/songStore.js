@@ -13,13 +13,11 @@ export const songStore = {
 
         },
         activeSong(state, song) {
-            console.log(song)
             state.activeSong = song;
             state.activeSong.songdata = JSON.parse(state.activeSong.songdata);
         },
 
         prepareTempSong(state, activeTones){
-            //console.log(activeTones)
             state.activeTones = jempToneStore.state.activeToneContainer;
             let song = {
                 name:"",

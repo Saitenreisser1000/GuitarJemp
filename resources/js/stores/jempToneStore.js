@@ -4,10 +4,6 @@ import { fbInitStore } from "./fbInitStore";
 export const jempToneStore = {
     state: {
         
-        //Not Used
-        //dotsPerString:fbInitStore.state.getDotsPerString,
-        //toneNames:fbInitStore.state.getToneNames,
-
         //get all dots from Fretboard
         allDots: fbInitStore.state.dotContainer,
         
@@ -22,7 +18,6 @@ export const jempToneStore = {
             xPosAdd: 80,
             defaultWidth: 20,
         },
-        //preparedSong:"",
     },
 
     mutations: {
@@ -43,6 +38,7 @@ export const jempToneStore = {
                 },
 
                 dotColor: state.defaultJempColor,
+                toneColor: state.defaultJempColor,
                 time: state.startTime,
                 isFocused: true,
                 dotID: jempTone.dotID,
@@ -54,9 +50,9 @@ export const jempToneStore = {
             fretboardDot.activeJemps.push(newTone)
 
             //set dot to active
-            /*if (fretboardDot.activeJemps[0]) {
+            if (fretboardDot.activeJemps[0]) {
                 jempTone.isActive = true
-            }*/
+            }
 
             //add tone as active box
             state.activeToneContainer.push(newTone);
@@ -139,6 +135,7 @@ export const jempToneStore = {
         getActiveBoxes: (state) => { return state.activeToneContainer },
         getOpenJempXPos: (state) => { return state.openDotXPos },
         getFocusedDot: (state) => {return state.focusedDot},
-        getPreparedSong: (state) => {return state.preparedSong}
+        getPreparedSong: (state) => {return state.preparedSong},
+        getTonesPerDot: (state) => (tone) => {return state.activeToneContainer.filter(tones => tone.dotID === tones.dotID)}
     }
 };

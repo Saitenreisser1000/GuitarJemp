@@ -14,6 +14,7 @@
         :key="jt.jt_ID"
         :style="{'left': calcXPos(jt) + 'px', 'top': '-14px' }"
         :dotInfo="jt"
+        :tones="getTonesPerDot(jt)"
         @playTone="playSound"
       ></tone-dot>
     </div>
@@ -65,6 +66,7 @@ export default {
       "getFbData",
       "getAllJemps",
       "getOpenJempXPos",
+      "getTonesPerDot"
     ]),
 
     yPosition() {

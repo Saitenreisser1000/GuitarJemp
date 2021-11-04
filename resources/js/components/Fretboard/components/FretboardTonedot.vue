@@ -1,13 +1,15 @@
-<template>
-  <v-hover v-slot:default="{ hover }">
-    <v-card
-      class="dot"
-      :style="{'backgroundColor': dotInfo.color, 'borderRadius':'50%' }"
-      :elevation="hover ? 20 : 4"
-      :class="{'dotActive': dotInfo.isActive, 'isFocused': dotInfo.isFocused}"
-      @click="onClick"
-    ></v-card>
-  </v-hover>
+<template>  
+  <div style="position:absolute;">   
+      <v-hover v-slot:default="{ hover }">
+        <v-card  
+          class="dot"
+          :style="{'backgroundColor': dotInfo.color, 'borderRadius':'50%' }"
+          :elevation="hover ? 20 : 4"
+          :class="{'dotActive': dotInfo.isActive, 'isFocused': dotInfo.isFocused}"
+          @click="onClick"
+        >{{ tones.length }}</v-card>
+      </v-hover>   
+  </div>
 </template>
 
 <script>
@@ -16,7 +18,7 @@ import samplermixin from "../../../mixins/sampler.js";
 
 export default {
   name: "toneDot",
-  props: ["dotInfo"],
+  props: ["dotInfo", "tones"],
   mixins: [samplermixin],
   data() {
     return {
@@ -27,6 +29,7 @@ export default {
   computed: {
     ...mapGetters({
       getTones: "getTones",
+      getTonesPerDot: "getTonesPerDot"
     }),
   },
 
@@ -63,7 +66,7 @@ export default {
 
 <style scoped>
 .dot {
-  position: absolute;
+  /*position: absolute;*/
   opacity: 0;
   top: 5px;
   height: 30px;
@@ -75,9 +78,6 @@ export default {
   -webkit-transition: 0.15s ease-in-out;
 }
 
-.dotDim {
-}
-
 .dot:hover {
   opacity: 0.6;
 }
@@ -85,7 +85,7 @@ export default {
   opacity: 1;
 }
 .isFocused {
-   height: 35px;
-   width: 35px;
+   /*height: 35px;
+   width: 35px;*/
 }
 </style>

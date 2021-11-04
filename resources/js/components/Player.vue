@@ -101,7 +101,7 @@ export default {
       allJemps: "getAllJemps",
       jempSong: "getActiveSong",
       getTones: "getTones",
-      getActiveBoxes: "getActiveBoxes"
+      getActiveBoxes: "getActiveBoxes",
     }),
     speed:{
       get(){
@@ -200,18 +200,6 @@ export default {
           let dot = this.dottsInSong.find(
             (dot) => dot.jt_ID === jempTone.dotID
           );
-
-          //dot.isActive = true;    Test
-
-          /*******color activation ****/
-          if (jempTone.color) {
-            //dot.color = jempTone.color;
-          }
-
-          /*doteffect after dot is set*/
-          setInterval(() => {
-            //dot = false;
-          }, 1000);
 
           //play sound
           let t = this.getTones[jempTone.string - 1][jempTone.fret];
