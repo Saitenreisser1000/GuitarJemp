@@ -1,17 +1,16 @@
 <script setup>
-import { ref } from 'vue';
-import FretboardComponent from './FretboardComponent.vue';
+import { computed } from 'vue';
+import Fretboard from './components/Fretboard/Fretboard.vue';
 import ActiveTonesWindow from './ActiveTonesWindow.vue';
-import TimelineComponent from './TimelineComponent.vue';
+import Timeline from './components/Timeline/Timeline.vue';
+import { useNotesStore } from './store/useNotes'
 
-const activeNotes = ref([]);
-const numStrings = ref(6);
+const store = useNotesStore()
+const activeNotes = computed(() => store.activeNotes)
+const numStrings = computed(() => store.numStrings)
 
 function handleRemoveNote(noteKey) {
-  const index = activeNotes.value.indexOf(noteKey);
-  if (index > -1) {
-    activeNotes.value.splice(index, 1);
-  }
+  store.removeNote(noteKey)
 }
 </script>
 
@@ -21,20 +20,19 @@ function handleRemoveNote(noteKey) {
       <h1>GuitarJemp</h1>
     </header>
     <div class="main-content">
-      <div class="left-panel">
-        <FretboardComponent
-          ref="fretboard"
-          @notes-changed="activeNotes = $event"
+      <Fretboard class="fretboard" />
+      <div class="top-row">
+        <Timeline
+          class="timeline"
+          :active-notes="activeNotes"
+          :num-strings="numStrings"
         />
         <ActiveTonesWindow
+          class="active-tones"
           :active-notes="activeNotes"
           @remove-note="handleRemoveNote"
         />
       </div>
-      <TimelineComponent
-        :active-notes="activeNotes"
-        :num-strings="numStrings"
-      />
     </div>
   </div>
 </template>
@@ -61,23 +59,42 @@ header h1 {
 
 .main-content {
   display: flex;
-  gap: 30px;
-  max-width: 1400px;
-  margin: 0 auto;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.left-panel {
-  display: flex;
   flex-direction: column;
   gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.top-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.timeline {
+  flex: 1 1 800px;
+  min-width: 600px;
+}
+
+.active-tones {
+  flex: 0 0 380px;
+}
+
+.fretboard {
+  width: 100%;
 }
 
 @media (max-width: 1024px) {
-  .main-content {
+  .top-row {
     flex-direction: column;
     align-items: center;
+  }
+
+  .timeline {
+    min-width: 0;
+    width: 100%;
   }
 }
 </style>
