@@ -6,7 +6,7 @@
         Keine aktiven Noten
       </div>
       <div v-else>
-        <div v-for="note in sortedActiveNotes" :key="note" class="tone-item">
+        <div v-for="note in sortedActiveNotes" :key="note.key" class="tone-item">
           <span class="tone-label">Bund {{ note.fret }}, Saite {{ note.string }}</span>
           <button class="remove-btn" @click="removeNote(note)">✕</button>
         </div>
@@ -29,21 +29,20 @@ export default {
   },
   computed: {
     sortedActiveNotes() {
-      return this.activeNotes
-        .map(noteKey => {
-          const [fret, string] = noteKey.split('-').map(Number);
-          return { fret, string, key: noteKey };
-        })
-        .sort((a, b) => {
-          if (a.fret !== b.fret) return a.fret - b.fret;
-          return a.string - b.string;
-        });
+      return [...this.activeNotes].sort((a, b) => {
+        // primarily by raster position, then by fret/string
+        const ga = Number.isFinite(a.gridIndex) ? a.gridIndex : 0
+        const gb = Number.isFinite(b.gridIndex) ? b.gridIndex : 0
+        if (ga !== gb) return ga - gb
+        if (a.fret !== b.fret) return a.fret - b.fret
+        return a.string - b.string
+      })
     }
   },
   emits: ['remove-note'],
   methods: {
     removeNote(note) {
-      this.$emit('remove-note', note.key);
+      this.$emit('remove-note', note.key)
     }
   }
 };

@@ -2,7 +2,13 @@
   <div class="mode-selector">
     <div class="radio-buttons">
       <label v-for="label in labels" :key="label" class="radio-button-square">
-        <input type="radio" :value="label" :checked="selectedMode === label" @change="emitModeChange(label)" />
+        <input
+          type="radio"
+          name="timeline-mode"
+          :value="label"
+          :checked="selectedMode === label"
+          @change="emitModeChange(label)"
+        />
         <span>{{ label }}</span>
       </label>
     </div>
@@ -43,7 +49,7 @@ defineProps({
 
 const emit = defineEmits(['update-mode', 'update-snap', 'update-beat-top', 'update-beat-bottom'])
 
-const labels = ['1/16', '1/8', '1/4', '1/2', '1']
+const labels = ['1/16', '1/8', '1/4', '1/2', '1', 'sim']
 
 function emitModeChange(label) {
   emit('update-mode', label)

@@ -34,8 +34,10 @@ const gridStyle = computed(() => {
   display: flex;
   align-items: center;
   --cell: calc(100% / var(--total-blocks));
+  --sub: calc(var(--cell) / 4);
   --bar: calc(var(--cell) * var(--beats-per-bar));
   background-image:
+    repeating-linear-gradient(to right, rgba(208, 208, 208, 0.35) 0px, rgba(208, 208, 208, 0.35) 1px, transparent 1px, transparent var(--sub)),
     repeating-linear-gradient(to right, rgba(208, 208, 208, 0.9) 0px, rgba(208, 208, 208, 0.9) 2px, transparent 2px, transparent var(--cell)),
     repeating-linear-gradient(to right, rgba(70, 70, 70, 0.45) 0px, rgba(70, 70, 70, 0.45) 4px, transparent 4px, transparent var(--bar));
 }

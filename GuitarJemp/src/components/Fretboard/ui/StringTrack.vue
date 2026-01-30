@@ -31,7 +31,7 @@ const props = defineProps({
     required: true
   },
   /**
-   * Array of active note keys (format: "fret-string")
+   * Array of active note objects
    */
   activeNotes: {
     type: Array,
@@ -45,7 +45,9 @@ const emit = defineEmits(['toggle-note'])
  * Check if a fret is currently active
  */
 function isFretActive(fret) {
-  return props.activeNotes.includes(`${fret}-${props.stringNumber}`)
+  return props.activeNotes.some(
+    (n) => n?.fret === fret && n?.string === props.stringNumber
+  )
 }
 
 /**

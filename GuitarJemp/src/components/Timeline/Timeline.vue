@@ -34,6 +34,8 @@
           :snap-enabled="snapEnabled"
           :step="currentStep"
           :beat-top="beatTop"
+          @update-note-grid-index="handleUpdateNoteGridIndex"
+          @update-note-length="handleUpdateNoteLength"
         />
       </div>
     </div>
@@ -52,7 +54,10 @@ import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 
 const store = useNotesStore()
-const selectedMode = ref('1/4')
+const selectedMode = computed({
+  get: () => store.selectedMode,
+  set: (v) => store.setSelectedMode(v)
+})
 const tempo = computed({ get: () => store.tempo, set: v => store.setTempo(v) })
 const snapEnabled = ref(true)
 const beatTop = ref(4)
@@ -64,11 +69,15 @@ const stepMap = { '1/16': 0.25, '1/8': 0.5, '1/4': 1, '1/2': 2, '1': 4 }
 const currentStep = computed(() => stepMap[selectedMode.value] ?? 1)
 
 const notesForRender = computed(() => {
-  return store.activeNotes.map((key, idx) => {
-    const [fret, string] = key.split('-').map(Number)
-    // 1-based raster index: first note in raster 1, second in raster 2, ...
-    const gridIndex = idx + 1
-    return { key, fret, string, gridIndex }
+  return store.activeNotes.map((note, idx) => {
+    const key = note?.key
+    const fret = note?.fret
+    const string = note?.string
+    // 1-based raster index stored per note (fallback to insertion order)
+    const gridIndex = Number.isFinite(note?.gridIndex) ? note.gridIndex : (idx + 1)
+    const timeMs = Number.isFinite(note?.timeMs) ? note.timeMs : 0
+    const lengthBlocks = Number.isFinite(note?.lengthBlocks) ? note.lengthBlocks : 1
+    return { key, fret, string, gridIndex, timeMs, lengthBlocks }
   })
 })
 
@@ -76,6 +85,14 @@ const numStrings = computed(() => store.numStrings)
 
 function notesForString(s) {
   return notesForRender.value.filter(n => n.string === s)
+}
+
+function handleUpdateNoteGridIndex(noteKey, gridIndex) {
+  store.setNoteGridIndex(noteKey, gridIndex)
+}
+
+function handleUpdateNoteLength(noteKey, lengthBlocks) {
+  store.setNoteLength(noteKey, lengthBlocks)
 }
 
 function togglePlay() {
@@ -89,7 +106,7 @@ const totalDuration = computed(() => {
 })
 
 const totalBlocks = computed(() => {
-  const maxIndex = notesForRender.value.length
+  const maxIndex = Math.max(0, ...notesForRender.value.map(n => n.gridIndex || 0))
   // keep some space to the right
   return Math.max(16, maxIndex + 8)
 })
