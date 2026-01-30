@@ -1,10 +1,11 @@
 <template>
   <div class="mode-selector">
     <div class="radio-buttons">
+      <div class="mode-label">note:</div>
       <label v-for="label in labels" :key="label" class="radio-button-square">
         <input
           type="radio"
-          name="timeline-mode"
+          name="note-value"
           :value="label"
           :checked="selectedMode === label"
           @change="emitModeChange(label)"
@@ -87,6 +88,13 @@ function emitBeatBottomChange(e) {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.mode-label {
+  font-weight: 700;
+  color: #555;
+  margin-right: 6px;
+  text-transform: lowercase;
 }
 
 .radio-button-square {

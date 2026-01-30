@@ -1,6 +1,7 @@
 <template>
   <div
     class="note-event"
+    :class="{ 'is-selected': isSelected }"
     :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }"
     :title="title"
     @pointerdown="onPointerDown"
@@ -15,6 +16,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useSelectionStore } from '@/store/useSelection'
 const props = defineProps({
   note: Object,
   totalBlocks: { type: Number, default: 16 },
@@ -24,6 +26,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update-grid-index', 'update-length'])
+
+const selection = useSelectionStore()
+const isSelected = computed(() => selection.selectedNoteKey === props.note?.key)
 
 const isDragging = ref(false)
 const dragGridIndex = ref(null)
@@ -65,6 +70,7 @@ function clampInt(v, min, max) {
 
 function onPointerDown(e) {
   if (isResizing.value) return
+  if (props.note?.key) selection.selectNote(props.note.key)
   const el = e.currentTarget
   const track = el.closest('.timeline-track')
   if (!track) return
@@ -84,6 +90,7 @@ function onPointerDown(e) {
 
 function onResizePointerDown(e) {
   if (isDragging.value) return
+  if (props.note?.key) selection.selectNote(props.note.key)
   const handleEl = e.currentTarget
   const track = handleEl.closest('.timeline-track')
   if (!track) return
@@ -151,6 +158,7 @@ function onPointerUp() {
   height: 40px;
   top: 10px;
   border-radius: 4px;
+  border: 2px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -159,6 +167,12 @@ function onPointerUp() {
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+
+.note-event.is-selected {
+  border-color: rgba(20, 20, 20, 0.95);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65);
+  z-index: 6;
 }
 
 .note-event:active {

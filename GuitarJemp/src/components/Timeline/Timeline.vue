@@ -4,7 +4,7 @@
       :is-playing="isPlaying"
       :tempo="tempo"
       @toggle-play="togglePlay"
-      @update-tempo="(v) => (tempo = v)"
+      @update-tempo="transport.setTempo"
     />
 
     <ModeSelector
@@ -12,10 +12,10 @@
       :snap-enabled="snapEnabled"
       :beat-top="beatTop"
       :beat-bottom="beatBottom"
-      @update-mode="(m) => (selectedMode = m)"
-      @update-snap="(s) => (snapEnabled = s)"
-      @update-beat-top="(v) => (beatTop = v)"
-      @update-beat-bottom="(v) => (beatBottom = v)"
+      @update-mode="settings.setSelectedMode"
+      @update-snap="settings.setSnapEnabled"
+      @update-beat-top="settings.setBeatTop"
+      @update-beat-bottom="settings.setBeatBottom"
     />
 
     <div class="timeline">
@@ -44,44 +44,46 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import PlaybackControls from './controls/PlaybackControls.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineGrid from './ui/TimelineGrid.vue'
 import PlayheadIndicator from './ui/PlayheadIndicator.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { useNotesStore } from '@/store/useNotes'
+import { useTransportStore } from '@/store/useTransport'
+import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { useInstrumentStore } from '@/store/useInstrument'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 
 const store = useNotesStore()
-const selectedMode = computed({
-  get: () => store.selectedMode,
-  set: (v) => store.setSelectedMode(v)
-})
-const tempo = computed({ get: () => store.tempo, set: v => store.setTempo(v) })
-const snapEnabled = ref(true)
-const beatTop = ref(4)
-const beatBottom = ref(4)
+const transport = useTransportStore()
+const settings = useTimelineSettingsStore()
+const instrument = useInstrumentStore()
+
+const { tempo } = storeToRefs(transport)
+const { selectedMode, lastRhythmMode, snapEnabled, beatTop, beatBottom } = storeToRefs(settings)
+const { numStrings } = storeToRefs(instrument)
 
 const grid = useGrid()
 
 const stepMap = { '1/16': 0.25, '1/8': 0.5, '1/4': 1, '1/2': 2, '1': 4 }
-const currentStep = computed(() => stepMap[selectedMode.value] ?? 1)
+const effectiveMode = computed(() => (selectedMode.value === 'sim' ? lastRhythmMode.value : selectedMode.value))
+const currentStep = computed(() => stepMap[effectiveMode.value] ?? 1)
 
 const notesForRender = computed(() => {
   return store.activeNotes.map((note, idx) => {
     const key = note?.key
     const fret = note?.fret
     const string = note?.string
+    const color = note?.color
     // 1-based raster index stored per note (fallback to insertion order)
     const gridIndex = Number.isFinite(note?.gridIndex) ? note.gridIndex : (idx + 1)
-    const timeMs = Number.isFinite(note?.timeMs) ? note.timeMs : 0
     const lengthBlocks = Number.isFinite(note?.lengthBlocks) ? note.lengthBlocks : 1
-    return { key, fret, string, gridIndex, timeMs, lengthBlocks }
+    return { key, fret, string, color, gridIndex, lengthBlocks }
   })
 })
-
-const numStrings = computed(() => store.numStrings)
 
 function notesForString(s) {
   return notesForRender.value.filter(n => n.string === s)
@@ -97,7 +99,7 @@ function handleUpdateNoteLength(noteKey, lengthBlocks) {
 
 function togglePlay() {
   if (playback.isPlaying.value) playback.stop()
-  else playback.start(totalDuration.value, store.tempo)
+  else playback.start(totalDuration.value, transport.tempo)
 }
 
 const totalDuration = computed(() => {

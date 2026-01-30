@@ -1,24 +1,43 @@
 <template>
-  <div class="fret-position" :class="{ active: isActive }" @click="$emit('toggle')">
+  <div
+    class="fret-position"
+    :class="{ active: isActive, selected: isSelected }"
+    :style="styleObj"
+    @click="$emit('toggle')"
+  >
     <div class="dot"></div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 defineOptions({ name: 'FretPosition' })
 
 /**
  * Whether this fret position is currently active/selected
  * @type {Boolean}
  */
-defineProps({
+const props = defineProps({
   isActive: {
     type: Boolean,
     required: true
+  },
+  activeColor: {
+    type: String,
+    default: '#d32f2f'
+  },
+  isSelected: {
+    type: Boolean,
+    default: false
   }
 })
 
 defineEmits(['toggle'])
+
+const styleObj = computed(() => {
+  if (!props.isActive) return {}
+  return { backgroundColor: props.activeColor }
+})
 </script>
 
 <style scoped>
@@ -37,6 +56,11 @@ defineEmits(['toggle'])
 
 .fret-position.active {
   background: #d32f2f;
+}
+
+.fret-position.selected {
+  border-color: rgba(20, 20, 20, 0.95);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 
 .fret-position:hover {

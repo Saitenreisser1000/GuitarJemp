@@ -1,37 +1,42 @@
 <script setup>
-import { computed } from 'vue';
-import Fretboard from './components/Fretboard/Fretboard.vue';
-import ActiveTonesWindow from './ActiveTonesWindow.vue';
-import Timeline from './components/Timeline/Timeline.vue';
-import { useNotesStore } from './store/useNotes'
+import Fretboard from './components/Fretboard/Fretboard.vue'
+import ActiveTonesWindow from './components/ActiveTonesWindow/ActiveTonesWindow.vue'
+import Timeline from './components/Timeline/Timeline.vue'
+import { computed } from 'vue'
+import { useInstrumentStore } from './store/useInstrument'
 
-const store = useNotesStore()
-const activeNotes = computed(() => store.activeNotes)
-const numStrings = computed(() => store.numStrings)
-
-function handleRemoveNote(noteKey) {
-  store.removeNote(noteKey)
-}
+const instrument = useInstrumentStore()
+const instrumentType = computed({
+  get: () => instrument.instrumentType,
+  set: (v) => instrument.setInstrumentType(v)
+})
 </script>
 
 <template>
   <div id="app">
     <header>
       <h1>GuitarJemp</h1>
+
+      <div class="instrument-selector" role="radiogroup" aria-label="Instrument">
+        <label class="radio-button-square">
+          <input type="radio" name="instrument" value="guitar" v-model="instrumentType" />
+          <span>Guitar</span>
+        </label>
+        <label class="radio-button-square">
+          <input type="radio" name="instrument" value="bass" v-model="instrumentType" />
+          <span>Bass</span>
+        </label>
+        <label class="radio-button-square">
+          <input type="radio" name="instrument" value="ukulele" v-model="instrumentType" />
+          <span>Ukulele</span>
+        </label>
+      </div>
     </header>
     <div class="main-content">
       <Fretboard class="fretboard" />
       <div class="top-row">
-        <Timeline
-          class="timeline"
-          :active-notes="activeNotes"
-          :num-strings="numStrings"
-        />
-        <ActiveTonesWindow
-          class="active-tones"
-          :active-notes="activeNotes"
-          @remove-note="handleRemoveNote"
-        />
+        <Timeline class="timeline" />
+        <ActiveTonesWindow class="active-tones" />
       </div>
     </div>
   </div>
@@ -55,6 +60,20 @@ header h1 {
   font-size: 2.5em;
   margin: 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.instrument-selector {
+  margin-top: 12px;
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.instrument-label {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .main-content {

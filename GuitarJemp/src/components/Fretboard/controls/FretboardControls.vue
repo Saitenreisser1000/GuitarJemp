@@ -25,14 +25,14 @@
 
 <script setup>
 import { watch, ref } from 'vue'
-import { useNotesStore } from '@/store/useNotes'
+import { useInstrumentStore } from '@/store/useInstrument'
 
-const store = useNotesStore()
+const store = useInstrumentStore()
 
 /**
  * Local copy of numStrings to avoid binding directly to store refs
  */
-const numStringsLocal = ref(store.numStrings.value)
+const numStringsLocal = ref(store.numStrings)
 
 /**
  * Local copy of numFrets to emit changes to parent

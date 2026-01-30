@@ -6,6 +6,8 @@
         v-for="fret in numFrets"
         :key="`fret-${fret}-string-${stringNumber}`"
         :is-active="isFretActive(fret)"
+        :active-color="getFretColor(fret)"
+        :is-selected="isFretSelected(fret)"
         @toggle="emitToggleNote(fret)"
       />
     </div>
@@ -36,6 +38,14 @@ const props = defineProps({
   activeNotes: {
     type: Array,
     default: () => []
+  },
+  selectedFret: {
+    type: Number,
+    default: null
+  },
+  selectedString: {
+    type: Number,
+    default: null
   }
 })
 
@@ -48,6 +58,19 @@ function isFretActive(fret) {
   return props.activeNotes.some(
     (n) => n?.fret === fret && n?.string === props.stringNumber
   )
+}
+
+function getFretColor(fret) {
+  // Multiple notes can exist on the same fret/string; use the most recently placed one.
+  const candidates = props.activeNotes
+    .filter((n) => n?.fret === fret && n?.string === props.stringNumber)
+    .sort((a, b) => (Number(b?.placedAtMs) || 0) - (Number(a?.placedAtMs) || 0))
+
+  return candidates[0]?.color ?? '#d32f2f'
+}
+
+function isFretSelected(fret) {
+  return props.selectedString === props.stringNumber && props.selectedFret === fret
 }
 
 /**

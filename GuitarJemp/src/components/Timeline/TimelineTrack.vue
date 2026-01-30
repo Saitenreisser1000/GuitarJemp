@@ -9,7 +9,7 @@
         :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note"
         :total-blocks="totalBlocks"
-        :color="getNoteColor(note.fret)"
+        :color="note.color ?? getNoteColor(note.fret)"
         :snapEnabled="props.snapEnabled"
         :step="props.step"
         @update-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
