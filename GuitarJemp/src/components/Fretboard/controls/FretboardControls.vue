@@ -20,6 +20,10 @@
         max="24"
       />
     </div>
+
+    <div class="after-frets">
+      <slot name="after-frets" />
+    </div>
   </div>
 </template>
 
@@ -55,6 +59,12 @@ watch(numFretsLocal, (v) => {
   display: flex;
   gap: 20px;
   padding: 10px 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.after-frets {
+  display: flex;
   align-items: center;
 }
 

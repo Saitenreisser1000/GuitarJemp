@@ -36,6 +36,11 @@
         <input type="checkbox" :checked="snapEnabled" @change="emitSnapChange" />
         <span>Snap</span>
       </label>
+
+      <label class="snap-toggle">
+        <input type="checkbox" :checked="soundPreviewEnabled" @change="emitSoundPreviewChange" />
+        <span>Sound</span>
+      </label>
     </div>
   </div>
 </template>
@@ -44,11 +49,18 @@
 defineProps({
   selectedMode: { type: String, required: true },
   snapEnabled: { type: Boolean, default: true },
+  soundPreviewEnabled: { type: Boolean, default: true },
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 }
 })
 
-const emit = defineEmits(['update-mode', 'update-snap', 'update-beat-top', 'update-beat-bottom'])
+const emit = defineEmits([
+  'update-mode',
+  'update-snap',
+  'update-sound-preview',
+  'update-beat-top',
+  'update-beat-bottom'
+])
 
 const labels = ['1/16', '1/8', '1/4', '1/2', '1', 'sim']
 
@@ -58,6 +70,10 @@ function emitModeChange(label) {
 
 function emitSnapChange(e) {
   emit('update-snap', e.target.checked)
+}
+
+function emitSoundPreviewChange(e) {
+  emit('update-sound-preview', e.target.checked)
 }
 
 function emitBeatTopChange(e) {
@@ -136,7 +152,9 @@ function emitBeatBottomChange(e) {
 
 .right-controls {
   display: flex;
-  gap: 14px;
+  column-gap: 14px;
+  row-gap: 0;
+  flex-wrap: wrap;
   align-items: center;
   margin-left: auto;
 }
@@ -165,6 +183,8 @@ function emitBeatBottomChange(e) {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  margin: 0;
+  padding: 0;
 }
 
 .snap-toggle input[type='checkbox'] {

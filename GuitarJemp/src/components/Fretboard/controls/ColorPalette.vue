@@ -1,5 +1,5 @@
 <template>
-  <div class="palette" role="radiogroup" aria-label="Farbauswahl">
+  <div class="palette" :class="{ horizontal: orientation === 'horizontal' }" role="radiogroup" aria-label="Farbauswahl">
     <label v-for="c in colors" :key="c" class="color-item">
       <input
         type="radio"
@@ -18,6 +18,13 @@ import { computed } from 'vue'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
 defineOptions({ name: 'ColorPalette' })
+
+defineProps({
+  orientation: {
+    type: String,
+    default: 'vertical'
+  }
+})
 
 const settings = useTimelineSettingsStore()
 
@@ -48,6 +55,14 @@ function select(color) {
   border-radius: 6px;
   height: 100%;
   justify-content: center;
+}
+
+.palette.horizontal {
+  flex-direction: row;
+  height: auto;
+  justify-content: flex-start;
+  padding: 6px 8px;
+  gap: 8px;
 }
 
 .color-item {

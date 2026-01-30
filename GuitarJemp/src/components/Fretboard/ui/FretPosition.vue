@@ -5,7 +5,8 @@
     :style="styleObj"
     @click="$emit('toggle')"
   >
-    <div class="dot"></div>
+    <span class="note-label">{{ noteLabel }}</span>
+    <div class="dot" aria-hidden="true"></div>
   </div>
 </template>
 
@@ -29,6 +30,10 @@ const props = defineProps({
   isSelected: {
     type: Boolean,
     default: false
+  },
+  noteLabel: {
+    type: String,
+    default: ''
   }
 })
 
@@ -44,14 +49,31 @@ const styleObj = computed(() => {
 .fret-position {
   width: 80px;
   height: 40px;
-  border: 1px solid #999;
+  /*border: 1px solid #999;*/
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
-  border-radius: 3px;
+  /*border-radius: 3px;*/
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.fret-position::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgba(40, 40, 40, 0.35);
+  pointer-events: none;
+}
+
+.fret-position.active::before {
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .fret-position.active {
@@ -68,11 +90,26 @@ const styleObj = computed(() => {
 }
 
 .fret-position .dot {
+  position: relative;
+  z-index: 1;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: #999;
   opacity: 0;
+}
+
+.fret-position .note-label {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(20, 20, 20, 0.8);
+  user-select: none;
+}
+
+.fret-position.active .note-label {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .fret-position.active .dot {

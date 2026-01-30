@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { defaultTuningIdForInstrument, getTuning } from '@/domain/music/tunings'
 
 const STORAGE_KEY = 'guitarjemp.instrument.v1'
 
@@ -26,6 +27,7 @@ export const useInstrumentStore = defineStore('instrument', () => {
   const instrumentType = ref(
     stored.instrumentType === 'bass' || stored.instrumentType === 'ukulele' ? stored.instrumentType : 'guitar'
   )
+  const tuningId = ref(typeof stored.tuningId === 'string' ? stored.tuningId : defaultTuningIdForInstrument(instrumentType.value))
 
   function stringsForInstrument(type) {
     switch (type) {
@@ -48,12 +50,24 @@ export const useInstrumentStore = defineStore('instrument', () => {
     const t = type === 'bass' || type === 'ukulele' ? type : 'guitar'
     instrumentType.value = t
     numStrings.value = stringsForInstrument(t)
+    tuningId.value = defaultTuningIdForInstrument(t)
   }
 
-  watch([numStrings, instrumentType], () => writeStorage({
+  function setTuningId(id) {
+    const next = String(id)
+    const tuning = getTuning(next)
+    if (!tuning) return
+    tuningId.value = next
+    numStrings.value = tuning.openMidi.length
+    instrumentType.value = tuning.instrumentType
+  }
+
+  watch([numStrings, instrumentType, tuningId], () => writeStorage({
     numStrings: numStrings.value,
-    instrumentType: instrumentType.value
+    instrumentType: instrumentType.value,
+    tuningId: tuningId.value
   }))
 
-  return { numStrings, instrumentType, setNumStrings, setInstrumentType }
+  return { numStrings, instrumentType, tuningId, setNumStrings, setInstrumentType, setTuningId }
 })
+

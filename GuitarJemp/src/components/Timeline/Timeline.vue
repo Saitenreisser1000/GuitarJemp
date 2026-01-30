@@ -10,17 +10,18 @@
     <ModeSelector
       :selected-mode="selectedMode"
       :snap-enabled="snapEnabled"
+      :sound-preview-enabled="soundPreviewEnabled"
       :beat-top="beatTop"
       :beat-bottom="beatBottom"
       @update-mode="settings.setSelectedMode"
       @update-snap="settings.setSnapEnabled"
+      @update-sound-preview="settings.setSoundPreviewEnabled"
       @update-beat-top="settings.setBeatTop"
       @update-beat-bottom="settings.setBeatBottom"
     />
 
     <div class="timeline">
       <TimelineGrid :total-blocks="totalBlocks" :beat-top="beatTop" />
-      <PlayheadIndicator :playhead="playhead" :total-duration="totalDuration" />
 
       <div class="strings-timeline">
         <TimelineTrack
@@ -48,7 +49,6 @@ import { storeToRefs } from 'pinia'
 import PlaybackControls from './controls/PlaybackControls.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineGrid from './ui/TimelineGrid.vue'
-import PlayheadIndicator from './ui/PlayheadIndicator.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { useNotesStore } from '@/store/useNotes'
 import { useTransportStore } from '@/store/useTransport'
@@ -56,6 +56,9 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
+import { getTuning } from '@/domain/music/tunings'
+import { midiForNote } from '@/domain/music/pitch'
+import { playMidi } from '@/domain/audio/simpleSynth'
 
 const store = useNotesStore()
 const transport = useTransportStore()
@@ -63,8 +66,10 @@ const settings = useTimelineSettingsStore()
 const instrument = useInstrumentStore()
 
 const { tempo } = storeToRefs(transport)
-const { selectedMode, lastRhythmMode, snapEnabled, beatTop, beatBottom } = storeToRefs(settings)
+const { selectedMode, lastRhythmMode, snapEnabled, soundPreviewEnabled, beatTop, beatBottom } = storeToRefs(settings)
 const { numStrings } = storeToRefs(instrument)
+
+const tuning = computed(() => getTuning(instrument.tuningId))
 
 const grid = useGrid()
 
@@ -99,7 +104,11 @@ function handleUpdateNoteLength(noteKey, lengthBlocks) {
 
 function togglePlay() {
   if (playback.isPlaying.value) playback.stop()
-  else playback.start(totalDuration.value, transport.tempo)
+  else {
+    lastAudioTickMs = -Infinity
+    triggeredNoteKeys = new Set()
+    playback.start(totalDuration.value, transport.tempo)
+  }
 }
 
 const totalDuration = computed(() => {
@@ -114,7 +123,51 @@ const totalBlocks = computed(() => {
 })
 
 const playhead = ref(0)
-const playback = usePlayback({ onTick: (t) => (playhead.value = t) })
+let lastAudioTickMs = 0
+let triggeredNoteKeys = new Set()
+
+function maybePlayNotesAt(tMs) {
+  if (!soundPreviewEnabled.value) return
+
+  const t0 = lastAudioTickMs
+  const t1 = tMs
+  lastAudioTickMs = tMs
+
+  const t = tuning.value
+  if (!t) return
+
+  const tempoValue = Number(tempo.value) || 120
+  const tempoScale = 120 / tempoValue
+  const timePerBlock = Number(grid.grid.value.timePerBlock) || 500
+
+  for (const note of store.activeNotes) {
+    const key = note?.key
+    if (!key || triggeredNoteKeys.has(key)) continue
+
+    const gridIndex = Number(note?.gridIndex)
+    if (!Number.isFinite(gridIndex)) continue
+
+    const startMs = (gridIndex - 1) * timePerBlock
+    if (!(startMs > t0 && startMs <= t1)) continue
+
+    const midi = midiForNote(note, t)
+    if (!Number.isFinite(Number(midi))) continue
+
+    const lengthBlocks = Number(note?.lengthBlocks)
+    const len = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+    const durationMs = Math.max(30, len * timePerBlock * tempoScale)
+
+    triggeredNoteKeys.add(key)
+    void playMidi(midi, { durationMs })
+  }
+}
+
+const playback = usePlayback({
+  onTick: (t) => {
+    playhead.value = t
+    maybePlayNotesAt(t)
+  }
+})
 const isPlaying = computed(() => playback.isPlaying.value)
 </script>
 

@@ -9,7 +9,10 @@
     @pointerup="onPointerUp"
     @pointercancel="onPointerUp"
   >
-    <span class="fret-number">{{ note.fret }}</span>
+    <div class="note-label">
+      <span class="fret-number">{{ note.fret }}</span>
+      <span v-if="pitchLabel" class="pitch-label">{{ pitchLabel }}</span>
+    </div>
     <div class="resize-handle" @pointerdown.stop="onResizePointerDown" />
   </div>
 </template>
@@ -17,6 +20,12 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
+import { useInstrumentStore } from '@/store/useInstrument'
+import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { getTuning } from '@/domain/music/tunings'
+import { midiToNoteName } from '@/domain/music/notes'
+import { midiForNote } from '@/domain/music/pitch'
+import { playMidi } from '@/domain/audio/simpleSynth'
 const props = defineProps({
   note: Object,
   totalBlocks: { type: Number, default: 16 },
@@ -28,7 +37,16 @@ const props = defineProps({
 const emit = defineEmits(['update-grid-index', 'update-length'])
 
 const selection = useSelectionStore()
+const instrument = useInstrumentStore()
+const settings = useTimelineSettingsStore()
 const isSelected = computed(() => selection.selectedNoteKey === props.note?.key)
+
+const pitchLabel = computed(() => {
+  const t = getTuning(instrument.tuningId)
+  const midi = midiForNote(props.note, t)
+  if (!Number.isFinite(Number(midi))) return ''
+  return midiToNoteName(midi, { includeOctave: true })
+})
 
 const isDragging = ref(false)
 const dragGridIndex = ref(null)
@@ -61,7 +79,9 @@ const widthPercent = computed(() => {
 
 const title = computed(() => {
   const len = props.note?.lengthBlocks
-  return `Bund ${props.note?.fret}, Raster ${props.note?.gridIndex}, Länge ${len}`
+  const p = pitchLabel.value
+  const pPart = p ? ` (${p})` : ''
+  return `Bund ${props.note?.fret}, Saite ${props.note?.string}${pPart}, Raster ${props.note?.gridIndex}, Länge ${len}`
 })
 
 function clampInt(v, min, max) {
@@ -71,6 +91,13 @@ function clampInt(v, min, max) {
 function onPointerDown(e) {
   if (isResizing.value) return
   if (props.note?.key) selection.selectNote(props.note.key)
+
+  if (settings.soundPreviewEnabled) {
+    const t = getTuning(instrument.tuningId)
+    const midi = midiForNote(props.note, t)
+    if (Number.isFinite(Number(midi))) void playMidi(midi)
+  }
+
   const el = e.currentTarget
   const track = el.closest('.timeline-track')
   if (!track) return
@@ -169,6 +196,13 @@ function onPointerUp() {
   touch-action: none;
 }
 
+.note-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
 .note-event.is-selected {
   border-color: rgba(20, 20, 20, 0.95);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65);
@@ -177,6 +211,12 @@ function onPointerUp() {
 
 .note-event:active {
   cursor: grabbing;
+}
+
+.pitch-label {
+  font-size: 11px;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
 }
 
 .resize-handle {
