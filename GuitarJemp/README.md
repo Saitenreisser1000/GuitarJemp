@@ -29,6 +29,46 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+## Accounts, Passwort-Reset, Cloud Library (Supabase)
+
+GuitarJemp kann optional mit Supabase betrieben werden, um:
+
+- Accounts (Signup/Login)
+- Passwort-Reset (Recovery Link)
+- Speichern/Abrufen von Songs & Übungen (DB)
+- Teilen über "Connections" und/oder explizite Shares
+- Rollen (z.B. teacher/student/admin) über Profile
+
+### Setup
+
+1. Supabase Projekt anlegen
+
+2. Schema in Supabase ausführen:
+
+- SQL: [docs/supabase-schema.sql](docs/supabase-schema.sql)
+
+3. Environment Variablen setzen:
+
+- Beispiel: [.env.example](.env.example)
+- Du brauchst `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY`
+
+4. Supabase Auth Redirects konfigurieren (wichtig für Passwort-Reset):
+
+- Supabase Dashboard  Authentication  URL Configuration
+- `Site URL`: `http://localhost:5173` (oder dein Dev-Host)
+- `Redirect URLs` / `Additional Redirect URLs`: `http://localhost:5173`
+
+5. Hinweis zu Signup:
+
+- Wenn Email-Confirmation aktiv ist, musst du die Besttigungs-Mail klicken, bevor Login funktioniert.
+- Fr Produktion solltest du SMTP/Email sauber konfigurieren.
+
+4. Dev starten:
+
+```sh
+npm run dev
+```
+
 ### Compile and Hot-Reload for Development
 
 ```sh

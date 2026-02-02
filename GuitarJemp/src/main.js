@@ -8,6 +8,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import { createPinia } from 'pinia'
+import { useAuthStore } from '@/store/useAuth'
 
 const vuetify = createVuetify({
   components,
@@ -35,4 +36,10 @@ const vuetify = createVuetify({
 
 const app = createApp(App)
 const pinia = createPinia()
-app.use(pinia).use(vuetify).mount('#app')
+
+app.use(pinia).use(vuetify)
+
+// Boot auth early so password-recovery links work.
+useAuthStore(pinia).init()
+
+app.mount('#app')
