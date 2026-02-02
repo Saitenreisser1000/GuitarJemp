@@ -22,7 +22,7 @@ const instrumentType = computed({
   set: (v) => instrument.setInstrumentType(v),
 })
 
-const fretboardMode = ref('editor')
+const fretboardMode = ref('show')
 const numFrets = ref(12)
 </script>
 
@@ -81,10 +81,10 @@ const numFrets = ref(12)
               <FretboardShow v-else class="fretboard" :num-frets="numFrets" />
             </v-col>
 
-            <v-col cols="12" md="8" lg="9">
-              <Timeline class="timeline" />
+            <v-col cols="12" :md="fretboardMode === 'show' ? 12 : 8" :lg="fretboardMode === 'show' ? 12 : 9">
+              <Timeline class="timeline" :compact="fretboardMode === 'show'" />
             </v-col>
-            <v-col cols="12" md="4" lg="3">
+            <v-col v-if="fretboardMode !== 'show'" cols="12" md="4" lg="3">
               <ActiveTonesWindow class="active-tones" />
             </v-col>
           </v-row>

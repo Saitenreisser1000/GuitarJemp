@@ -8,8 +8,8 @@
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
     @update-beat-top="settings.setBeatTop" @update-beat-bottom="settings.setBeatBottom"
     @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
-    @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes"
-    @seek-playhead="seekPlayhead" />
+    @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
+    :compact="compact" />
 </template>
 
 <script setup>
@@ -29,6 +29,10 @@ import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
+
+defineProps({
+  compact: { type: Boolean, default: false },
+})
 
 const store = useNotesStore()
 const transport = useTransportStore()

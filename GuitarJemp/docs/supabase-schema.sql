@@ -85,6 +85,8 @@ drop policy if exists "library_items_shared_select" on public.library_items;
 drop policy if exists "library_item_shares_owner_insert" on public.library_item_shares;
 drop policy if exists "library_item_shares_owner_delete" on public.library_item_shares;
 drop policy if exists "library_item_shares_participants_select" on public.library_item_shares;
+drop policy if exists "library_item_shares_select_recipient" on public.library_item_shares;
+drop policy if exists "library_item_shares_select_owner" on public.library_item_shares;
 
 -- Nutzer darf eigenes Profil lesen/updaten
 create policy "profiles_select_own"
@@ -240,33 +242,45 @@ create index if not exists library_item_shares_user_idx on public.library_item_s
 
 alter table public.library_item_shares enable row level security;
 
+-- Helper: Ownership-Check ohne RLS-Rekursion.
+-- (Verhindert "infinite recursion detected in policy" durch gegenseitige Policy-Queries)
+create or replace function public.is_library_item_owner(p_library_item_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+set row_security = off
+as $$
+  select exists (
+    select 1
+    from public.library_items li
+    where li.id = p_library_item_id
+      and li.owner_id = auth.uid()
+  );
+$$;
+
 create policy "library_item_shares_owner_insert"
   on public.library_item_shares for insert
   with check (
-    exists (
-      select 1 from public.library_items li
-      where li.id = library_item_id and li.owner_id = auth.uid()
-    )
+    public.is_library_item_owner(library_item_id)
   );
 
 create policy "library_item_shares_owner_delete"
   on public.library_item_shares for delete
   using (
-    exists (
-      select 1 from public.library_items li
-      where li.id = library_item_id and li.owner_id = auth.uid()
-    )
+    public.is_library_item_owner(library_item_id)
   );
 
-create policy "library_item_shares_participants_select"
+drop policy if exists "library_item_shares_participants_select" on public.library_item_shares;
+
+create policy "library_item_shares_select_recipient"
   on public.library_item_shares for select
-  using (
-    auth.uid() = shared_with_id
-    or exists (
-      select 1 from public.library_items li
-      where li.id = library_item_id and li.owner_id = auth.uid()
-    )
-  );
+  using (auth.uid() = shared_with_id);
+
+create policy "library_item_shares_select_owner"
+  on public.library_item_shares for select
+  using (public.is_library_item_owner(library_item_id));
 
 -- Items via share sichtbar
 create policy "library_items_shared_select"

@@ -5,7 +5,9 @@
             @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
             @update-loop="(v) => emit('update-loop', v)" />
 
-        <ModeSelector :selected-mode="selectedMode" :snap-enabled="snapEnabled"
+        <RecordingSelector v-if="compact" />
+
+        <ModeSelector v-if="!compact" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
             :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop" :beat-bottom="beatBottom"
             :zoom-px-per-block="zoomPxPerBlock" @update-zoom="(v) => emit('update-zoom', v)"
             @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
@@ -13,26 +15,25 @@
             @update-beat-top="(v) => emit('update-beat-top', v)"
             @update-beat-bottom="(v) => emit('update-beat-bottom', v)" />
 
-        <div class="timeline">
-            <div
-                ref="scrollEl"
-                class="timeline-scroll"
-                @pointerdown.capture="onMarqueePointerDown"
-                @pointermove.capture="onMarqueePointerMove"
-                @pointerup.capture="onMarqueePointerUp"
-                @pointercancel.capture="onMarqueePointerUp"
-            >
+        <div v-if="!compact" class="timeline">
+            <div ref="scrollEl" class="timeline-scroll" @pointerdown.capture="onMarqueePointerDown"
+                @pointermove.capture="onMarqueePointerMove" @pointerup.capture="onMarqueePointerUp"
+                @pointercancel.capture="onMarqueePointerUp">
                 <div class="timeline-content">
                     <div class="strings-timeline">
                         <TimelineTrack v-for="track in tracks" :key="track.stringIdx" :string="track.stringIdx"
                             :string-label="track.label" :notes="track.notes" :total-duration="totalDuration"
                             :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled"
                             :step="currentStep" :beat-top="beatTop" :track-min-width-px="trackMinWidthPx"
-                            @seek-playhead="(t) => emit('seek-playhead', t)"
-                            @update-note-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
-                            @update-note-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
-                            @group-move-notes="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)"
-                            @group-resize-notes="(anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)" />
+                            @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                                (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                            " @update-note-length="
+                (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+            " @group-move-notes="
+                (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+            " @group-resize-notes="
+                (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+            " />
                     </div>
 
                     <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
@@ -40,7 +41,7 @@
             </div>
         </div>
 
-        <v-card class="timeline-status" variant="flat" border>
+        <v-card v-if="!compact" class="timeline-status" variant="flat" border>
             <div class="d-flex align-center ga-3 flex-wrap pa-2">
                 <v-chip class="status-chip" label variant="tonal" color="primary">
                     Zeit: {{ playheadTimeLabel }}
@@ -50,11 +51,14 @@
                 </v-chip>
             </div>
         </v-card>
+
+        <RecordingSelector v-if="!compact" />
     </div>
 </template>
 
 <script setup>
 import PlaybackControls from './controls/PlaybackControls.vue'
+import RecordingSelector from './controls/RecordingSelector.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
@@ -63,6 +67,8 @@ import { useSelectionStore } from '@/store/useSelection'
 const props = defineProps({
     isPlaying: { type: Boolean, required: true },
     tempo: { type: Number, required: true },
+
+    compact: { type: Boolean, default: false },
 
     loopEnabled: { type: Boolean, default: false },
 
