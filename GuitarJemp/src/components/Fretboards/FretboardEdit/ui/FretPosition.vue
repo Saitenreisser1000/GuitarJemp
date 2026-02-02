@@ -12,6 +12,7 @@
 
 <script setup>
 import { computed } from 'vue'
+
 defineOptions({ name: 'FretPosition' })
 
 /**

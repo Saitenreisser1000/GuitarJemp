@@ -1,33 +1,24 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { defaultTuningIdForInstrument, getTuning } from '@/domain/music/tunings'
+import { readJson } from '@/infra/storage/jsonStorage'
+import { persistRefs } from '@/infra/pinia/persistRefs'
 
 const STORAGE_KEY = 'guitarjemp.instrument.v1'
 
-function readStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-function writeStorage(value) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  } catch {
-    // ignore
-  }
-}
-
 export const useInstrumentStore = defineStore('instrument', () => {
-  const stored = readStorage() ?? {}
+  const stored = readJson(STORAGE_KEY) ?? {}
   const numStrings = ref(Number.isFinite(stored.numStrings) ? stored.numStrings : 6)
   const instrumentType = ref(
-    stored.instrumentType === 'bass' || stored.instrumentType === 'ukulele' ? stored.instrumentType : 'guitar'
+    stored.instrumentType === 'bass' || stored.instrumentType === 'ukulele'
+      ? stored.instrumentType
+      : 'guitar',
   )
-  const tuningId = ref(typeof stored.tuningId === 'string' ? stored.tuningId : defaultTuningIdForInstrument(instrumentType.value))
+  const tuningId = ref(
+    typeof stored.tuningId === 'string'
+      ? stored.tuningId
+      : defaultTuningIdForInstrument(instrumentType.value),
+  )
 
   function stringsForInstrument(type) {
     switch (type) {
@@ -62,12 +53,7 @@ export const useInstrumentStore = defineStore('instrument', () => {
     instrumentType.value = tuning.instrumentType
   }
 
-  watch([numStrings, instrumentType, tuningId], () => writeStorage({
-    numStrings: numStrings.value,
-    instrumentType: instrumentType.value,
-    tuningId: tuningId.value
-  }))
+  persistRefs(STORAGE_KEY, { numStrings, instrumentType, tuningId })
 
   return { numStrings, instrumentType, tuningId, setNumStrings, setInstrumentType, setTuningId }
 })
-

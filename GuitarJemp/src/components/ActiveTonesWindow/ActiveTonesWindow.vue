@@ -13,7 +13,7 @@
           v-for="note in sortedActiveNotes"
           :key="note.key"
           class="tone-item"
-          :class="{ 'is-selected': selectedNoteKey === note.key }"
+          :class="{ 'is-selected': isSelected(note.key) }"
           @click="selectNote(note.key)"
         >
           <div class="tone-left">
@@ -48,6 +48,10 @@ const selection = useSelectionStore()
 const instrument = useInstrumentStore()
 const activeNotes = computed(() => store.activeNotes)
 const selectedNoteKey = computed(() => selection.selectedNoteKey)
+
+function isSelected(noteKey) {
+  return selection.isSelected(noteKey)
+}
 
 const tuning = computed(() => getTuning(instrument.tuningId))
 

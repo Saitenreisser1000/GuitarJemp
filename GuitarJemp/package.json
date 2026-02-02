@@ -7,13 +7,16 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "node scripts/check-node.mjs && vite",
+    "build": "node scripts/check-node.mjs && vite build",
+    "preview": "node scripts/check-node.mjs && vite preview",
+    "test": "node scripts/check-node.mjs && vitest",
+    "test:watch": "node scripts/check-node.mjs && vitest --watch",
     "lint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
     "@moonwave99/fretboard.js": "^0.2.13",
     "pinia": "^3.0.4",
     "sass": "^1.97.2",
@@ -29,6 +32,7 @@
     "globals": "^17.0.0",
     "prettier": "3.7.4",
     "vite": "^7.3.0",
-    "vite-plugin-vue-devtools": "^8.0.5"
+    "vite-plugin-vue-devtools": "^8.0.5",
+    "vitest": "^4.0.18"
   }
 }

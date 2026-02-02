@@ -126,9 +126,7 @@ function inlayLeftPx(fret) {
  * Check if a fret is currently active
  */
 function isFretActive(fret) {
-  return props.activeNotes.some(
-    (n) => n?.fret === fret && n?.string === props.stringNumber
-  )
+  return props.activeNotes.some((n) => n?.fret === fret && n?.string === props.stringNumber)
 }
 
 function getFretColor(fret) {
@@ -197,7 +195,7 @@ function noteLabelForFret(fret) {
 }
 
 .inlay-dot {
-  z-index:1;
+  z-index: 1;
   position: absolute;
   top: 100%;
   width: 14px;

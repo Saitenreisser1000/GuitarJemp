@@ -1,30 +1,19 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
+import { readJson } from '@/infra/storage/jsonStorage'
+import { persistRefs } from '@/infra/pinia/persistRefs'
 
 const STORAGE_KEY = 'guitarjemp.transport.v1'
 
-function readStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-function writeStorage(value) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  } catch {
-    // ignore
-  }
-}
-
 export const useTransportStore = defineStore('transport', () => {
-  const stored = readStorage() ?? {}
+  const stored = readJson(STORAGE_KEY) ?? {}
 
   const tempo = ref(Number.isFinite(stored.tempo) ? stored.tempo : 120)
   const playState = ref(stored.playState === 'playing' ? 'playing' : 'stopped')
+
+  // Current timeline playhead position in milliseconds.
+  // Not persisted: it's UI state.
+  const playheadMs = ref(0)
 
   function setTempo(t) {
     const n = Number(t)
@@ -35,9 +24,12 @@ export const useTransportStore = defineStore('transport', () => {
     playState.value = s === 'playing' ? 'playing' : 'stopped'
   }
 
-  watch([tempo, playState], () => {
-    writeStorage({ tempo: tempo.value, playState: playState.value })
-  })
+  function setPlayheadMs(tMs) {
+    const t = Number(tMs)
+    playheadMs.value = Number.isFinite(t) && t >= 0 ? t : 0
+  }
 
-  return { tempo, playState, setTempo, setPlayState }
+  persistRefs(STORAGE_KEY, { tempo, playState })
+
+  return { tempo, playState, playheadMs, setTempo, setPlayState, setPlayheadMs }
 })

@@ -1,6 +1,10 @@
 import { ref } from 'vue'
+import { DEFAULT_GRID_SIZE_PX, DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
 
-export function useGrid({ gridSize = 50, timePerBlock = 500 } = {}) {
+export function useGrid({
+  gridSize = DEFAULT_GRID_SIZE_PX,
+  timePerBlock = DEFAULT_TIME_PER_BLOCK_MS,
+} = {}) {
   const grid = ref({ gridSize, timePerBlock })
 
   function snapTimeToGrid(time) {
@@ -39,6 +43,6 @@ export function useGrid({ gridSize = 50, timePerBlock = 500 } = {}) {
     timeToPx,
     pxToGridIndex,
     quantizeIndex,
-    gridIndexToTime
+    gridIndexToTime,
   }
 }

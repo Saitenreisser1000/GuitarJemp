@@ -1,13 +1,12 @@
 <template>
-  <div class="palette" :class="{ horizontal: orientation === 'horizontal' }" role="radiogroup" aria-label="Farbauswahl">
+  <div
+    class="palette"
+    :class="{ horizontal: orientation === 'horizontal' }"
+    role="radiogroup"
+    aria-label="Farbauswahl"
+  >
     <label v-for="c in colors" :key="c" class="color-item">
-      <input
-        type="radio"
-        name="note-color"
-        :value="c"
-        :checked="selectedColor === c"
-        @change="select(c)"
-      />
+      <input type="radio" name="note-color" :value="c" :checked="selectedColor === c" @change="select(c)" />
       <span class="swatch" :style="{ backgroundColor: c }" />
     </label>
   </div>
@@ -28,14 +27,7 @@ defineProps({
 
 const settings = useTimelineSettingsStore()
 
-const colors = [
-  '#FF6B6B',
-  '#4ECDC4',
-  '#45B7D1',
-  '#FFA07A',
-  '#98D8C8',
-  '#F7DC6F'
-]
+const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
 
 const selectedColor = computed(() => settings.selectedColor)
 

@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { createNoteKey, parseFretStringKey, normalizeNote } from '@/domain/note'
 import { defaultLengthBlocksForMode, nextGridIndexFromNotes } from '@/domain/timelinePlacement'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { useTransportStore } from '@/store/useTransport'
+import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
 
 export const useNotesStore = defineStore('notes', () => {
   // Notes are objects.
@@ -12,8 +14,7 @@ export const useNotesStore = defineStore('notes', () => {
   // placedAtMs: wall-clock timestamp when note was created
   const activeNotes = ref([])
 
-  // Keep this in sync with useGrid() defaults
-  const TIME_PER_BLOCK_MS = 500
+  const TIME_PER_BLOCK_MS = DEFAULT_TIME_PER_BLOCK_MS
 
   function gridIndexToTimeMs(gridIndex) {
     const i = Number(gridIndex)
@@ -33,9 +34,21 @@ export const useNotesStore = defineStore('notes', () => {
 
   function createNoteFromKey(key) {
     const settings = useTimelineSettingsStore()
+    const transport = useTransportStore()
     const { fret, string } = parseFretStringKey(key)
-    const gridIndex = nextGridIndexFromNotes(activeNotes.value, { mode: settings.selectedMode })
-    const lengthMode = settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
+
+    // Default placement: append after existing notes.
+    let gridIndex = nextGridIndexFromNotes(activeNotes.value, { mode: settings.selectedMode })
+
+    // If user moved the playhead, new notes start at the playhead.
+    const tMs = Number(transport.playheadMs)
+    if (Number.isFinite(tMs) && tMs > 0) {
+      const idx = tMs / TIME_PER_BLOCK_MS + 1
+      if (Number.isFinite(idx) && idx > 0) gridIndex = idx
+    }
+
+    const lengthMode =
+      settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
     const lengthBlocks = defaultLengthBlocksForMode(lengthMode)
     return {
       key: createNoteKey(),
@@ -44,7 +57,7 @@ export const useNotesStore = defineStore('notes', () => {
       color: settings.selectedColor,
       gridIndex,
       lengthBlocks,
-      placedAtMs: Date.now()
+      placedAtMs: Date.now(),
     }
   }
 
@@ -115,6 +128,6 @@ export const useNotesStore = defineStore('notes', () => {
     setNoteGridIndex,
     setNoteLength,
     getNoteTimeMs,
-    getNoteDurationMs
+    getNoteDurationMs,
   }
 })

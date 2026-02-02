@@ -1,25 +1,15 @@
 <template>
   <div class="controls">
-    <div class="control-group">
-      <label for="strings">Saiten:</label>
-      <input
-        id="strings"
-        v-model.number="numStringsLocal"
-        type="number"
-        min="1"
-        max="12"
-      />
-    </div>
-    <div class="control-group">
-      <label for="frets">Bünde:</label>
-      <input
-        id="frets"
-        v-model.number="numFretsLocal"
-        type="number"
-        min="1"
-        max="24"
-      />
-    </div>
+    <template v-if="showSetup">
+      <div class="control-group">
+        <label for="strings">Saiten:</label>
+        <input id="strings" v-model.number="numStringsLocal" type="number" min="1" max="12" />
+      </div>
+      <div class="control-group">
+        <label for="frets">Bünde:</label>
+        <input id="frets" v-model.number="numFretsLocal" type="number" min="1" max="24" />
+      </div>
+    </template>
 
     <div class="after-frets">
       <slot name="after-frets" />
@@ -30,6 +20,10 @@
 <script setup>
 import { watch, ref } from 'vue'
 import { useInstrumentStore } from '@/store/useInstrument'
+
+defineProps({
+  showSetup: { type: Boolean, default: true }
+})
 
 const store = useInstrumentStore()
 
