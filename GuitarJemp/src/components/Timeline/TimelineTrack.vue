@@ -7,11 +7,12 @@
       <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" title="Position ziehen" />
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
-        :snapEnabled="props.snapEnabled" :step="props.step"
+        :time-per-block-ms="timePerBlockMs" :snapEnabled="props.snapEnabled" :step="props.step"
         @update-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
         @update-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
-        @group-move="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)"
-        @group-resize="(anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)" />
+        @group-move="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)" @group-resize="
+          (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+        " />
     </div>
   </div>
 </template>
@@ -117,6 +118,13 @@ const gridBackgroundStyle = computed(() => {
     '--total-blocks': String(props.totalBlocks),
     '--beats-per-bar': String(beatsPerBar.value),
   }
+})
+
+const timePerBlockMs = computed(() => {
+  const total = Number(props.totalDuration) || 0
+  const blocks = Math.max(1, Number(props.totalBlocks) || 1)
+  const v = total / blocks
+  return Number.isFinite(v) && v > 0 ? v : 0
 })
 
 function getNoteColor(fret) {

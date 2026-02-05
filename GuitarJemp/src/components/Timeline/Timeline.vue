@@ -182,7 +182,17 @@ function togglePlay() {
     playbackVisuals.clear()
   }
 
-  playback.start(totalDuration.value, transport.tempo)
+  // Ensure note events exactly at the current playhead get triggered on the first tick.
+  // Example: first note at 0ms when starting from the beginning.
+  const ph = Number(playhead.value)
+  lastAudioTickMs = (Number.isFinite(ph) ? ph : 0) - 0.0001
+
+  // Count-in only when starting from the beginning (not when resuming mid-timeline).
+  const shouldCountIn = (Number.isFinite(ph) ? ph : 0) <= 0.0001
+  const tempoValue = Number(transport.tempo) || 120
+  const countInMs = shouldCountIn ? Math.max(0, 60000 / tempoValue) : 0
+
+  playback.start(totalDuration.value, transport.tempo, { delayMs: countInMs })
 }
 
 function seekStart() {
@@ -253,13 +263,30 @@ const totalDuration = computed(() => {
 })
 
 const totalBlocks = computed(() => {
-  const maxIndex = Math.max(0, ...notesForRender.value.map((n) => n.gridIndex || 0))
-  // keep some space to the right
-  return Math.max(16, maxIndex + 8)
+  const beatTopValue = Number(beatTop.value) || 4
+  const beatBottomValue = Number(beatBottom.value) || 4
+  const blocksPerBarRaw = beatTopValue * (4 / beatBottomValue)
+  const blocksPerBar = Math.max(
+    1,
+    Math.ceil(Number.isFinite(blocksPerBarRaw) ? blocksPerBarRaw : 4),
+  )
+
+  const maxEnd = Math.max(
+    0,
+    ...notesForRender.value.map((n) => {
+      const start = Number(n.gridIndex) || 0
+      const len = Number(n.lengthBlocks) || 1
+      return start + Math.max(0, len) - 1
+    }),
+  )
+
+  // Keep 1 bar of space to the right; minimum timeline is 1 bar.
+  const withPadding = Math.ceil(maxEnd + blocksPerBar)
+  return Math.max(blocksPerBar, withPadding)
 })
 
 const playhead = ref(0)
-let lastAudioTickMs = 0
+let lastAudioTickMs = -Infinity
 let triggeredNoteKeys = new Set()
 
 function maybePlayNotesAt(tMs) {
@@ -298,7 +325,7 @@ function maybePlayNotesAt(tMs) {
     // Keep the dot "active" for the exact timeline duration (playhead time)
     playbackVisuals.highlight(key, tMs + durationPlayheadMs)
     // But let the audio duration respect tempo (real time)
-    void playMidi(midi, { durationMs: durationAudioMs })
+    void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
   }
 }
 
@@ -313,7 +340,7 @@ const playback = usePlayback({
     playhead.value = t
     transport.setPlayheadMs(t)
     playbackVisuals.prune(t)
-    maybePlayNotesAt(t)
+    if (playback.isPlaying.value) maybePlayNotesAt(t)
   },
 })
 const isPlaying = computed(() => playback.isPlaying.value)

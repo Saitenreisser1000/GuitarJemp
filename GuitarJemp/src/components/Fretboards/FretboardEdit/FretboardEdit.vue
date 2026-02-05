@@ -11,18 +11,10 @@
     <div class="fretboard">
       <div class="fretboard-scroll">
         <div class="strings-container">
-          <StringTrack
-            v-for="string in numStrings"
-            :key="string"
-            :string-number="string"
-            :num-strings="numStrings"
-            :num-frets="props.numFrets"
-            :active-notes="activeNotes"
-            :selected-fret="selectedFretString?.fret ?? null"
-            :selected-string="selectedFretString?.string ?? null"
-            :open-midi="openMidiForString(string)"
-            @toggle-note="toggleNote"
-          />
+          <StringTrack v-for="string in numStrings" :key="string" :string-number="string" :num-strings="numStrings"
+            :num-frets="props.numFrets" :active-notes="activeNotes" :selected-fret="selectedFretString?.fret ?? null"
+            :selected-string="selectedFretString?.string ?? null" :open-midi="openMidiForString(string)"
+            @toggle-note="toggleNote" />
         </div>
 
         <div class="fret-numbers">
@@ -42,6 +34,7 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useSelectionStore } from '@/store/useSelection'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { useTransportStore } from '@/store/useTransport'
 import FretboardControls from './controls/FretboardControls.vue'
 import ColorPalette from './controls/ColorPalette.vue'
 import StringTrack from './ui/StringTrack.vue'
@@ -53,9 +46,10 @@ const store = useNotesStore()
 const instrument = useInstrumentStore()
 const selection = useSelectionStore()
 const settings = useTimelineSettingsStore()
+const transport = useTransportStore()
 
 const props = defineProps({
-  numFrets: { type: Number, required: true }
+  numFrets: { type: Number, required: true },
 })
 
 const emit = defineEmits(['update-frets'])
@@ -82,12 +76,22 @@ const selectedFretString = computed(() => {
 })
 
 function toggleNote(key) {
-  store.addNote(key)
+  const note = store.addNote(key)
 
   if (!settings.soundPreviewEnabled) return
   const t = tuning.value
   const midi = midiForFretStringKey(key, t)
-  if (Number.isFinite(Number(midi))) void playMidi(midi)
+  if (Number.isFinite(Number(midi))) {
+    const durationPlayheadMs = store.getNoteDurationMs(note)
+    const tempoValue = Number(transport.tempo) || 120
+    const tempoScale = 120 / tempoValue
+    const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale)
+
+    void playMidi(midi, {
+      durationMs: durationAudioMs,
+      instrumentType: instrument.instrumentType,
+    })
+  }
 }
 </script>
 
@@ -112,7 +116,8 @@ function toggleNote(key) {
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
-  padding-bottom: 6px; /* gives the scrollbar some breathing room */
+  padding-bottom: 6px;
+  /* gives the scrollbar some breathing room */
 }
 
 .strings-container {
@@ -139,7 +144,8 @@ function toggleNote(key) {
 }
 
 .fret-number {
-  width: 80px; /* same width as .fret-position */
+  width: 80px;
+  /* same width as .fret-position */
   text-align: center;
   padding: 6px 0;
   color: rgba(40, 40, 40, 0.7);

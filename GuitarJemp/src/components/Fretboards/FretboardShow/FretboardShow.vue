@@ -207,7 +207,8 @@ function createFretboard() {
     if (!settings.soundPreviewEnabled) return
     const t = tuning.value
     const midi = midiForFretString({ fret, string }, t)
-    if (Number.isFinite(Number(midi))) void playMidi(midi)
+    if (Number.isFinite(Number(midi)))
+      void playMidi(midi, { instrumentType: instrument.instrumentType })
   })
 
   fb.value.on('mousemove', (pos, event) => {

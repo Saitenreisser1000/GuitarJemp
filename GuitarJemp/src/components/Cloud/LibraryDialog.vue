@@ -121,6 +121,8 @@ async function onSave() {
 }
 
 async function onLoad(item) {
+    library.setCurrentItem(item)
+
     const snap = item?.content
     if (!snap) return
 

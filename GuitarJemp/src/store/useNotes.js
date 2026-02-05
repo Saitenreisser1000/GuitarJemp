@@ -91,7 +91,9 @@ export const useNotesStore = defineStore('notes', () => {
 
   function addNote(key) {
     const k = String(key)
-    activeNotes.value.push(createNoteFromKey(k))
+    const note = createNoteFromKey(k)
+    activeNotes.value.push(note)
+    return note
   }
 
   function removeNote(key) {
@@ -102,7 +104,7 @@ export const useNotesStore = defineStore('notes', () => {
   function toggleNote(key) {
     // Compatibility: fretboard used to toggle by fret-string key.
     // New behavior: always add a new note event.
-    addNote(key)
+    return addNote(key)
   }
 
   function clearNotes() {

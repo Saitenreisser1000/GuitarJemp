@@ -5,17 +5,25 @@ export function usePlayback({ onTick } = {}) {
   const playhead = ref(0) // milliseconds
   const loopEnabled = ref(false)
   let rafId = null
+  let startTimeoutId = null
   let startTs = 0
   let baseTime = 0
 
-  function start(totalDuration, tempo = 120) {
+  function start(totalDuration, tempo = 120, { delayMs = 0 } = {}) {
     if (isPlaying.value) return
     isPlaying.value = true
+
+    if (startTimeoutId) {
+      clearTimeout(startTimeoutId)
+      startTimeoutId = null
+    }
+
     startTs = performance.now()
     // Start from the current playhead position (supports pause/seek).
     baseTime = playhead.value
 
     const duration = Math.max(0, Number(totalDuration) || 0)
+    const delay = Math.max(0, Number(delayMs) || 0)
 
     const animate = (ts) => {
       const rawElapsed = (ts - startTs) * (tempo / 120) + baseTime
@@ -40,6 +48,16 @@ export function usePlayback({ onTick } = {}) {
       else rafId = requestAnimationFrame(animate)
     }
 
+    if (delay > 0) {
+      startTimeoutId = setTimeout(() => {
+        startTimeoutId = null
+        if (!isPlaying.value) return
+        startTs = performance.now()
+        rafId = requestAnimationFrame(animate)
+      }, delay)
+      return
+    }
+
     rafId = requestAnimationFrame(animate)
   }
 
@@ -59,6 +77,10 @@ export function usePlayback({ onTick } = {}) {
     if (!isPlaying.value) return
     isPlaying.value = false
     baseTime = playhead.value
+    if (startTimeoutId) {
+      clearTimeout(startTimeoutId)
+      startTimeoutId = null
+    }
     if (rafId) cancelAnimationFrame(rafId)
   }
 
@@ -66,6 +88,10 @@ export function usePlayback({ onTick } = {}) {
     isPlaying.value = false
     playhead.value = 0
     baseTime = 0
+    if (startTimeoutId) {
+      clearTimeout(startTimeoutId)
+      startTimeoutId = null
+    }
     if (rafId) cancelAnimationFrame(rafId)
   }
 

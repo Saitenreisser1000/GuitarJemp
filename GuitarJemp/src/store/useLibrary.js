@@ -12,6 +12,43 @@ export const useLibraryStore = defineStore('library', () => {
   const items = ref([])
   const loading = ref(false)
   const error = ref(null)
+  const currentItem = ref(null)
+  const currentItemContent = ref(null)
+
+  function cloneJson(v) {
+    if (v == null) return null
+    try {
+      return JSON.parse(JSON.stringify(v))
+    } catch {
+      return null
+    }
+  }
+
+  function setCurrentItem(item) {
+    if (!item) {
+      currentItem.value = null
+      currentItemContent.value = null
+      return
+    }
+    currentItem.value = {
+      id: item?.id ?? null,
+      owner_id: item?.owner_id ?? null,
+      kind: item?.kind ?? null,
+      title: item?.title ?? null,
+      visibility: item?.visibility ?? null,
+      category: item?.category ?? null,
+      created_at: item?.created_at ?? null,
+      updated_at: item?.updated_at ?? null,
+    }
+
+    // Baseline content for Reset.
+    currentItemContent.value = cloneJson(item?.content ?? null)
+  }
+
+  function clearCurrentItem() {
+    currentItem.value = null
+    currentItemContent.value = null
+  }
 
   async function refresh() {
     error.value = null
@@ -35,6 +72,13 @@ export const useLibraryStore = defineStore('library', () => {
     }
 
     items.value = Array.isArray(data) ? data : []
+
+    // Keep currentItem in sync (title/updated_at etc.) if it still exists.
+    const currentId = currentItem.value?.id
+    if (currentId) {
+      const next = items.value.find((i) => i?.id === currentId)
+      if (next) setCurrentItem(next)
+    }
   }
 
   async function createItem({ kind, title, visibility, category, content } = {}) {
@@ -63,10 +107,62 @@ export const useLibraryStore = defineStore('library', () => {
       error.value = err
       return null
     }
-
+    setCurrentItem(data)
     await refresh()
     return data ?? null
   }
 
-  return { items, loading, error, refresh, createItem }
+  async function updateItem({ id, content } = {}) {
+    error.value = null
+
+    if (!isSupabaseConfigured || !supabase) {
+      error.value = new Error('Supabase ist nicht konfiguriert.')
+      return null
+    }
+
+    const itemId = String(id ?? '').trim()
+    if (!itemId) {
+      error.value = new Error('Kein Item ausgewählt.')
+      return null
+    }
+
+    const payload = {
+      content: content ?? {},
+    }
+
+    const { data, error: err } = await supabase
+      .from('library_items')
+      .update(payload)
+      .eq('id', itemId)
+      .select('id, kind, title, visibility, category, content, created_at, updated_at, owner_id')
+      .single()
+
+    if (err) {
+      error.value = err
+      return null
+    }
+
+    setCurrentItem(data)
+    await refresh()
+    return data ?? null
+  }
+
+  async function updateCurrentItemContent(content) {
+    const id = currentItem.value?.id
+    return updateItem({ id, content })
+  }
+
+  return {
+    items,
+    loading,
+    error,
+    currentItem,
+    currentItemContent,
+    setCurrentItem,
+    clearCurrentItem,
+    refresh,
+    createItem,
+    updateItem,
+    updateCurrentItemContent,
+  }
 })

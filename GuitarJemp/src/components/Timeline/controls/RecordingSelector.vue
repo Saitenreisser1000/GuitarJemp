@@ -217,6 +217,7 @@ function loadHighlighted() {
     if (!id) return
     const item = (Array.isArray(library.items) ? library.items : []).find((i) => i?.id === id)
     if (!item) return
+    library.setCurrentItem(item)
     applySnapshot(item)
 }
 

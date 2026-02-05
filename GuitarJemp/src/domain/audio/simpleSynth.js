@@ -1,3 +1,6 @@
+import { getDefaultPresetIdForInstrumentType, getPreset } from './presets'
+import { playMidiWithSampler } from './sampleSampler'
+
 let audioCtx
 
 function getAudioContext() {
@@ -24,7 +27,7 @@ export function midiToFrequency(midi) {
   return 440 * Math.pow(2, (safe - 69) / 12)
 }
 
-export async function playMidi(midi, { durationMs = 200, type = 'triangle', gain = 0.2 } = {}) {
+async function playMidiSynth(midi, { durationMs = 200, type = 'triangle', gain = 0.2 } = {}) {
   const ctx = getAudioContext()
   if (!ctx) return
 
@@ -49,4 +52,42 @@ export async function playMidi(midi, { durationMs = 200, type = 'triangle', gain
 
   osc.start(now)
   osc.stop(now + dur + 0.02)
+}
+
+export async function playMidi(
+  midi,
+  { durationMs = 200, type = 'triangle', gain = 0.2, instrumentType, presetId } = {},
+) {
+  const resolvedPresetId =
+    presetId != null && String(presetId).trim()
+      ? String(presetId).trim()
+      : getDefaultPresetIdForInstrumentType(instrumentType)
+
+  const preset = getPreset(resolvedPresetId)
+  if (preset?.type === 'sampler' && preset?.manifestUrl) {
+    try {
+      const ok = await playMidiWithSampler(preset.manifestUrl, midi, { durationMs, gain })
+      if (ok) return
+      if (import.meta?.env?.DEV) {
+        console.warn('[audio] Sampler nicht verwendet (ok=false), fallback auf Synth', {
+          presetId: resolvedPresetId,
+          instrumentType,
+          manifestUrl: preset.manifestUrl,
+          midi,
+        })
+      }
+    } catch (err) {
+      if (import.meta?.env?.DEV) {
+        console.warn('[audio] Sampler fehlgeschlagen, fallback auf Synth', {
+          presetId: resolvedPresetId,
+          instrumentType,
+          manifestUrl: preset.manifestUrl,
+          midi,
+          error: err,
+        })
+      }
+    }
+  }
+
+  return playMidiSynth(midi, { durationMs, type, gain })
 }

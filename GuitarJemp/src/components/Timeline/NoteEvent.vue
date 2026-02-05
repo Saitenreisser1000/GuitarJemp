@@ -1,6 +1,5 @@
 <template>
-  <div class="note-event" :class="{ 'is-selected': isSelected }"
-    :data-note-key="note?.key"
+  <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
     :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
     <div class="note-label">
@@ -16,6 +15,7 @@ import { computed, ref } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { useTransportStore } from '@/store/useTransport'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -24,6 +24,7 @@ import { playMidi } from '@/domain/audio/simpleSynth'
 const props = defineProps({
   note: Object,
   totalBlocks: { type: Number, default: 16 },
+  timePerBlockMs: { type: Number, default: 0 },
   color: String,
   snapEnabled: Boolean,
   step: Number,
@@ -34,8 +35,11 @@ const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'g
 const selection = useSelectionStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
+const transport = useTransportStore()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
-const isGroupSelected = computed(() => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1)
+const isGroupSelected = computed(
+  () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
+)
 
 const pitchLabel = computed(() => {
   const t = getTuning(instrument.tuningId)
@@ -81,7 +85,11 @@ const widthPercent = computed(() => {
       ? Number(selection.groupResizeDeltaBlocks || 0)
       : 0
   const previewLen = baseLen + previewDelta
-  const len = useGroup ? previewLen : isResizing.value ? Number(dragLength.value ?? baseLen) : baseLen
+  const len = useGroup
+    ? previewLen
+    : isResizing.value
+      ? Number(dragLength.value ?? baseLen)
+      : baseLen
   const safeLen = Number.isFinite(len) && len > 0 ? len : 1
   return (safeLen / total) * 100
 })
@@ -106,7 +114,25 @@ function onPointerDown(e) {
   if (settings.soundPreviewEnabled) {
     const t = getTuning(instrument.tuningId)
     const midi = midiForNote(props.note, t)
-    if (Number.isFinite(Number(midi))) void playMidi(midi)
+    if (Number.isFinite(Number(midi))) {
+      const timePerBlock = Number(props.timePerBlockMs)
+      const timePerBlockMs = Number.isFinite(timePerBlock) && timePerBlock > 0 ? timePerBlock : 0
+
+      const lengthBlocksRaw = Number(props.note?.lengthBlocks)
+      const lengthBlocks =
+        Number.isFinite(lengthBlocksRaw) && lengthBlocksRaw > 0 ? lengthBlocksRaw : 1
+
+      const durationPlayheadMs = timePerBlockMs > 0 ? lengthBlocks * timePerBlockMs : 200
+
+      const tempoValue = Number(transport.tempo) || 120
+      const tempoScale = 120 / tempoValue
+      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale)
+
+      void playMidi(midi, {
+        durationMs: durationAudioMs,
+        instrumentType: instrument.instrumentType,
+      })
+    }
   }
 
   const el = e.currentTarget
