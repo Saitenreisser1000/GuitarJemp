@@ -109,6 +109,10 @@ export const useNotesStore = defineStore('notes', () => {
 
   function clearNotes() {
     activeNotes.value = []
+
+    // UX: clearing notes should reset the timeline cursor.
+    const transport = useTransportStore()
+    transport.setPlayheadMs(0)
   }
 
   // Derived time helpers (raster is source of truth)

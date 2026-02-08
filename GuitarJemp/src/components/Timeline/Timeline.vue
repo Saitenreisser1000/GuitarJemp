@@ -42,6 +42,7 @@ const playbackVisuals = usePlaybackVisualsStore()
 const selection = useSelectionStore()
 
 const { tempo } = storeToRefs(transport)
+const { playheadMs } = storeToRefs(transport)
 const {
   selectedMode,
   lastRhythmMode,
@@ -344,6 +345,27 @@ const playback = usePlayback({
   },
 })
 const isPlaying = computed(() => playback.isPlaying.value)
+
+// Keep local timeline state in sync with the transport store.
+// This allows external UI actions (e.g. clearing notes) to reset the playhead.
+watch(
+  () => playheadMs.value,
+  (tMs) => {
+    if (playback.isPlaying.value) return
+
+    const t = Math.max(0, Number(tMs) || 0)
+    if (t === playhead.value) return
+
+    lastAudioTickMs = t
+    triggeredNoteKeys = new Set()
+    playbackVisuals.clear()
+
+    playback.seek(t)
+    playhead.value = t
+    playbackVisuals.prune(t)
+  },
+  { immediate: true },
+)
 
 watch(
   () => loopEnabled.value,
