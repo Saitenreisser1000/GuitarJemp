@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
-    "@moonwave99/fretboard.js": "^0.2.13",
     "@supabase/supabase-js": "^2.93.3",
     "pinia": "^3.0.4",
     "sass": "^1.97.2",
