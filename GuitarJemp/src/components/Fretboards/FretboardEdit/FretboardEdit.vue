@@ -1,10 +1,7 @@
 <template>
   <div class="fretboard-container">
-    <FretboardControls
-      v-if="showControls"
-      :num-frets="props.numFrets"
-      @update-frets="(n) => emit('update-frets', n)"
-    >
+    <FretboardControls v-if="showControls" :show-setup="false" :num-frets="props.numFrets"
+      @update-frets="(n) => emit('update-frets', n)">
       <template #after-frets>
         <div class="top-tools">
           <ColorPalette orientation="horizontal" />

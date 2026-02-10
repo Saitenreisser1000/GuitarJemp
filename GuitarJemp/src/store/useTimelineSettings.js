@@ -42,6 +42,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   const activeTool = ref(stored.activeTool === 'select' ? 'select' : 'arrow')
 
+  const stringsCollapsed = ref(
+    typeof stored.stringsCollapsed === 'boolean' ? stored.stringsCollapsed : false,
+  )
+
   function setSelectedMode(m) {
     const mode = String(m)
     selectedMode.value = mode
@@ -95,6 +99,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     activeTool.value = next === 'select' ? 'select' : 'arrow'
   }
 
+  function setStringsCollapsed(v) {
+    stringsCollapsed.value = Boolean(v)
+  }
+
   persistRefs(STORAGE_KEY, {
     selectedMode,
     lastRhythmMode,
@@ -108,6 +116,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     selectedColor,
     activeString,
     activeTool,
+    stringsCollapsed,
   })
 
   return {
@@ -123,6 +132,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     selectedColor,
     activeString,
     activeTool,
+    stringsCollapsed,
     setSelectedMode,
     setSnapEnabled,
     setSoundPreviewEnabled,
@@ -134,5 +144,6 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setSelectedColor,
     setActiveString,
     setActiveTool,
+    setStringsCollapsed,
   }
 })

@@ -42,8 +42,23 @@ export const useNotesStore = defineStore('notes', () => {
     return (activeNotes.value ?? []).map((n) => ({ ...n }))
   }
 
+  function snapshotState() {
+    const transport = useTransportStore()
+    const t = Number(transport.playheadMs)
+    return {
+      notes: snapshotNotes(),
+      playheadMs: Number.isFinite(t) && t >= 0 ? t : 0,
+    }
+  }
+
   function restoreNotes(snapshot) {
     activeNotes.value = Array.isArray(snapshot) ? snapshot.map((n) => ({ ...n })) : []
+  }
+
+  function restoreState(state) {
+    const transport = useTransportStore()
+    restoreNotes(state?.notes)
+    transport.setPlayheadMs(state?.playheadMs)
   }
 
   function pushUndoPoint(tag = 'edit', { coalesceMs = 400 } = {}) {
@@ -51,7 +66,7 @@ export const useNotesStore = defineStore('notes', () => {
     const t = String(tag || 'edit')
     if (t === lastUndoTag && now - lastUndoAtMs < coalesceMs) return
 
-    undoStack.value.push(snapshotNotes())
+    undoStack.value.push(snapshotState())
     redoStack.value = []
     lastUndoTag = t
     lastUndoAtMs = now
@@ -59,19 +74,19 @@ export const useNotesStore = defineStore('notes', () => {
 
   function undo() {
     if (!undoStack.value.length) return false
-    const current = snapshotNotes()
+    const current = snapshotState()
     const prev = undoStack.value.pop()
     redoStack.value.push(current)
-    restoreNotes(prev)
+    restoreState(prev)
     return true
   }
 
   function redo() {
     if (!redoStack.value.length) return false
-    const current = snapshotNotes()
+    const current = snapshotState()
     const next = redoStack.value.pop()
     undoStack.value.push(current)
-    restoreNotes(next)
+    restoreState(next)
     return true
   }
 

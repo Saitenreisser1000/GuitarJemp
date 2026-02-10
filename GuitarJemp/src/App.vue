@@ -1,8 +1,6 @@
 <script setup>
 import FretboardEdit from '@/components/Fretboards/FretboardEdit/FretboardEdit.vue'
 import FretboardShow from '@/components/Fretboards/FretboardShow/FretboardShow.vue'
-import FretboardControls from '@/components/Fretboards/FretboardEdit/controls/FretboardControls.vue'
-import ColorPalette from '@/components/Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
 import Timeline from '@/components/Timeline/Timeline.vue'
 import AuthDialog from '@/components/Cloud/AuthDialog.vue'
@@ -205,85 +203,58 @@ async function onSaveCloud() {
 
 <template>
   <v-app>
-    <v-app-bar class="app-topbar" density="compact" flat>
-      <v-app-bar-title class="text-white">GuitarJemp</v-app-bar-title>
+    <AuthDialog v-model="authOpen" />
+    <ConnectionsDialog v-model="connectionsOpen" />
 
-      <v-spacer />
+    <v-layout>
+      <v-app-bar color="primary" density="compact">
+        <v-toolbar-title>GuitarJemp</v-toolbar-title>
 
-      <div class="d-flex flex-wrap justify-end align-center ga-2">
-        <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
-          Cloud: nicht konfiguriert
-        </v-chip>
-        <v-chip v-else-if="auth.isSignedIn" size="small" color="success" variant="tonal">
-          {{ auth.user?.email }}
-        </v-chip>
+        <v-spacer />
 
-        <v-btn
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-account"
-          @click="authOpen = true"
-        >
-          Account
-        </v-btn>
-        <v-btn
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-cloud"
-          :disabled="!auth.isSignedIn"
-          @click="libraryOpen = true"
-        >
-          Library
-        </v-btn>
+        <div class="d-flex flex-wrap align-center ga-2">
+          <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
+            Cloud: nicht konfiguriert
+          </v-chip>
+          <v-chip v-else-if="auth.isSignedIn" size="small" color="success" variant="tonal">
+            {{ auth.user?.email }}
+          </v-chip>
 
-        <v-btn
-          size="small"
-          variant="tonal"
-          prepend-icon="mdi-account-multiple"
-          :disabled="!auth.isSignedIn"
-          @click="connectionsOpen = true"
-        >
-          Freunde
-        </v-btn>
-      </div>
-    </v-app-bar>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-account" @click="authOpen = true">
+            Account
+          </v-btn>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-cloud" :disabled="!auth.isSignedIn"
+            @click="libraryOpen = true">
+            Library
+          </v-btn>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-account-multiple" :disabled="!auth.isSignedIn"
+            @click="connectionsOpen = true">
+            Freunde
+          </v-btn>
+        </div>
+      </v-app-bar>
 
-    <v-main>
-      <div class="app-shell">
-        <v-container class="py-6">
-          <header class="text-center text-white">
-            <h1 class="app-title">GuitarJemp</h1>
+      <LibraryDialog v-model="libraryOpen" />
 
-            <div class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
-              <v-btn-toggle v-model="instrumentType" mandatory divided>
-                <v-btn value="guitar" variant="tonal">Guitar</v-btn>
-                <v-btn value="bass" variant="tonal">Bass</v-btn>
-                <v-btn value="ukulele" variant="tonal">Ukulele</v-btn>
-              </v-btn-toggle>
+      <v-main>
+        <div class="app-shell">
+          <v-container fluid class="py-6">
+            <header class="text-center text-white">
+              <h1 class="app-title">GuitarJemp</h1>
 
-              <v-btn-toggle v-model="fretboardMode" mandatory divided>
-                <v-btn value="editor" variant="tonal">Editor</v-btn>
-                <v-btn value="show" variant="tonal">Show</v-btn>
-              </v-btn-toggle>
-            </div>
-          </header>
+              <div class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
+                <v-btn-toggle v-model="instrumentType" mandatory divided>
+                  <v-btn value="guitar" variant="tonal">Guitar</v-btn>
+                  <v-btn value="bass" variant="tonal">Bass</v-btn>
+                  <v-btn value="ukulele" variant="tonal">Ukulele</v-btn>
+                </v-btn-toggle>
 
-          <AuthDialog v-model="authOpen" />
-          <LibraryDialog v-model="libraryOpen" />
-          <ConnectionsDialog v-model="connectionsOpen" />
+                <v-btn-toggle v-model="fretboardMode" mandatory divided>
+                  <v-btn value="editor" variant="tonal">Editor</v-btn>
+                  <v-btn value="show" variant="tonal">Show</v-btn>
+                </v-btn-toggle>
 
-          <v-row class="mt-6" align="start" justify="center" dense>
-            <v-col cols="12">
-              <div v-if="fretboardMode === 'editor'" class="editor-toolbar mb-2">
-                <div class="editor-toolbar-left">
-                  <FretboardControls :num-frets="numFrets" @update-frets="(n) => (numFrets = n)">
-                    <template #after-frets>
-                      <ColorPalette orientation="horizontal" />
-                    </template>
-                  </FretboardControls>
-                </div>
-
-                <div class="editor-toolbar-right">
+                <div v-if="fretboardMode === 'editor'" class="d-flex align-center ga-2">
                   <v-btn variant="tonal" prepend-icon="mdi-restore" :disabled="!canReset" title="Änderungen verwerfen"
                     @click="onResetChanges">
                     Reset
@@ -300,53 +271,59 @@ async function onSaveCloud() {
                   </v-btn>
                 </div>
               </div>
+            </header>
 
-              <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
-                {{ saveError }}
-              </v-alert>
+            <v-row class="mt-6" align="start" justify="center" dense>
+              <v-col cols="12">
+                <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
+                  {{ saveError }}
+                </v-alert>
 
-              <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
-                :show-controls="false" @update-frets="(n) => (numFrets = n)" />
-              <FretboardShow v-else class="fretboard" :num-frets="numFrets" />
-            </v-col>
+                <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
+                  @update-frets="(n) => (numFrets = n)" />
+                <FretboardShow v-else class="fretboard" :num-frets="numFrets" />
+              </v-col>
 
-            <v-dialog v-model="saveAsNewOpen" max-width="520">
-              <v-card rounded="lg">
-                <v-card-title class="d-flex align-center justify-space-between">
-                  <span>Save as new</span>
-                  <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
-                </v-card-title>
+              <v-dialog v-model="saveAsNewOpen" max-width="520">
+                <v-card rounded="lg">
+                  <v-card-title class="d-flex align-center justify-space-between">
+                    <span>Save as new</span>
+                    <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
+                  </v-card-title>
 
-                <v-card-text>
-                  <v-text-field v-model="saveAsNewTitle" label="Titel" density="compact" variant="outlined" autofocus />
+                  <v-card-text>
+                    <v-text-field v-model="saveAsNewTitle" label="Titel" density="compact" variant="outlined"
+                      autofocus />
 
-                  <v-select v-model="saveAsNewVisibility" :items="[
-                    { title: 'Privat', value: 'private' },
-                    { title: 'Connections', value: 'connections' },
-                    { title: 'Öffentlich', value: 'public' },
-                  ]" label="Sichtbarkeit" density="compact" variant="outlined" />
-                </v-card-text>
+                    <v-select v-model="saveAsNewVisibility" :items="[
+                      { title: 'Privat', value: 'private' },
+                      { title: 'Connections', value: 'connections' },
+                      { title: 'Öffentlich', value: 'public' },
+                    ]" label="Sichtbarkeit" density="compact" variant="outlined" />
+                  </v-card-text>
 
-                <v-card-actions class="justify-end">
-                  <v-btn variant="text" @click="saveAsNewOpen = false">Abbrechen</v-btn>
-                  <v-btn color="primary" variant="flat" :disabled="!canSaveAsNew || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy
-                    " @click="onSaveAsNewConfirm">
-                    Speichern
-                  </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
+                  <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="saveAsNewOpen = false">Abbrechen</v-btn>
+                    <v-btn color="primary" variant="flat" :disabled="!canSaveAsNew || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy
+                      " @click="onSaveAsNewConfirm">
+                      Speichern
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-dialog>
 
-            <v-col cols="12" :md="fretboardMode === 'show' ? 12 : 8" :lg="fretboardMode === 'show' ? 12 : 9">
-              <Timeline class="timeline" :compact="fretboardMode === 'show'" />
-            </v-col>
-            <v-col v-if="fretboardMode !== 'show'" cols="12" md="4" lg="3">
-              <ActiveTonesWindow class="active-tones" />
-            </v-col>
-          </v-row>
-        </v-container>
-      </div>
-    </v-main>
+              <v-col cols="12" :md="fretboardMode === 'show' ? 12 : 8" :lg="fretboardMode === 'show' ? 12 : 9">
+                <Timeline class="timeline" :compact="fretboardMode === 'show'" :num-frets="numFrets"
+                  @update-frets="(n) => (numFrets = n)" />
+              </v-col>
+              <v-col v-if="fretboardMode !== 'show'" cols="12" md="4" lg="3">
+                <ActiveTonesWindow class="active-tones" />
+              </v-col>
+            </v-row>
+          </v-container>
+        </div>
+      </v-main>
+    </v-layout>
   </v-app>
 </template>
 
@@ -357,11 +334,6 @@ async function onSaveCloud() {
   font-family: Arial, sans-serif;
 }
 
-.app-topbar {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-2) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-}
-
 header {
   color: white;
 }
@@ -370,26 +342,6 @@ header {
   font-size: 2.5rem;
   margin: 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.editor-toolbar-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.editor-toolbar :deep(.controls) {
-  padding: 0;
 }
 
 .fretboard {

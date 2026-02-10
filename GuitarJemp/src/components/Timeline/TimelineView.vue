@@ -5,19 +5,19 @@
       @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
       @update-loop="(v) => emit('update-loop', v)" />
 
-    <RecordingSelector v-if="compact" />
-
     <ModeSelector v-if="!compact" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
       :sound-preview-enabled="soundPreviewEnabled" :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
-      :beat-bottom="beatBottom" :zoom-px-per-block="zoomPxPerBlock" @update-zoom="(v) => emit('update-zoom', v)"
+      :beat-bottom="beatBottom" :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
       @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
       @update-sound-preview="(v) => emit('update-sound-preview', v)"
       @update-sound-duration-scale="(v) => emit('update-sound-duration-scale', v)"
-      @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)" />
+      @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+      @update-num-strings="(v) => emit('update-num-strings', v)" @update-frets="(v) => emit('update-frets', v)"
+      @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" />
 
-    <div v-if="!compact" class="timeline">
+    <div v-if="!compact" class="timeline" :class="{ 'is-collapsed': stringsCollapsed }">
       <div class="timeline-columns">
-        <div class="timeline-tools" aria-label="Timeline Tools">
+        <div v-if="!stringsCollapsed" class="timeline-tools" aria-label="Timeline Tools">
           <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }" title="Pfeil">
             <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="arrow"
               :checked="String(activeTool) === 'arrow'" @change="() => emit('update-active-tool', 'arrow')" />
@@ -53,7 +53,7 @@
           @pointercancel.capture="onMarqueePointerUp">
           <div class="timeline-content">
             <div class="strings-timeline">
-              <TimelineTrack v-for="track in tracks" :key="track.stringIdx" :string="track.stringIdx"
+              <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
                 :string-label="track.label" :active-string="activeString" :notes="track.notes"
                 :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop"
@@ -83,16 +83,19 @@
         <v-chip class="status-chip" label variant="tonal" color="secondary">
           Takt: {{ barBeatLabel }}
         </v-chip>
+
+        <div class="zoom-status d-flex align-center ga-2">
+          <div class="text-caption text-medium-emphasis">Zoom</div>
+          <v-slider v-model="zoomLocal" class="zoom-slider" density="compact" hide-details min="12" max="120"
+            step="2" />
+        </div>
       </div>
     </v-card>
-
-    <RecordingSelector v-if="!compact" />
   </div>
 </template>
 
 <script setup>
 import PlaybackControls from './controls/PlaybackControls.vue'
-import RecordingSelector from './controls/RecordingSelector.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
@@ -114,6 +117,11 @@ const props = defineProps({
   activeTool: { type: String, default: 'arrow' },
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
+
+  numStrings: { type: Number, default: 6 },
+  numFrets: { type: Number, default: 12 },
+
+  stringsCollapsed: { type: Boolean, default: false },
 
   zoomPxPerBlock: { type: Number, default: 50 },
 
@@ -138,6 +146,9 @@ const emit = defineEmits([
   'update-active-tool',
   'update-beat-top',
   'update-beat-bottom',
+  'update-num-strings',
+  'update-frets',
+  'update-strings-collapsed',
   'update-zoom',
   'seek-playhead',
   'update-note-grid-index',
@@ -149,6 +160,17 @@ const emit = defineEmits([
   'undo',
   'redo',
 ])
+
+const zoomLocal = computed({
+  get: () => props.zoomPxPerBlock,
+  set: (v) => emit('update-zoom', Number(v)),
+})
+
+const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
+
+const visibleTracks = computed(() => {
+  return Array.isArray(props.tracks) ? props.tracks : []
+})
 
 const selection = useSelectionStore()
 
@@ -277,8 +299,7 @@ onBeforeUnmount(() => {
 
 const trackMinWidthPx = computed(() => {
   const blocks = Math.max(1, Number(props.totalBlocks) || 1)
-  const zoom = Math.max(8, Number(props.zoomPxPerBlock) || 50)
-  return blocks * zoom
+  return blocks * zoomPx.value
 })
 
 const timePerBlockMs = computed(() => {
@@ -334,6 +355,15 @@ const barBeatLabel = computed(() => {
   border-radius: 4px;
   border: 1px solid #ddd;
   overflow: hidden;
+}
+
+.timeline.is-collapsed :deep(.timeline-track) {
+  /* Collapse height to one third of the normal row height (44px). */
+  height: calc(44px / 3);
+}
+
+.timeline.is-collapsed :deep(.note-label) {
+  display: none;
 }
 
 .timeline-scroll {
@@ -416,6 +446,15 @@ const barBeatLabel = computed(() => {
   width: 200px;
   justify-content: center;
   font-variant-numeric: tabular-nums;
+}
+
+.zoom-status {
+  min-width: 320px;
+}
+
+.zoom-slider {
+  width: 240px;
+  max-width: 40vw;
 }
 
 .marquee {

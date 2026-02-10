@@ -53,8 +53,9 @@ const trackEl = ref(null)
 const isScrubbing = ref(false)
 
 const trackStyle = computed(() => {
-  const minWidth = Number(props.trackMinWidthPx) || 0
-  return minWidth > 0 ? { minWidth: `${minWidth}px` } : {}
+  const w = Number(props.trackMinWidthPx) || 0
+  // Use a fixed width so zoom-in AND zoom-out are visible.
+  return w > 0 ? { width: `${w}px`, minWidth: `${w}px` } : {}
 })
 
 const playheadPercent = computed(() => {
@@ -142,14 +143,14 @@ function getNoteColor(fret) {
 <style scoped>
 .string-line {
   display: flex;
-  border-bottom: 1px solid #eee;
+  border-bottom: 0;
 }
 
 .string-label {
   width: 96px;
   min-width: 96px;
   max-width: 96px;
-  padding: 10px;
+  padding: 0 10px;
   font-weight: bold;
   color: #666;
   background: #f0f0f0;
@@ -178,7 +179,20 @@ function getNoteColor(fret) {
 .timeline-track {
   position: relative;
   flex: 1;
-  height: 60px;
+  height: 44px;
+}
+
+.timeline-track::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(70, 70, 70, 0.35);
+  transform: translateY(-0.5px);
+  pointer-events: none;
+  z-index: 4;
 }
 
 .timeline-track {

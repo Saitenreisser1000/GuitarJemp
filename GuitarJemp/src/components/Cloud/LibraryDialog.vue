@@ -157,14 +157,16 @@ watch(
 </script>
 
 <template>
-    <v-dialog v-model="open" max-width="860">
-        <v-card rounded="lg">
-            <v-card-title class="d-flex align-center justify-space-between">
-                <span>Cloud Library</span>
+    <v-navigation-drawer v-model="open" location="right" temporary width="860">
+        <div class="d-flex flex-column h-100">
+            <div class="d-flex align-center justify-space-between px-4 py-3">
+                <div class="text-h6">Cloud Library</div>
                 <v-btn icon="mdi-close" variant="text" @click="open = false" />
-            </v-card-title>
+            </div>
 
-            <v-card-text>
+            <v-divider />
+
+            <div class="pa-4 flex-grow-1" style="overflow: auto">
                 <v-alert v-if="!auth.isSignedIn" type="info" variant="tonal" class="mb-4">
                     Bitte einloggen, um Songs/Übungen zu speichern und zu teilen.
                 </v-alert>
@@ -239,7 +241,7 @@ watch(
                         Freundschaft). "Geteilt" sind Items, die via Share-Tabelle sichtbar sind.
                     </v-alert>
                 </template>
-            </v-card-text>
-        </v-card>
-    </v-dialog>
+            </div>
+        </div>
+    </v-navigation-drawer>
 </template>

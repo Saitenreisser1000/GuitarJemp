@@ -3,16 +3,19 @@
     :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop" :beat-bottom="beatBottom"
     :sound-duration-scale="soundDurationScale" :active-string="activeString" :active-tool="activeTool"
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
-    :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" @toggle-play="togglePlay"
+    :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
+    :num-frets="numFrets" :strings-collapsed="stringsCollapsed" @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
-    @update-beat-bottom="settings.setBeatBottom" @update-note-grid-index="handleUpdateNoteGridIndex"
-    @update-note-length="handleUpdateNoteLength" @group-move-notes="handleGroupMoveNotes"
-    @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead" @copy-selection="handleCopySelection"
-    @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo" @redo="handleRedo" :compact="compact" />
+    @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
+    @update-strings-collapsed="settings.setStringsCollapsed" @update-frets="(v) => emit('update-frets', v)"
+    @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
+    @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
+    @copy-selection="handleCopySelection" @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo"
+    @redo="handleRedo" :compact="compact" />
 </template>
 
 <script setup>
@@ -36,7 +39,10 @@ import { createNoteKey } from '@/domain/note'
 
 defineProps({
   compact: { type: Boolean, default: false },
+  numFrets: { type: Number, default: 12 },
 })
+
+const emit = defineEmits(['update-frets'])
 
 const store = useNotesStore()
 const transport = useTransportStore()
@@ -55,6 +61,7 @@ const {
   soundDurationScale,
   activeString,
   activeTool,
+  stringsCollapsed,
   loopEnabled,
   beatTop,
   beatBottom,
@@ -231,7 +238,9 @@ function handlePasteAtPlayhead() {
 
   store.pushUndoPoint('paste')
 
-  const minGrid = Math.min(...items.map((n) => Number(n.gridIndex)).filter((v) => Number.isFinite(v)))
+  const minGrid = Math.min(
+    ...items.map((n) => Number(n.gridIndex)).filter((v) => Number.isFinite(v)),
+  )
   const safeMinGrid = Number.isFinite(minGrid) ? minGrid : 1
 
   // End edge of the group relative to safeMinGrid (in blocks).
@@ -243,7 +252,7 @@ function handlePasteAtPlayhead() {
       const len = Number(n.lengthBlocks)
       const safeStart = Number.isFinite(start) && start > 0 ? start : safeMinGrid
       const safeLen = Number.isFinite(len) && len > 0 ? len : 1
-      return (safeStart - safeMinGrid) + safeLen
+      return safeStart - safeMinGrid + safeLen
     }),
   )
 
@@ -272,7 +281,7 @@ function handlePasteAtPlayhead() {
   // Move playhead to the end of the pasted group.
   // Do this after reactive totals update so seekPlayhead doesn't get clamped to the old duration.
   const timePerBlock = Number(grid.grid.value.timePerBlock) || DEFAULT_TIME_PER_BLOCK_MS
-  const endMs = Math.max(0, ((base - 1) + endEdge) * timePerBlock)
+  const endMs = Math.max(0, (base - 1 + endEdge) * timePerBlock)
   void nextTick().then(() => seekPlayhead(endMs))
 }
 

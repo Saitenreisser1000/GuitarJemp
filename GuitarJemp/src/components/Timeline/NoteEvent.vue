@@ -1,15 +1,7 @@
 <template>
-  <div
-    class="note-event"
-    :class="{ 'is-selected': isSelected }"
-    :data-note-key="note?.key"
-    :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }"
-    :title="title"
-    @pointerdown="onPointerDown"
-    @pointermove="onPointerMove"
-    @pointerup="onPointerUp"
-    @pointercancel="onPointerUp"
-  >
+  <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
+    :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }" :title="title"
+    @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
     <div class="note-label">
       <span class="fret-number">{{ note.fret }}</span>
       <span v-if="pitchLabel" class="pitch-label">{{ pitchLabel }}</span>
@@ -265,8 +257,8 @@ function onPointerUp() {
 <style scoped>
 .note-event {
   position: absolute;
-  height: 40px;
-  top: 10px;
+  height: 100%;
+  top: 0;
   border-radius: 4px;
   border: 2px solid transparent;
   display: flex;

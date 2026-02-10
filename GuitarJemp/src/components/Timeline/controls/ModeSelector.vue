@@ -9,74 +9,53 @@
         </v-btn>
       </v-btn-toggle>
 
-      <div class="d-flex align-center ga-2">
-        <div class="text-subtitle-2 text-medium-emphasis">töne:</div>
-        <v-text-field
-          v-model="soundDurationLocal"
-          density="compact"
-          hide-details
-          type="number"
-          min="0.1"
-          step="0.1"
-          style="width: 84px"
-        />
-      </div>
+      <div class="ms-auto d-flex align-center ga-2">
+        <v-menu location="bottom end" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" density="compact" variant="tonal"> Optionen </v-btn>
+          </template>
 
-      <div class="ms-auto d-flex align-center flex-wrap ga-3">
-        <div class="d-flex flex-column ga-2" style="min-width: 220px">
-          <div class="text-caption text-medium-emphasis">Zoom</div>
-          <v-slider
-            v-model="zoomLocal"
-            density="compact"
-            hide-details
-            min="12"
-            max="120"
-            step="2"
-          />
-        </div>
+          <v-card class="pa-3" min-width="320">
+            <div class="d-flex flex-column ga-3">
+              <div class="d-flex flex-column ga-2">
+                <div class="text-caption text-medium-emphasis">Griffbrett</div>
+                <div class="d-flex ga-2">
+                  <v-text-field v-model="numStringsLocal" density="compact" hide-details type="number" min="1" max="12"
+                    step="1" style="width: 84px" label="Saiten" />
 
-        <div class="d-flex flex-column ga-2">
-          <div class="text-caption text-medium-emphasis">Beat</div>
-          <div class="d-flex ga-2">
-            <v-text-field
-              density="compact"
-              hide-details
-              type="number"
-              min="1"
-              step="1"
-              style="width: 84px"
-              :model-value="beatTop"
-              @update:model-value="updateBeatTop"
-            />
+                  <v-text-field v-model="numFretsLocal" density="compact" hide-details type="number" min="1" max="24"
+                    step="1" style="width: 84px" label="Bünde" />
+                </div>
+              </div>
 
-            <v-select
-              density="compact"
-              hide-details
-              style="width: 84px"
-              :items="beatBottomItems"
-              :model-value="beatBottom"
-              @update:model-value="updateBeatBottom"
-            />
-          </div>
-        </div>
+              <v-switch density="compact" hide-details inset label="Saiten einklappen" :model-value="stringsCollapsed"
+                @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
 
-        <v-switch
-          density="compact"
-          hide-details
-          inset
-          label="Snap"
-          :model-value="snapEnabled"
-          @update:model-value="(v) => emit('update-snap', Boolean(v))"
-        />
+              <div class="d-flex align-center ga-2">
+                <div class="text-caption text-medium-emphasis">Tondauer</div>
+                <v-text-field v-model="soundDurationLocal" density="compact" hide-details type="number" min="0.1"
+                  step="0.1" style="width: 92px" />
+              </div>
 
-        <v-switch
-          density="compact"
-          hide-details
-          inset
-          label="Sound"
-          :model-value="soundPreviewEnabled"
-          @update:model-value="(v) => emit('update-sound-preview', Boolean(v))"
-        />
+              <div class="d-flex flex-column ga-2">
+                <div class="text-caption text-medium-emphasis">Beat</div>
+                <div class="d-flex ga-2">
+                  <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
+                    :model-value="beatTop" @update:model-value="updateBeatTop" />
+
+                  <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
+                    :model-value="beatBottom" @update:model-value="updateBeatBottom" />
+                </div>
+              </div>
+
+              <v-switch density="compact" hide-details inset label="Snap" :model-value="snapEnabled"
+                @update:model-value="(v) => emit('update-snap', Boolean(v))" />
+
+              <v-switch density="compact" hide-details inset label="Sound" :model-value="soundPreviewEnabled"
+                @update:model-value="(v) => emit('update-sound-preview', Boolean(v))" />
+            </div>
+          </v-card>
+        </v-menu>
       </div>
     </div>
   </v-card>
@@ -92,7 +71,9 @@ const props = defineProps({
   soundDurationScale: { type: Number, default: 1 },
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
-  zoomPxPerBlock: { type: Number, default: 50 },
+  numStrings: { type: Number, default: 6 },
+  numFrets: { type: Number, default: 12 },
+  stringsCollapsed: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -102,7 +83,9 @@ const emit = defineEmits([
   'update-sound-duration-scale',
   'update-beat-top',
   'update-beat-bottom',
-  'update-zoom',
+  'update-num-strings',
+  'update-frets',
+  'update-strings-collapsed',
 ])
 
 const labels = ['1/16', '1/8', '1/4', '1/2', '1', 'sim']
@@ -114,14 +97,19 @@ const modeLocal = computed({
   set: (v) => emit('update-mode', String(v)),
 })
 
-const zoomLocal = computed({
-  get: () => props.zoomPxPerBlock,
-  set: (v) => emit('update-zoom', Number(v)),
-})
-
 const soundDurationLocal = computed({
   get: () => props.soundDurationScale,
   set: (v) => emit('update-sound-duration-scale', Number(v)),
+})
+
+const numStringsLocal = computed({
+  get: () => props.numStrings,
+  set: (v) => emit('update-num-strings', Number(v)),
+})
+
+const numFretsLocal = computed({
+  get: () => props.numFrets,
+  set: (v) => emit('update-frets', Number(v)),
 })
 
 function updateBeatTop(v) {
