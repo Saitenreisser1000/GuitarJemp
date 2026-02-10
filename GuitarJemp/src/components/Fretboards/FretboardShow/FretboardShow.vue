@@ -1,43 +1,20 @@
 <template>
   <div ref="rootEl" class="fretboard-js">
     <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
-      <RealisticFretboardBackground
-        class="fb-layer fb-bg"
-        :width="FB_WIDTH"
-        :height="FB_HEIGHT"
-        :nut-width="NUT_WIDTH"
-        :fret-count="props.numFrets"
-        :string-count="instrument.numStrings"
-      />
+      <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
+        :fret-count="props.numFrets" :string-count="instrument.numStrings" />
 
-      <svg
-        ref="overlayEl"
-        class="fb-layer fb-overlay"
-        :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
-        preserveAspectRatio="none"
-        style="overflow: visible"
-        @mousemove="onMouseMove"
-        @mouseleave="onMouseLeave"
-        @click="onClick"
-      >
+      <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
+        preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
+        @click="onClick">
         <!-- transparent hit-area -->
         <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
 
         <!-- String numbers -->
         <g class="fb-string-labels">
-          <text
-            v-for="s in strings"
-            :key="`string-label-${s.string}`"
-            :x="-10"
-            :y="s.y + 4"
-            text-anchor="end"
-            font-size="12"
-            font-weight="800"
-            fill="rgba(255,255,255,0.9)"
-            stroke="rgba(0,0,0,0.45)"
-            stroke-width="2"
-            paint-order="stroke"
-          >
+          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
+            font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
+            paint-order="stroke">
             {{ stringLabelFor(s.string) }}
           </text>
         </g>
@@ -45,50 +22,25 @@
         <!-- Dots -->
         <g class="fb-dots">
           <!-- Hover preview for inactive positions (editor only) -->
-          <circle
-            v-if="hoveredPreviewDot"
-            :cx="dotX(hoveredPreviewDot)"
-            :cy="dotY(hoveredPreviewDot)"
-            :r="previewR()"
-            fill="transparent"
-            stroke="rgba(255,255,255,0.85)"
-            stroke-width="3"
-            style="pointer-events: none"
-          />
+          <circle v-if="hoveredPreviewDot" :cx="dotX(hoveredPreviewDot)" :cy="dotY(hoveredPreviewDot)" :r="previewR()"
+            fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
 
-          <circle
-            v-for="d in dotsForRender"
-            :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`"
-            :cx="dotX(d)"
-            :cy="dotY(d)"
-            :r="dotR(d)"
-            :fill="dotFill(d)"
-            :opacity="dotOpacity(d)"
-            :stroke="dotStroke(d)"
-            :stroke-width="dotStrokeWidth(d)"
-            @mouseenter="onDotEnter(d, $event)"
-            @mouseleave="onDotLeave(d)"
-          />
+          <circle v-for="d in dotsForRender" :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="dotX(d)"
+            :cy="dotY(d)" :r="dotR(d)" :fill="dotFill(d)" :opacity="dotOpacity(d)" :stroke="dotStroke(d)"
+            :stroke-width="dotStrokeWidth(d)" @mouseenter="onDotEnter(d, $event)" @mouseleave="onDotLeave(d)"
+            @click="onDotClick(d, $event)" />
         </g>
       </svg>
     </div>
 
     <div class="fb-fret-numbers" aria-hidden="true">
-      <span
-        v-for="l in fretLabels"
-        :key="`fret-label-${l.fret}`"
-        class="fb-fret-number"
-        :style="{ left: `${l.xPct}%` }"
-      >
+      <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+        :style="{ left: `${l.xPct}%` }">
         {{ l.fret }}
       </span>
     </div>
 
-    <div
-      v-if="tooltip.visible"
-      class="fb-tooltip"
-      :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
-    >
+    <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
     </div>
   </div>
@@ -147,32 +99,21 @@ function posKeyForNote(note) {
   return `${string}-${fret}`
 }
 
-const highlightedPosKeySet = computed(() => {
+const highlightedNoteKeySet = computed(() => {
   const keys = Array.isArray(highlightedNoteKeys.value) ? highlightedNoteKeys.value : []
-  if (keys.length === 0) return new Set()
-
-  const set = new Set()
-  for (const noteKey of keys) {
-    const note = store.activeNotes.find((n) => n?.key === noteKey)
-    const posKey = posKeyForNote(note)
-    if (posKey) set.add(posKey)
-  }
-  return set
+  return new Set(keys.map((k) => String(k)))
 })
 
-const pulseStartedAtByPosKey = computed(() => {
+const pulseStartedAtByNoteKey = computed(() => {
   const m = new Map()
   for (const p of pulseStarts.value) {
     const noteKey = p?.key
     const startedAtMs = Number(p?.startedAtMs)
     if (!noteKey || !Number.isFinite(startedAtMs)) continue
 
-    const note = store.activeNotes.find((n) => n?.key === noteKey)
-    const posKey = posKeyForNote(note)
-    if (!posKey) continue
-
-    const prev = m.get(posKey)
-    if (prev == null || startedAtMs > prev) m.set(posKey, startedAtMs)
+    const k = String(noteKey)
+    const prev = m.get(k)
+    if (prev == null || startedAtMs > prev) m.set(k, startedAtMs)
   }
   return m
 })
@@ -220,32 +161,212 @@ function stringLabelFor(stringNumber) {
   return stringLabelByNumber.value.get(s) ?? String(stringNumber)
 }
 
-const dotsForRender = computed(() => {
-  // fretboard.js is dot-based; we de-duplicate multiple note-events at the same string/fret.
-  // Keep the most recently placed note for each position.
-  const byPos = new Map()
+// Per string/fret queue of note keys.
+// Queue front is the centered (vorderste) dot: order[0] is centered,
+// order[1] shifts left by one offset, etc.
+const queueOrderByPosKey = ref(new Map())
+
+const defaultOrderByPosKey = computed(() => {
+  const m = new Map()
   for (const note of store.activeNotes) {
     const string = Number(note?.string)
     const fret = Number(note?.fret)
+    const key = String(note?.key ?? '')
+    if (!key) continue
     if (!Number.isFinite(string) || !Number.isFinite(fret)) continue
-    const key = `${string}-${fret}`
-    const prev = byPos.get(key)
-    if (!prev || (Number(note?.placedAtMs) || 0) >= (Number(prev?.placedAtMs) || 0))
-      byPos.set(key, note)
+    const posKey = `${string}-${fret}`
+    const arr = m.get(posKey) ?? []
+    arr.push(note)
+    m.set(posKey, arr)
   }
 
-  return [...byPos.values()].map((note) => ({
-    string: Number(note.string),
-    fret: Number(note.fret),
-    color: note.color,
-    _noteKey: note.key,
-    _kind: 'note',
-  }))
+  const out = new Map()
+  for (const [posKey, notes] of m.entries()) {
+    const items = [...notes]
+    items.sort((a, b) => {
+      const ta = Number(a?.placedAtMs) || 0
+      const tb = Number(b?.placedAtMs) || 0
+      if (ta !== tb) return ta - tb
+      return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+    })
+    // Default queue: newest at front (center).
+    out.set(
+      posKey,
+      items
+        .map((n) => String(n?.key ?? ''))
+        .filter(Boolean)
+        .reverse(),
+    )
+  }
+  return out
+})
+
+// Keep queue state in sync with current notes.
+watch(
+  () => defaultOrderByPosKey.value,
+  (next) => {
+    const prev = queueOrderByPosKey.value
+    const merged = new Map()
+
+    for (const [posKey, defaultKeys] of next.entries()) {
+      const def = Array.isArray(defaultKeys) ? defaultKeys.map(String) : []
+      const defSet = new Set(def)
+
+      const existing = prev.get(posKey) ?? []
+      const kept = existing.map(String).filter((k) => defSet.has(k))
+      const keptSet = new Set(kept)
+      const prepended = def.filter((k) => !keptSet.has(k))
+
+      // New notes should appear at the front/center.
+      merged.set(posKey, [...prepended, ...kept])
+    }
+
+    queueOrderByPosKey.value = merged
+  },
+  { immediate: true },
+)
+
+// Playback queue behavior:
+// - When a dot starts playing, it becomes the queue front (center + top).
+// - When it stops being highlighted, it moves to the back.
+const lastPulseId = ref('')
+watch(
+  () => pulseStarts.value,
+  (arr) => {
+    const p = Array.isArray(arr) ? arr[0] : null
+    const k = p?.key != null ? String(p.key) : ''
+    const startedAtMs = Number(p?.startedAtMs)
+    if (!k || !Number.isFinite(startedAtMs)) return
+
+    const pulseId = `${k}:${startedAtMs}`
+    if (pulseId === lastPulseId.value) return
+    lastPulseId.value = pulseId
+
+    const note = store.activeNotes.find((n) => String(n?.key ?? '') === k)
+    const posKey = posKeyForNote(note)
+    if (!posKey) return
+
+    const order = queueOrderByPosKey.value.get(posKey)
+    if (!Array.isArray(order) || order.length < 2) return
+
+    const idx = order.findIndex((x) => String(x ?? '') === k)
+    if (idx < 0) return
+
+    // Bring played dot to the front (center/top).
+    const rotated = [order[idx], ...order.slice(0, idx), ...order.slice(idx + 1)]
+    const next = new Map(queueOrderByPosKey.value)
+    next.set(posKey, rotated)
+    queueOrderByPosKey.value = next
+  },
+  { deep: true },
+)
+
+let prevHighlightedKeys = new Set()
+watch(
+  () => highlightedNoteKeys.value,
+  (keys) => {
+    if (!isPlaying.value) {
+      prevHighlightedKeys = new Set(Array.isArray(keys) ? keys.map((k) => String(k)) : [])
+      return
+    }
+
+    const next = new Set(Array.isArray(keys) ? keys.map((k) => String(k)) : [])
+    const ended = []
+    for (const k of prevHighlightedKeys) {
+      if (!next.has(k)) ended.push(k)
+    }
+
+    if (ended.length === 0) {
+      prevHighlightedKeys = next
+      return
+    }
+
+    let changed = false
+    const nextQueue = new Map(queueOrderByPosKey.value)
+
+    for (const k of ended) {
+      const note = store.activeNotes.find((n) => String(n?.key ?? '') === k)
+      const posKey = posKeyForNote(note)
+      if (!posKey) continue
+
+      const order = nextQueue.get(posKey)
+      if (!Array.isArray(order) || order.length < 2) continue
+
+      const idx = order.findIndex((x) => String(x ?? '') === k)
+      if (idx < 0) continue
+
+      const rotated = [...order.slice(0, idx), ...order.slice(idx + 1), order[idx]]
+      nextQueue.set(posKey, rotated)
+      changed = true
+    }
+
+    if (changed) queueOrderByPosKey.value = nextQueue
+    prevHighlightedKeys = next
+  },
+  { deep: true, immediate: true },
+)
+
+const dotsForRender = computed(() => {
+  const out = []
+
+  // Render order per position is driven by a queue (see queueOrderByPosKey).
+  // This allows rotating the visual stack when notes are played.
+  const notesByPos = new Map()
+  for (const note of store.activeNotes) {
+    const string = Number(note?.string)
+    const fret = Number(note?.fret)
+    const key = String(note?.key ?? '')
+    if (!key) continue
+    if (!Number.isFinite(string) || !Number.isFinite(fret)) continue
+    const posKey = `${string}-${fret}`
+    const arr = notesByPos.get(posKey) ?? []
+    arr.push(note)
+    notesByPos.set(posKey, arr)
+  }
+
+  for (const [posKey, notes] of notesByPos.entries()) {
+    const items = Array.isArray(notes) ? [...notes] : []
+    const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
+    const order = queueOrderByPosKey.value.get(posKey) ?? []
+    const visibleLimit = props.editable ? Infinity : 2
+    const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
+
+    const [stringRaw, fretRaw] = String(posKey).split('-')
+    const string = Number(stringRaw)
+    const fret = Number(fretRaw)
+
+    const count = keys.length
+    // Draw order: back-to-front so queue front (index 0) is rendered on top.
+    for (let i = count - 1; i >= 0; i--) {
+      const key = String(keys[i] ?? '')
+      const note = byKey.get(key)
+      if (!note) continue
+      out.push({
+        string,
+        fret,
+        color: note?.color,
+        _noteKey: note?.key,
+        _placedAtMs: Number(note?.placedAtMs) || 0,
+        _stackIndex: i,
+        _stackCount: count,
+        _kind: 'note',
+      })
+    }
+  }
+
+  return out
 })
 
 const noteDotByPosKey = computed(() => {
   const m = new Map()
-  for (const d of dotsForRender.value) m.set(`${Number(d.string)}-${Number(d.fret)}`, d)
+  for (const d of dotsForRender.value) {
+    const key = `${Number(d.string)}-${Number(d.fret)}`
+    // Pick queue front (center) for show-mode selection.
+    const prev = m.get(key)
+    const i = Number(d?._stackIndex)
+    const pi = Number(prev?._stackIndex)
+    if (!prev || (Number.isFinite(i) && Number.isFinite(pi) && i < pi)) m.set(key, d)
+  }
   return m
 })
 
@@ -287,14 +408,6 @@ function hideTooltip() {
   if (!tooltip.value.visible) return
   tooltip.value = { ...tooltip.value, visible: false }
 }
-
-const selectedPos = computed(() => {
-  const key = selection.selectedNoteKey
-  if (!key) return null
-  const note = store.activeNotes.find((n) => n?.key === key)
-  if (!note) return null
-  return { string: Number(note.string), fret: Number(note.fret) }
-})
 
 function generateFretsPercent({ fretCount, scaleFrets }) {
   const n = Math.max(1, Number(fretCount) || 1)
@@ -502,15 +615,23 @@ function posKeyForDot(d) {
   return `${Number(d?.string)}-${Number(d?.fret)}`
 }
 
+function noteKeyForDot(d) {
+  return d?._noteKey ? String(d._noteKey) : null
+}
+
+function hoverKeyForDot(d) {
+  return noteKeyForDot(d) ?? posKeyForDot(d)
+}
+
 function isDotHovered(d) {
-  const key = posKeyForDot(d)
-  return hoveredDotKey.value === key || hoveredPosKey.value === key
+  const key = hoverKeyForDot(d)
+  return hoveredDotKey.value === key
 }
 
 function onDotEnter(d, event) {
-  const key = posKeyForDot(d)
+  const key = hoverKeyForDot(d)
   hoveredDotKey.value = key
-  hoveredPosKey.value = key
+  hoveredPosKey.value = posKeyForDot(d)
   hoveredFret.value = Number(d?.fret)
 
   const t = tuning.value
@@ -522,10 +643,45 @@ function onDotEnter(d, event) {
 }
 
 function onDotLeave(d) {
-  const key = posKeyForDot(d)
+  const key = hoverKeyForDot(d)
   if (hoveredDotKey.value === key) hoveredDotKey.value = null
   // leave hoveredPosKey to mousemove (field hover) or mouseleave
   hideTooltip()
+}
+
+function onDotClick(d, event) {
+  const noteKey = noteKeyForDot(d)
+  if (!noteKey) return
+
+  const isShift = Boolean(event?.shiftKey)
+
+  // In edit mode, a normal click should still add a new note (stacking), so we let it bubble.
+  // Shift-click toggles selection without creating a note.
+  // In show mode, clicking a dot should always address exactly this dot.
+  if (!props.editable || isShift) event?.stopPropagation?.()
+
+  if (isShift) selection.toggleNoteInSelection(noteKey)
+  else selection.selectNote(noteKey)
+
+  // Preview sound only on normal click (matching existing behavior).
+  if (isShift || !settings.soundPreviewEnabled) return
+
+  const fret = Number(d?.fret)
+  const string = Number(d?.string)
+  const t = tuning.value
+  const midi = midiForFretString({ fret, string }, t)
+  if (!Number.isFinite(Number(midi))) return
+
+  const note = store.activeNotes.find((n) => String(n?.key ?? '') === String(noteKey))
+  const durationPlayheadMs = store.getNoteDurationMs(note)
+
+  const tempoValue = Number(transport.tempo) || 120
+  const tempoScale = 120 / tempoValue
+  const durScale = Number(settings.soundDurationScale)
+  const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+  const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+
+  void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
 }
 
 function dotX(d) {
@@ -534,12 +690,12 @@ function dotX(d) {
   const max = Math.min(fret, Number(props.numFrets) || 12)
 
   // Open-string dot: on the nut.
-  if (max === 0) return NUT_WIDTH / 2
+  if (max === 0) return NUT_WIDTH / 2 + dotOffset(d).dx
 
   // Fret n dot belongs to the field between (n-1) and n.
   const left = max === 1 ? NUT_WIDTH : Number(lines[max - 1] ?? 0)
   const right = Number(lines[max] ?? FB_WIDTH)
-  return (left + right) / 2
+  return (left + right) / 2 + dotOffset(d).dx
 }
 
 function dotY(d) {
@@ -548,41 +704,52 @@ function dotY(d) {
   return Number(s?.y) || 0
 }
 
+function dotOffset(d) {
+  const count = Number(d?._stackCount) || 1
+  if (count <= 1) return { dx: 0, dy: 0 }
+
+  const iRaw = Number(d?._stackIndex) || 0
+  const i = Math.max(0, Math.floor(iRaw))
+
+  // Only horizontal offsets (requested): keep y aligned to the string.
+  // Stack direction: only to the left.
+  // Queue front is centered (dx=0); subsequent items shift left by OX each.
+  const OX = 3.5
+  return { dx: -i * OX, dy: 0 }
+}
+
 function dotFill(d) {
   return d?.color ?? 'white'
 }
 
 function dotOpacity(d) {
   if (!isPlaying.value) return 1
-  const posKey = posKeyForDot(d)
-  return highlightedPosKeySet.value.has(posKey) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
+  const nk = noteKeyForDot(d)
+  if (!nk) return FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
+  return highlightedNoteKeySet.value.has(nk) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
 }
 
 function dotStroke(d) {
-  const key = posKeyForDot(d)
+  const hk = hoverKeyForDot(d)
   const hoverStroke =
-    hoveredPosKey.value === key ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
+    hoveredDotKey.value === hk ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
 
-  const s = selectedPos.value
-  if (s && Number(s.string) === Number(d?.string) && Number(s.fret) === Number(d?.fret)) {
-    return 'rgba(20, 20, 20, 0.95)'
-  }
+  const nk = noteKeyForDot(d)
+  if (nk && String(selection.selectedNoteKey || '') === nk) return 'rgba(20, 20, 20, 0.95)'
 
   return hoverStroke
 }
 
 function dotStrokeWidth(d) {
-  const key = posKeyForDot(d)
-  let w = hoveredPosKey.value === key ? 4 : 2
+  const hk = hoverKeyForDot(d)
+  let w = hoveredDotKey.value === hk ? 4 : 2
 
   if (isDotHovered(d)) w = Math.max(w, 4)
 
-  const s = selectedPos.value
-  if (s && Number(s.string) === Number(d?.string) && Number(s.fret) === Number(d?.fret)) {
-    w = 4
-  }
+  const nk = noteKeyForDot(d)
+  if (nk && String(selection.selectedNoteKey || '') === nk) w = 4
 
-  const startedAt = pulseStartedAtByPosKey.value.get(key)
+  const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
   if (!Number.isFinite(startedAt)) return w
 
   const dt = animNowMs.value - startedAt
@@ -594,9 +761,10 @@ function dotStrokeWidth(d) {
 }
 
 function dotR(d) {
-  const key = posKeyForDot(d)
-  const baseR = DOT_BASE_R * (hoveredPosKey.value === key ? DOT_HOVER_R_FACTOR : 1)
-  const startedAt = pulseStartedAtByPosKey.value.get(key)
+  const hk = hoverKeyForDot(d)
+  const baseR = DOT_BASE_R * (hoveredDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
+  const nk = noteKeyForDot(d)
+  const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
   if (!Number.isFinite(startedAt)) return baseR
 
   const dt = animNowMs.value - startedAt
@@ -623,8 +791,15 @@ onBeforeUnmount(() => {
 watch(
   () => isPlaying.value,
   (playing) => {
-    if (playing) startAnim()
-    else {
+    if (playing) {
+      // Clear hover/tooltip markings when playback starts.
+      hoveredFret.value = null
+      hoveredPosKey.value = null
+      hoveredDotKey.value = null
+      hideTooltip()
+      startAnim()
+      return
+    } else {
       stopAnim()
       animNowMs.value = performance.now()
     }

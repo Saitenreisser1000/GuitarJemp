@@ -40,6 +40,34 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedNoteKey.value = keys[0] ?? null
   }
 
+  function addNoteToSelection(noteKey, { makePrimary = true } = {}) {
+    const key = noteKey != null ? String(noteKey) : ''
+    if (!key) return
+
+    const existing = Array.isArray(selectedNoteKeys.value) ? selectedNoteKeys.value : []
+    const next = normalizeKeys([key, ...existing])
+    selectedNoteKeys.value = next
+    if (makePrimary) selectedNoteKey.value = key
+    else if (!selectedNoteKey.value) selectedNoteKey.value = key
+  }
+
+  function toggleNoteInSelection(noteKey) {
+    const key = noteKey != null ? String(noteKey) : ''
+    if (!key) return
+
+    const existing = Array.isArray(selectedNoteKeys.value) ? selectedNoteKeys.value : []
+    const has = existing.includes(key)
+
+    if (!has) {
+      addNoteToSelection(key)
+      return
+    }
+
+    const next = existing.filter((k) => String(k) !== key)
+    selectedNoteKeys.value = next
+    if (selectedNoteKey.value === key) selectedNoteKey.value = next[0] ?? null
+  }
+
   function isSelected(noteKey) {
     const key = noteKey != null ? String(noteKey) : ''
     if (!key) return false
@@ -112,6 +140,8 @@ export const useSelectionStore = defineStore('selection', () => {
     groupResizeActive,
     groupResizeDeltaBlocks,
     selectNote,
+    addNoteToSelection,
+    toggleNoteInSelection,
     setSelectedNotes,
     isSelected,
     clearSelection,

@@ -13,6 +13,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
+import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
@@ -33,6 +34,7 @@ const props = defineProps({
 const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'group-resize'])
 
 const selection = useSelectionStore()
+const notesStore = useNotesStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
@@ -40,6 +42,46 @@ const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
 )
+
+function selectForwardFromHere({ allStrings = false } = {}) {
+  const key = props.note?.key
+  if (!key) return
+
+  const startGridIndex = Number(props.note?.gridIndex)
+  const string = Number(props.note?.string)
+  if (!Number.isFinite(startGridIndex) || (!allStrings && !Number.isFinite(string))) {
+    selection.selectNote(key)
+    return
+  }
+
+  const candidates = Array.isArray(notesStore.activeNotes) ? notesStore.activeNotes : []
+  const laterOrEqual = candidates
+    .filter((n) => (allStrings ? true : Number(n?.string) === string))
+    .filter((n) => {
+      const gi = Number(n?.gridIndex)
+      return Number.isFinite(gi) && gi >= startGridIndex
+    })
+
+  laterOrEqual.sort((a, b) => {
+    const ga = Number(a?.gridIndex) || 0
+    const gb = Number(b?.gridIndex) || 0
+    if (ga !== gb) return ga - gb
+    const ta = Number(a?.placedAtMs) || 0
+    const tb = Number(b?.placedAtMs) || 0
+    if (ta !== tb) return ta - tb
+    return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+  })
+
+  const keys = laterOrEqual
+    .map((n) => n?.key)
+    .filter(Boolean)
+    .map((k) => String(k))
+
+  // Make clicked note primary by placing it first.
+  const clicked = String(key)
+  const next = [clicked, ...keys.filter((k) => k !== clicked)]
+  selection.setSelectedNotes(next)
+}
 
 const pitchLabel = computed(() => {
   const t = getTuning(instrument.tuningId)
@@ -108,8 +150,17 @@ function clampInt(v, min, max) {
 function onPointerDown(e) {
   if (isResizing.value) return
   const key = props.note?.key
-  // Preserve multi-selection when dragging any already-selected note.
-  if (key && !selection.isSelected(key)) selection.selectNote(key)
+  // Selection behavior:
+  // - Cmd+Option+Shift+click: select this and all following notes (all strings)
+  // - Shift+Option+click: select this and all following notes (same string)
+  // - Shift+click: toggle add/remove (multi-select)
+  // - Normal click: select single note (unless already selected)
+  if (key) {
+    if (e?.shiftKey && e?.altKey && e?.metaKey) selectForwardFromHere({ allStrings: true })
+    else if (e?.shiftKey && e?.altKey) selectForwardFromHere({ allStrings: false })
+    else if (e?.shiftKey) selection.toggleNoteInSelection(key)
+    else if (!selection.isSelected(key)) selection.selectNote(key)
+  }
 
   if (settings.soundPreviewEnabled) {
     const t = getTuning(instrument.tuningId)
@@ -159,8 +210,12 @@ function onPointerDown(e) {
 function onResizePointerDown(e) {
   if (isDragging.value) return
   const key = props.note?.key
-  // Preserve multi-selection when resizing any already-selected note.
-  if (key && !selection.isSelected(key)) selection.selectNote(key)
+  if (key) {
+    if (e?.shiftKey && e?.altKey && e?.metaKey) selectForwardFromHere({ allStrings: true })
+    else if (e?.shiftKey && e?.altKey) selectForwardFromHere({ allStrings: false })
+    else if (e?.shiftKey) selection.toggleNoteInSelection(key)
+    else if (!selection.isSelected(key)) selection.selectNote(key)
+  }
   const handleEl = e.currentTarget
   const noteEl = handleEl?.closest?.('.note-event')
   const track = handleEl.closest('.timeline-track')

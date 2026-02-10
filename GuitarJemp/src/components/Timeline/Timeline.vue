@@ -348,6 +348,11 @@ function togglePlay() {
     return
   }
 
+  // When starting playback, remove any UI markings (selection / drag previews / leftover pulses).
+  selection.clearGroupTransforms()
+  selection.clearSelection()
+  playbackVisuals.clear()
+
   // If we're at/after the end, restart from 0.
   if (Number(playhead.value) >= Number(totalDuration.value || 0)) {
     seekPlayhead(0)
