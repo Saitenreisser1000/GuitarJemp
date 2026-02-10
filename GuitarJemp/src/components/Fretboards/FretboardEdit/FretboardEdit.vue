@@ -31,7 +31,7 @@ const emit = defineEmits(['update-frets'])
 
 <style scoped>
 .fretboard-container {
-  padding: 20px;
+  padding: 8px;
 }
 
 .top-tools {
@@ -42,7 +42,7 @@ const emit = defineEmits(['update-frets'])
 
 .fretboard {
   flex: 1;
-  margin-top: 10px;
+  margin-top: 4px;
   max-width: 100%;
 }
 </style>

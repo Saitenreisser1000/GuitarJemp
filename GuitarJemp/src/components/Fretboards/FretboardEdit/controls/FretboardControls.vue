@@ -70,8 +70,8 @@ watch(
 <style scoped>
 .controls {
   display: flex;
-  gap: 20px;
-  padding: 10px 0;
+  gap: 12px;
+  padding: 6px 0;
   align-items: center;
   flex-wrap: wrap;
 }

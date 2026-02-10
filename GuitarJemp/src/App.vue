@@ -25,12 +25,16 @@ const library = useLibraryStore()
 const authOpen = ref(false)
 const libraryOpen = ref(false)
 const connectionsOpen = ref(false)
+
+// Temporarily hide instrument type toggle (Guitar/Bass/Ukulele).
+const showInstrumentTypeToggle = false
+
 const instrumentType = computed({
   get: () => instrument.instrumentType,
   set: (v) => instrument.setInstrumentType(v),
 })
 
-const fretboardMode = ref('show')
+const fretboardMode = ref('editor')
 const numFrets = ref(12)
 
 const saveBusy = ref(false)
@@ -213,6 +217,29 @@ async function onSaveCloud() {
         <v-spacer />
 
         <div class="d-flex flex-wrap align-center ga-2">
+          <v-btn-toggle v-model="fretboardMode" mandatory divided>
+            <v-btn value="editor" size="small" variant="tonal">Editor</v-btn>
+            <v-btn value="show" size="small" variant="tonal">Show</v-btn>
+          </v-btn-toggle>
+
+          <template v-if="fretboardMode === 'editor'">
+            <v-btn size="small" variant="tonal" prepend-icon="mdi-restore" :disabled="!canReset"
+              title="Änderungen verwerfen" @click="onResetChanges">
+              Reset
+            </v-btn>
+
+            <v-btn size="small" variant="tonal" prepend-icon="mdi-content-save-plus" :disabled="!canSaveAsNew"
+              title="Als neues Item speichern" @click="openSaveAsNew">
+              Save as new
+            </v-btn>
+
+            <v-btn size="small" color="secondary" variant="flat" prepend-icon="mdi-content-save"
+              :disabled="!canSave || saveBusy" :title="saveDisabledReason || 'In Cloud Library speichern'"
+              @click="onSaveCloud">
+              Save
+            </v-btn>
+          </template>
+
           <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
             Cloud: nicht konfiguriert
           </v-chip>
@@ -238,42 +265,20 @@ async function onSaveCloud() {
 
       <v-main>
         <div class="app-shell">
-          <v-container fluid class="py-6">
+          <v-container fluid class="py-2">
             <header class="text-center text-white">
               <h1 class="app-title">GuitarJemp</h1>
 
-              <div class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
+              <div v-if="showInstrumentTypeToggle" class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
                 <v-btn-toggle v-model="instrumentType" mandatory divided>
                   <v-btn value="guitar" variant="tonal">Guitar</v-btn>
                   <v-btn value="bass" variant="tonal">Bass</v-btn>
                   <v-btn value="ukulele" variant="tonal">Ukulele</v-btn>
                 </v-btn-toggle>
-
-                <v-btn-toggle v-model="fretboardMode" mandatory divided>
-                  <v-btn value="editor" variant="tonal">Editor</v-btn>
-                  <v-btn value="show" variant="tonal">Show</v-btn>
-                </v-btn-toggle>
-
-                <div v-if="fretboardMode === 'editor'" class="d-flex align-center ga-2">
-                  <v-btn variant="tonal" prepend-icon="mdi-restore" :disabled="!canReset" title="Änderungen verwerfen"
-                    @click="onResetChanges">
-                    Reset
-                  </v-btn>
-
-                  <v-btn variant="tonal" prepend-icon="mdi-content-save-plus" :disabled="!canSaveAsNew"
-                    title="Als neues Item speichern" @click="openSaveAsNew">
-                    Save as new
-                  </v-btn>
-
-                  <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" :disabled="!canSave || saveBusy"
-                    :title="saveDisabledReason || 'In Cloud Library speichern'" @click="onSaveCloud">
-                    Save
-                  </v-btn>
-                </div>
               </div>
             </header>
 
-            <v-row class="mt-6" align="start" justify="center" dense>
+            <v-row class="mt-2" align="start" justify="center" dense>
               <v-col cols="12">
                 <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
                   {{ saveError }}
@@ -281,7 +286,9 @@ async function onSaveCloud() {
 
                 <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
                   @update-frets="(n) => (numFrets = n)" />
-                <FretboardShow v-else class="fretboard" :num-frets="numFrets" />
+                <div v-else class="fretboard-show-wrap">
+                  <FretboardShow class="fretboard" :num-frets="numFrets" />
+                </div>
               </v-col>
 
               <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -346,5 +353,9 @@ header {
 
 .fretboard {
   width: 100%;
+}
+
+.fretboard-show-wrap {
+  padding: 8px;
 }
 </style>
