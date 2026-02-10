@@ -1,19 +1,22 @@
 <template>
   <TimelineView :is-playing="isPlaying" :tempo="tempo" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
     :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop" :beat-bottom="beatBottom"
+    :sound-duration-scale="soundDurationScale" :active-string="activeString" :active-tool="activeTool"
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
-    @update-beat-top="settings.setBeatTop" @update-beat-bottom="settings.setBeatBottom"
-    @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
-    @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
-    :compact="compact" />
+    @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
+    @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
+    @update-beat-bottom="settings.setBeatBottom" @update-note-grid-index="handleUpdateNoteGridIndex"
+    @update-note-length="handleUpdateNoteLength" @group-move-notes="handleGroupMoveNotes"
+    @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead" @copy-selection="handleCopySelection"
+    @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo" @redo="handleRedo" :compact="compact" />
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import TimelineView from './TimelineView.vue'
 import { useNotesStore } from '@/store/useNotes'
@@ -29,6 +32,7 @@ import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
+import { createNoteKey } from '@/domain/note'
 
 defineProps({
   compact: { type: Boolean, default: false },
@@ -48,6 +52,9 @@ const {
   lastRhythmMode,
   snapEnabled,
   soundPreviewEnabled,
+  soundDurationScale,
+  activeString,
+  activeTool,
   loopEnabled,
   beatTop,
   beatBottom,
@@ -95,11 +102,13 @@ const tracks = computed(() => {
 })
 
 function handleUpdateNoteGridIndex(noteKey, gridIndex) {
+  store.pushUndoPoint('move')
   store.setNoteGridIndex(noteKey, gridIndex)
   seekToNoteEnd(noteKey, { gridIndex })
 }
 
 function handleUpdateNoteLength(noteKey, lengthBlocks) {
+  store.pushUndoPoint('resize')
   store.setNoteLength(noteKey, lengthBlocks)
   seekToNoteEnd(noteKey, { lengthBlocks })
 }
@@ -123,6 +132,7 @@ function handleGroupMoveNotes(anchorKey, deltaBlocks) {
   const delta = Number(quantizeBlocks(deltaBlocks).toFixed(2))
   if (!delta) return
 
+  store.pushUndoPoint('move')
   const total = Math.max(1, Number(totalBlocks.value) || 1)
 
   for (const k of keys) {
@@ -150,6 +160,7 @@ function handleGroupResizeNotes(anchorKey, deltaBlocks) {
   const delta = Number(quantizeBlocks(deltaBlocks).toFixed(2))
   if (!delta) return
 
+  store.pushUndoPoint('resize')
   const total = Math.max(1, Number(totalBlocks.value) || 1)
   const minLen = snapEnabled.value ? TIMELINE_SNAP_STEP_BLOCKS : 0.01
 
@@ -169,6 +180,159 @@ function handleGroupResizeNotes(anchorKey, deltaBlocks) {
 
   seekToNoteEnd(anchorKey)
 }
+
+function handleCopySelection() {
+  const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  if (!keys.length) {
+    selection.setClipboardNotes([])
+    return
+  }
+
+  const keySet = new Set(keys.map(String))
+  const picked = store.activeNotes
+    .filter((n) => n?.key && keySet.has(String(n.key)))
+    .map((n) => {
+      const gridIndex = Number(n?.gridIndex)
+      const lengthBlocks = Number(n?.lengthBlocks)
+      const safeGrid = Number.isFinite(gridIndex) && gridIndex > 0 ? gridIndex : 1
+      const safeLen = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+      const fret = Number(n?.fret)
+      const string = Number(n?.string)
+      const color = typeof n?.color === 'string' ? n.color : null
+      return {
+        fret,
+        string,
+        gridIndex: safeGrid,
+        lengthBlocks: safeLen,
+        ...(color ? { color } : {}),
+      }
+    })
+    .filter((n) => Number.isFinite(n.fret) && Number.isFinite(n.string))
+
+  // Keep stable ordering (helps debugging and predictable paste).
+  picked.sort((a, b) => a.gridIndex - b.gridIndex)
+
+  selection.setClipboardNotes(picked)
+}
+
+function playheadGridIndex() {
+  const t = Number(playheadMs.value) || 0
+  const idx = t / DEFAULT_TIME_PER_BLOCK_MS + 1
+  return Number.isFinite(idx) && idx > 0 ? idx : 1
+}
+
+function handlePasteAtPlayhead() {
+  if (playback.isPlaying.value) return
+  const clip = Array.isArray(selection.clipboardNotes)
+    ? selection.clipboardNotes
+    : selection.clipboardNotes
+  const items = Array.isArray(clip?.value) ? clip.value : Array.isArray(clip) ? clip : []
+  if (!items.length) return
+
+  store.pushUndoPoint('paste')
+
+  const minGrid = Math.min(...items.map((n) => Number(n.gridIndex)).filter((v) => Number.isFinite(v)))
+  const safeMinGrid = Number.isFinite(minGrid) ? minGrid : 1
+
+  // End edge of the group relative to safeMinGrid (in blocks).
+  // Example: a note at grid=1 with len=1 ends at edge=1.
+  const endEdge = Math.max(
+    0,
+    ...items.map((n) => {
+      const start = Number(n.gridIndex)
+      const len = Number(n.lengthBlocks)
+      const safeStart = Number.isFinite(start) && start > 0 ? start : safeMinGrid
+      const safeLen = Number.isFinite(len) && len > 0 ? len : 1
+      return (safeStart - safeMinGrid) + safeLen
+    }),
+  )
+
+  const base = Math.max(1, playheadGridIndex())
+
+  for (const src of items) {
+    const offset = (Number(src.gridIndex) || safeMinGrid) - safeMinGrid
+    const len = Number(src.lengthBlocks) || 1
+    const safeLen = Number.isFinite(len) && len > 0 ? len : 1
+
+    const nextStart = base + offset
+
+    const note = {
+      key: createNoteKey(),
+      fret: Number(src.fret),
+      string: Number(src.string),
+      ...(typeof src.color === 'string' && src.color ? { color: src.color } : {}),
+      gridIndex: Number(nextStart.toFixed(2)),
+      lengthBlocks: Number(safeLen.toFixed(2)),
+      placedAtMs: Date.now(),
+    }
+
+    store.activeNotes.push(note)
+  }
+
+  // Move playhead to the end of the pasted group.
+  // Do this after reactive totals update so seekPlayhead doesn't get clamped to the old duration.
+  const timePerBlock = Number(grid.grid.value.timePerBlock) || DEFAULT_TIME_PER_BLOCK_MS
+  const endMs = Math.max(0, ((base - 1) + endEdge) * timePerBlock)
+  void nextTick().then(() => seekPlayhead(endMs))
+}
+
+function syncSelectionToExistingNotes() {
+  const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  if (!keys.length) return
+  const existing = new Set(store.activeNotes.map((n) => String(n?.key)).filter(Boolean))
+  selection.setSelectedNotes(keys.filter((k) => existing.has(String(k))))
+}
+
+function handleUndo() {
+  if (playback.isPlaying.value) return
+  const ok = store.undo()
+  if (ok) syncSelectionToExistingNotes()
+}
+
+function handleRedo() {
+  if (playback.isPlaying.value) return
+  const ok = store.redo()
+  if (ok) syncSelectionToExistingNotes()
+}
+
+function isEditableTarget(target) {
+  const el = target
+  const tag = el?.tagName ? String(el.tagName).toLowerCase() : ''
+  if (!tag) return false
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  if (el?.isContentEditable) return true
+  return false
+}
+
+function onGlobalKeyDown(e) {
+  if (!e) return
+  if (e.defaultPrevented) return
+  if (isEditableTarget(e.target)) return
+  if (playback.isPlaying.value) return
+
+  const key = String(e.key || '').toLowerCase()
+  const mod = Boolean(e.ctrlKey || e.metaKey)
+  if (!mod) return
+
+  if (key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    handleUndo()
+    return
+  }
+
+  if (key === 'z' && e.shiftKey) {
+    e.preventDefault()
+    handleRedo()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeyDown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeyDown)
+})
 function togglePlay() {
   if (playback.isPlaying.value) {
     playback.pause()
@@ -249,7 +413,10 @@ watch(
   (keys, prevKeys) => {
     if (playback.isPlaying.value) return
     if (!Array.isArray(prevKeys)) return
-    if (keys.length <= prevKeys.length) return
+    const delta = keys.length - prevKeys.length
+    if (delta <= 0) return
+    // Paste adds multiple notes; don't auto-seek to a random one.
+    if (delta !== 1) return
 
     const prev = new Set(prevKeys)
     const addedKey = keys.find((k) => !prev.has(k))
@@ -320,7 +487,9 @@ function maybePlayNotesAt(tMs) {
     const lengthBlocks = Number(note?.lengthBlocks)
     const len = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
     const durationPlayheadMs = len * timePerBlock
-    const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale)
+    const durScale = Number(soundDurationScale.value)
+    const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+    const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
 
     triggeredNoteKeys.add(key)
     // Keep the dot "active" for the exact timeline duration (playhead time)

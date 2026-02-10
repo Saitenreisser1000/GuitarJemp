@@ -17,6 +17,11 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const soundPreviewEnabled = ref(
     typeof stored.soundPreviewEnabled === 'boolean' ? stored.soundPreviewEnabled : true,
   )
+  const soundDurationScale = ref(
+    Number.isFinite(stored.soundDurationScale) && stored.soundDurationScale > 0
+      ? stored.soundDurationScale
+      : 1,
+  )
   const loopEnabled = ref(typeof stored.loopEnabled === 'boolean' ? stored.loopEnabled : false)
   const beatTop = ref(Number.isFinite(stored.beatTop) ? stored.beatTop : 4)
   const beatBottom = ref([1, 2, 4, 8].includes(stored.beatBottom) ? stored.beatBottom : 4)
@@ -28,6 +33,14 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const selectedColor = ref(
     typeof stored.selectedColor === 'string' ? stored.selectedColor : '#FF6B6B',
   )
+
+  const activeString = ref(
+    Number.isFinite(stored.activeString) && stored.activeString > 0
+      ? Math.floor(stored.activeString)
+      : 1,
+  )
+
+  const activeTool = ref(stored.activeTool === 'select' ? 'select' : 'arrow')
 
   function setSelectedMode(m) {
     const mode = String(m)
@@ -41,6 +54,11 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setSoundPreviewEnabled(v) {
     soundPreviewEnabled.value = Boolean(v)
+  }
+
+  function setSoundDurationScale(v) {
+    const n = Number(v)
+    soundDurationScale.value = Number.isFinite(n) && n > 0 ? Math.min(16, Math.max(0.1, n)) : 1
   }
 
   function setLoopEnabled(v) {
@@ -67,16 +85,29 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     selectedColor.value = String(color)
   }
 
+  function setActiveString(v) {
+    const n = Number.parseInt(String(v), 10)
+    activeString.value = Number.isFinite(n) && n > 0 ? n : 1
+  }
+
+  function setActiveTool(v) {
+    const next = String(v)
+    activeTool.value = next === 'select' ? 'select' : 'arrow'
+  }
+
   persistRefs(STORAGE_KEY, {
     selectedMode,
     lastRhythmMode,
     snapEnabled,
     soundPreviewEnabled,
+    soundDurationScale,
     loopEnabled,
     beatTop,
     beatBottom,
     zoomPxPerBlock,
     selectedColor,
+    activeString,
+    activeTool,
   })
 
   return {
@@ -84,18 +115,24 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     lastRhythmMode,
     snapEnabled,
     soundPreviewEnabled,
+    soundDurationScale,
     loopEnabled,
     beatTop,
     beatBottom,
     zoomPxPerBlock,
     selectedColor,
+    activeString,
+    activeTool,
     setSelectedMode,
     setSnapEnabled,
     setSoundPreviewEnabled,
+    setSoundDurationScale,
     setLoopEnabled,
     setBeatTop,
     setBeatBottom,
     setZoomPxPerBlock,
     setSelectedColor,
+    setActiveString,
+    setActiveTool,
   }
 })

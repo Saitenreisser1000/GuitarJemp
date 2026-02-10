@@ -1,6 +1,10 @@
 <template>
   <div class="string-line">
-    <div class="string-label">{{ stringLabel || `Saite ${string}` }}</div>
+    <button class="string-label" type="button" :class="{ 'is-active': Number(activeString) === Number(string) }"
+      @click="() => emit('update-active-string', Number(string))"
+      :title="`Aktive Saite: ${stringLabel || `Saite ${string}`}`">
+      {{ stringLabel || `Saite ${string}` }}
+    </button>
     <div ref="trackEl" class="timeline-track" :style="trackStyle" @pointerdown="onScrubPointerDown"
       @pointermove="onScrubPointerMove" @pointerup="onScrubPointerUp" @pointercancel="onScrubPointerUp">
       <div class="grid-background" :style="gridBackgroundStyle"></div>
@@ -25,6 +29,7 @@ import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 const props = defineProps({
   string: Number,
   stringLabel: { type: String, default: '' },
+  activeString: { type: Number, default: 1 },
   notes: Array,
   totalDuration: Number,
   totalBlocks: { type: Number, default: 16 },
@@ -36,6 +41,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
+  'update-active-string',
   'update-note-grid-index',
   'update-note-length',
   'group-move-notes',
@@ -158,6 +164,15 @@ function getNoteColor(fret) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.string-label.is-active {
+  color: rgba(20, 20, 20, 0.95);
+}
+
+.string-label:focus {
+  outline: none;
 }
 
 .timeline-track {

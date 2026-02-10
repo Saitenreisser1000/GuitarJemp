@@ -1,7 +1,15 @@
 <template>
-  <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
-    :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }" :title="title"
-    @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
+  <div
+    class="note-event"
+    :class="{ 'is-selected': isSelected }"
+    :data-note-key="note?.key"
+    :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }"
+    :title="title"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
+  >
     <div class="note-label">
       <span class="fret-number">{{ note.fret }}</span>
       <span v-if="pitchLabel" class="pitch-label">{{ pitchLabel }}</span>
@@ -126,7 +134,9 @@ function onPointerDown(e) {
 
       const tempoValue = Number(transport.tempo) || 120
       const tempoScale = 120 / tempoValue
-      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale)
+      const durScale = Number(settings.soundDurationScale)
+      const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
 
       void playMidi(midi, {
         durationMs: durationAudioMs,

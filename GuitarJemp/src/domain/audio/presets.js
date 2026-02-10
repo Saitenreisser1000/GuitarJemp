@@ -13,6 +13,8 @@ export const AUDIO_PRESETS = {
   [AUDIO_PRESET_IDS.GUITAR_STEEL_FINGER]: {
     type: 'sampler',
     manifestUrl: '/samples/guitar-steel-finger/manifest.json',
+    // Compensate octave mismatch by transposing down.
+    transposeSemitones: -12,
   },
 }
 

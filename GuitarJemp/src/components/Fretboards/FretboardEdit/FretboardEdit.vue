@@ -1,6 +1,10 @@
 <template>
   <div class="fretboard-container">
-    <FretboardControls @update-frets="(n) => emit('update-frets', n)">
+    <FretboardControls
+      v-if="showControls"
+      :num-frets="props.numFrets"
+      @update-frets="(n) => emit('update-frets', n)"
+    >
       <template #after-frets>
         <div class="top-tools">
           <ColorPalette orientation="horizontal" />
@@ -22,6 +26,7 @@ import FretboardShow from '../FretboardShow/FretboardShow.vue'
 
 const props = defineProps({
   numFrets: { type: Number, required: true },
+  showControls: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update-frets'])

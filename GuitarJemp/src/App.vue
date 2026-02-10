@@ -1,6 +1,8 @@
 <script setup>
 import FretboardEdit from '@/components/Fretboards/FretboardEdit/FretboardEdit.vue'
 import FretboardShow from '@/components/Fretboards/FretboardShow/FretboardShow.vue'
+import FretboardControls from '@/components/Fretboards/FretboardEdit/controls/FretboardControls.vue'
+import ColorPalette from '@/components/Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
 import Timeline from '@/components/Timeline/Timeline.vue'
 import AuthDialog from '@/components/Cloud/AuthDialog.vue'
@@ -203,33 +205,54 @@ async function onSaveCloud() {
 
 <template>
   <v-app>
+    <v-app-bar class="app-topbar" density="compact" flat>
+      <v-app-bar-title class="text-white">GuitarJemp</v-app-bar-title>
+
+      <v-spacer />
+
+      <div class="d-flex flex-wrap justify-end align-center ga-2">
+        <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
+          Cloud: nicht konfiguriert
+        </v-chip>
+        <v-chip v-else-if="auth.isSignedIn" size="small" color="success" variant="tonal">
+          {{ auth.user?.email }}
+        </v-chip>
+
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-account"
+          @click="authOpen = true"
+        >
+          Account
+        </v-btn>
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-cloud"
+          :disabled="!auth.isSignedIn"
+          @click="libraryOpen = true"
+        >
+          Library
+        </v-btn>
+
+        <v-btn
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-account-multiple"
+          :disabled="!auth.isSignedIn"
+          @click="connectionsOpen = true"
+        >
+          Freunde
+        </v-btn>
+      </div>
+    </v-app-bar>
+
     <v-main>
       <div class="app-shell">
         <v-container class="py-6">
           <header class="text-center text-white">
             <h1 class="app-title">GuitarJemp</h1>
-
-            <div class="d-flex flex-wrap justify-center align-center ga-2 mt-2">
-              <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
-                Cloud: nicht konfiguriert
-              </v-chip>
-              <v-chip v-else-if="auth.isSignedIn" size="small" color="success" variant="tonal">
-                {{ auth.user?.email }}
-              </v-chip>
-
-              <v-btn size="small" variant="tonal" prepend-icon="mdi-account" @click="authOpen = true">
-                Account
-              </v-btn>
-              <v-btn size="small" variant="tonal" prepend-icon="mdi-cloud" :disabled="!auth.isSignedIn"
-                @click="libraryOpen = true">
-                Library
-              </v-btn>
-
-              <v-btn size="small" variant="tonal" prepend-icon="mdi-account-multiple" :disabled="!auth.isSignedIn"
-                @click="connectionsOpen = true">
-                Freunde
-              </v-btn>
-            </div>
 
             <div class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
               <v-btn-toggle v-model="instrumentType" mandatory divided>
@@ -251,21 +274,31 @@ async function onSaveCloud() {
 
           <v-row class="mt-6" align="start" justify="center" dense>
             <v-col cols="12">
-              <div v-if="fretboardMode === 'editor'" class="d-flex justify-end mb-2">
-                <v-btn variant="tonal" prepend-icon="mdi-restore" class="me-2" :disabled="!canReset"
-                  title="Änderungen verwerfen" @click="onResetChanges">
-                  Reset
-                </v-btn>
+              <div v-if="fretboardMode === 'editor'" class="editor-toolbar mb-2">
+                <div class="editor-toolbar-left">
+                  <FretboardControls :num-frets="numFrets" @update-frets="(n) => (numFrets = n)">
+                    <template #after-frets>
+                      <ColorPalette orientation="horizontal" />
+                    </template>
+                  </FretboardControls>
+                </div>
 
-                <v-btn variant="tonal" prepend-icon="mdi-content-save-plus" class="me-2" :disabled="!canSaveAsNew"
-                  title="Als neues Item speichern" @click="openSaveAsNew">
-                  Save as new
-                </v-btn>
+                <div class="editor-toolbar-right">
+                  <v-btn variant="tonal" prepend-icon="mdi-restore" :disabled="!canReset" title="Änderungen verwerfen"
+                    @click="onResetChanges">
+                    Reset
+                  </v-btn>
 
-                <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" :disabled="!canSave || saveBusy"
-                  :title="saveDisabledReason || 'In Cloud Library speichern'" @click="onSaveCloud">
-                  Save
-                </v-btn>
+                  <v-btn variant="tonal" prepend-icon="mdi-content-save-plus" :disabled="!canSaveAsNew"
+                    title="Als neues Item speichern" @click="openSaveAsNew">
+                    Save as new
+                  </v-btn>
+
+                  <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" :disabled="!canSave || saveBusy"
+                    :title="saveDisabledReason || 'In Cloud Library speichern'" @click="onSaveCloud">
+                    Save
+                  </v-btn>
+                </div>
               </div>
 
               <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
@@ -273,7 +306,7 @@ async function onSaveCloud() {
               </v-alert>
 
               <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
-                @update-frets="(n) => (numFrets = n)" />
+                :show-controls="false" @update-frets="(n) => (numFrets = n)" />
               <FretboardShow v-else class="fretboard" :num-frets="numFrets" />
             </v-col>
 
@@ -324,6 +357,11 @@ async function onSaveCloud() {
   font-family: Arial, sans-serif;
 }
 
+.app-topbar {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-2) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
 header {
   color: white;
 }
@@ -332,6 +370,26 @@ header {
   font-size: 2.5rem;
   margin: 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.editor-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.editor-toolbar :deep(.controls) {
+  padding: 0;
 }
 
 .fretboard {

@@ -1,20 +1,43 @@
 <template>
   <div ref="rootEl" class="fretboard-js">
     <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
-      <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
-        :fret-count="props.numFrets" :string-count="instrument.numStrings" />
+      <RealisticFretboardBackground
+        class="fb-layer fb-bg"
+        :width="FB_WIDTH"
+        :height="FB_HEIGHT"
+        :nut-width="NUT_WIDTH"
+        :fret-count="props.numFrets"
+        :string-count="instrument.numStrings"
+      />
 
-      <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
-        preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
-        @click="onClick">
+      <svg
+        ref="overlayEl"
+        class="fb-layer fb-overlay"
+        :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
+        preserveAspectRatio="none"
+        style="overflow: visible"
+        @mousemove="onMouseMove"
+        @mouseleave="onMouseLeave"
+        @click="onClick"
+      >
         <!-- transparent hit-area -->
         <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
 
         <!-- String numbers -->
         <g class="fb-string-labels">
-          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
-            font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
-            paint-order="stroke">
+          <text
+            v-for="s in strings"
+            :key="`string-label-${s.string}`"
+            :x="-10"
+            :y="s.y + 4"
+            text-anchor="end"
+            font-size="12"
+            font-weight="800"
+            fill="rgba(255,255,255,0.9)"
+            stroke="rgba(0,0,0,0.45)"
+            stroke-width="2"
+            paint-order="stroke"
+          >
             {{ stringLabelFor(s.string) }}
           </text>
         </g>
@@ -22,24 +45,50 @@
         <!-- Dots -->
         <g class="fb-dots">
           <!-- Hover preview for inactive positions (editor only) -->
-          <circle v-if="hoveredPreviewDot" :cx="dotX(hoveredPreviewDot)" :cy="dotY(hoveredPreviewDot)" :r="previewR()"
-            fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
+          <circle
+            v-if="hoveredPreviewDot"
+            :cx="dotX(hoveredPreviewDot)"
+            :cy="dotY(hoveredPreviewDot)"
+            :r="previewR()"
+            fill="transparent"
+            stroke="rgba(255,255,255,0.85)"
+            stroke-width="3"
+            style="pointer-events: none"
+          />
 
-          <circle v-for="d in dotsForRender" :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="dotX(d)"
-            :cy="dotY(d)" :r="dotR(d)" :fill="dotFill(d)" :opacity="dotOpacity(d)" :stroke="dotStroke(d)"
-            :stroke-width="dotStrokeWidth(d)" @mouseenter="onDotEnter(d, $event)" @mouseleave="onDotLeave(d)" />
+          <circle
+            v-for="d in dotsForRender"
+            :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`"
+            :cx="dotX(d)"
+            :cy="dotY(d)"
+            :r="dotR(d)"
+            :fill="dotFill(d)"
+            :opacity="dotOpacity(d)"
+            :stroke="dotStroke(d)"
+            :stroke-width="dotStrokeWidth(d)"
+            @mouseenter="onDotEnter(d, $event)"
+            @mouseleave="onDotLeave(d)"
+          />
         </g>
       </svg>
     </div>
 
     <div class="fb-fret-numbers" aria-hidden="true">
-      <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-        :style="{ left: `${l.xPct}%` }">
+      <span
+        v-for="l in fretLabels"
+        :key="`fret-label-${l.fret}`"
+        class="fb-fret-number"
+        :style="{ left: `${l.xPct}%` }"
+      >
         {{ l.fret }}
       </span>
     </div>
 
-    <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
+    <div
+      v-if="tooltip.visible"
+      class="fb-tooltip"
+      :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
+    >
       {{ tooltip.text }}
     </div>
   </div>
@@ -90,14 +139,40 @@ const { playState } = storeToRefs(transport)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
-const highlightedKeySet = computed(() => new Set(highlightedNoteKeys.value))
 
-const pulseStartedAtByKey = computed(() => {
+function posKeyForNote(note) {
+  const string = Number(note?.string)
+  const fret = Number(note?.fret)
+  if (!Number.isFinite(string) || !Number.isFinite(fret)) return null
+  return `${string}-${fret}`
+}
+
+const highlightedPosKeySet = computed(() => {
+  const keys = Array.isArray(highlightedNoteKeys.value) ? highlightedNoteKeys.value : []
+  if (keys.length === 0) return new Set()
+
+  const set = new Set()
+  for (const noteKey of keys) {
+    const note = store.activeNotes.find((n) => n?.key === noteKey)
+    const posKey = posKeyForNote(note)
+    if (posKey) set.add(posKey)
+  }
+  return set
+})
+
+const pulseStartedAtByPosKey = computed(() => {
   const m = new Map()
   for (const p of pulseStarts.value) {
-    const key = p?.key
+    const noteKey = p?.key
     const startedAtMs = Number(p?.startedAtMs)
-    if (key && Number.isFinite(startedAtMs)) m.set(key, startedAtMs)
+    if (!noteKey || !Number.isFinite(startedAtMs)) continue
+
+    const note = store.activeNotes.find((n) => n?.key === noteKey)
+    const posKey = posKeyForNote(note)
+    if (!posKey) continue
+
+    const prev = m.get(posKey)
+    if (prev == null || startedAtMs > prev) m.set(posKey, startedAtMs)
   }
   return m
 })
@@ -336,8 +411,20 @@ function onClick(event) {
     if (!settings.soundPreviewEnabled) return
     const t = tuning.value
     const midi = midiForFretString({ fret, string }, t)
-    if (Number.isFinite(Number(midi)))
-      void playMidi(midi, { instrumentType: instrument.instrumentType })
+    if (Number.isFinite(Number(midi))) {
+      const durationPlayheadMs = store.getNoteDurationMs(note)
+
+      const tempoValue = Number(transport.tempo) || 120
+      const tempoScale = 120 / tempoValue
+      const durScale = Number(settings.soundDurationScale)
+      const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+
+      void playMidi(midi, {
+        durationMs: durationAudioMs,
+        instrumentType: instrument.instrumentType,
+      })
+    }
     return
   }
 
@@ -349,8 +436,18 @@ function onClick(event) {
   if (!settings.soundPreviewEnabled) return
   const t = tuning.value
   const midi = midiForFretString({ fret, string }, t)
-  if (Number.isFinite(Number(midi)))
-    void playMidi(midi, { instrumentType: instrument.instrumentType })
+  if (Number.isFinite(Number(midi))) {
+    const note = store.activeNotes.find((n) => n?.key === d._noteKey)
+    const durationPlayheadMs = store.getNoteDurationMs(note)
+
+    const tempoValue = Number(transport.tempo) || 120
+    const tempoScale = 120 / tempoValue
+    const durScale = Number(settings.soundDurationScale)
+    const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+    const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+
+    void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+  }
 }
 
 function onMouseMove(event) {
@@ -457,8 +554,8 @@ function dotFill(d) {
 
 function dotOpacity(d) {
   if (!isPlaying.value) return 1
-  const key = d?._noteKey
-  return key && highlightedKeySet.value.has(key) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
+  const posKey = posKeyForDot(d)
+  return highlightedPosKeySet.value.has(posKey) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
 }
 
 function dotStroke(d) {
@@ -485,9 +582,7 @@ function dotStrokeWidth(d) {
     w = 4
   }
 
-  const noteKey = d?._noteKey
-  if (!noteKey) return w
-  const startedAt = pulseStartedAtByKey.value.get(noteKey)
+  const startedAt = pulseStartedAtByPosKey.value.get(key)
   if (!Number.isFinite(startedAt)) return w
 
   const dt = animNowMs.value - startedAt
@@ -501,10 +596,7 @@ function dotStrokeWidth(d) {
 function dotR(d) {
   const key = posKeyForDot(d)
   const baseR = DOT_BASE_R * (hoveredPosKey.value === key ? DOT_HOVER_R_FACTOR : 1)
-  const noteKey = d?._noteKey
-  if (!noteKey) return baseR
-
-  const startedAt = pulseStartedAtByKey.value.get(noteKey)
+  const startedAt = pulseStartedAtByPosKey.value.get(key)
   if (!Number.isFinite(startedAt)) return baseR
 
   const dt = animNowMs.value - startedAt

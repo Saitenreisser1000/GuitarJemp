@@ -21,8 +21,9 @@
 import { watch, ref } from 'vue'
 import { useInstrumentStore } from '@/store/useInstrument'
 
-defineProps({
-  showSetup: { type: Boolean, default: true }
+const props = defineProps({
+  showSetup: { type: Boolean, default: true },
+  numFrets: { type: Number, default: 12 },
 })
 
 const store = useInstrumentStore()
@@ -35,7 +36,7 @@ const numStringsLocal = ref(store.numStrings)
 /**
  * Local copy of numFrets to emit changes to parent
  */
-const numFretsLocal = ref(12)
+const numFretsLocal = ref(Number(props.numFrets ?? 12))
 
 const emit = defineEmits(['update-frets'])
 
@@ -46,6 +47,24 @@ watch(numStringsLocal, (v) => store.setNumStrings(Number(v)))
 watch(numFretsLocal, (v) => {
   emit('update-frets', Number(v))
 })
+
+watch(
+  () => props.numFrets,
+  (v) => {
+    const next = Number(v)
+    if (!Number.isFinite(next)) return
+    if (numFretsLocal.value !== next) numFretsLocal.value = next
+  },
+)
+
+watch(
+  () => store.numStrings,
+  (v) => {
+    const next = Number(v)
+    if (!Number.isFinite(next)) return
+    if (numStringsLocal.value !== next) numStringsLocal.value = next
+  },
+)
 </script>
 
 <style scoped>

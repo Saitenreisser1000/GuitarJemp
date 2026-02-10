@@ -5,6 +5,10 @@ export const useSelectionStore = defineStore('selection', () => {
   const selectedNoteKey = ref(null)
   const selectedNoteKeys = ref([])
 
+  // Transient clipboard for copy/paste in the timeline.
+  // Stored as note snapshots (without key), gridIndex is preserved for relative offsets.
+  const clipboardNotes = ref([])
+
   // Transient group transforms (used for live preview while dragging/resizing)
   const groupDragActive = ref(false)
   const groupDragDeltaBlocks = ref(0)
@@ -49,6 +53,39 @@ export const useSelectionStore = defineStore('selection', () => {
     selectedNoteKeys.value = []
   }
 
+  function setClipboardNotes(notes) {
+    if (!Array.isArray(notes)) {
+      clipboardNotes.value = []
+      return
+    }
+
+    const normalized = []
+    for (const n of notes) {
+      if (!n) continue
+      const fret = Number(n.fret)
+      const string = Number(n.string)
+      const gridIndex = Number(n.gridIndex)
+      const lengthBlocks = Number(n.lengthBlocks)
+      if (!Number.isFinite(fret) || !Number.isFinite(string)) continue
+      if (!Number.isFinite(gridIndex) || !(gridIndex > 0)) continue
+      const safeLen = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+      const color = typeof n.color === 'string' && n.color ? n.color : null
+
+      normalized.push({
+        fret,
+        string,
+        gridIndex,
+        lengthBlocks: safeLen,
+        ...(color ? { color } : {}),
+      })
+    }
+    clipboardNotes.value = normalized
+  }
+
+  function clearClipboard() {
+    clipboardNotes.value = []
+  }
+
   function setGroupDrag(active, deltaBlocks = 0) {
     groupDragActive.value = Boolean(active)
     groupDragDeltaBlocks.value = Number(deltaBlocks) || 0
@@ -69,6 +106,7 @@ export const useSelectionStore = defineStore('selection', () => {
   return {
     selectedNoteKey,
     selectedNoteKeys,
+    clipboardNotes,
     groupDragActive,
     groupDragDeltaBlocks,
     groupResizeActive,
@@ -77,6 +115,8 @@ export const useSelectionStore = defineStore('selection', () => {
     setSelectedNotes,
     isSelected,
     clearSelection,
+    setClipboardNotes,
+    clearClipboard,
     setGroupDrag,
     setGroupResize,
     clearGroupTransforms,

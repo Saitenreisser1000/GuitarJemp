@@ -64,16 +64,22 @@ export async function playMidi(
       : getDefaultPresetIdForInstrumentType(instrumentType)
 
   const preset = getPreset(resolvedPresetId)
+
+  const transpose = Number(preset?.transposeSemitones)
+  const safeTranspose = Number.isFinite(transpose) ? transpose : 0
+  const m = Number(midi)
+  const effectiveMidi = Number.isFinite(m) ? m + safeTranspose : midi
+
   if (preset?.type === 'sampler' && preset?.manifestUrl) {
     try {
-      const ok = await playMidiWithSampler(preset.manifestUrl, midi, { durationMs, gain })
+      const ok = await playMidiWithSampler(preset.manifestUrl, effectiveMidi, { durationMs, gain })
       if (ok) return
       if (import.meta?.env?.DEV) {
         console.warn('[audio] Sampler nicht verwendet (ok=false), fallback auf Synth', {
           presetId: resolvedPresetId,
           instrumentType,
           manifestUrl: preset.manifestUrl,
-          midi,
+          midi: effectiveMidi,
         })
       }
     } catch (err) {
@@ -82,12 +88,12 @@ export async function playMidi(
           presetId: resolvedPresetId,
           instrumentType,
           manifestUrl: preset.manifestUrl,
-          midi,
+          midi: effectiveMidi,
           error: err,
         })
       }
     }
   }
 
-  return playMidiSynth(midi, { durationMs, type, gain })
+  return playMidiSynth(effectiveMidi, { durationMs, type, gain })
 }

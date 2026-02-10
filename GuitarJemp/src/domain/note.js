@@ -28,12 +28,12 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
       string,
       gridIndex: fallbackGridIndex,
       lengthBlocks: 1,
-      placedAtMs: Date.now()
+      placedAtMs: Date.now(),
     }
   }
 
   if (typeof input === 'object') {
-      const color = typeof input.color === 'string' ? input.color : null
+    const color = typeof input.color === 'string' ? input.color : null
     const rawKey = input.key
     const key = typeof rawKey === 'string' ? rawKey : createNoteKey()
 
@@ -43,7 +43,8 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
     else return null
 
     const gridIndexRaw = Number(input.gridIndex)
-    const gridIndex = Number.isFinite(gridIndexRaw) && gridIndexRaw > 0 ? gridIndexRaw : fallbackGridIndex
+    const gridIndex =
+      Number.isFinite(gridIndexRaw) && gridIndexRaw > 0 ? gridIndexRaw : fallbackGridIndex
 
     const lengthRaw = Number(input.lengthBlocks)
     const lengthBlocks = Number.isFinite(lengthRaw) && lengthRaw > 0 ? lengthRaw : 1
@@ -58,7 +59,7 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
       ...(color ? { color } : {}),
       gridIndex,
       lengthBlocks,
-      placedAtMs
+      placedAtMs,
     }
   }
 
