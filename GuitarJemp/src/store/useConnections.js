@@ -74,10 +74,12 @@ export const useConnectionsStore = defineStore('connections', () => {
     if (!isSupabaseConfigured || !supabase) return
     if (!userId.value) return
 
+    const uid = String(userId.value)
     loading.value = true
     const { data, error: err } = await supabase
       .from('connections')
       .select('id, requester_id, addressee_id, status, created_at, updated_at')
+      .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)
       .order('updated_at', { ascending: false })
       .limit(200)
 

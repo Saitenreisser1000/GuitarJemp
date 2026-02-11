@@ -108,9 +108,8 @@ export const useNotesStore = defineStore('notes', () => {
     const lengthMode =
       settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
     let lengthBlocks = defaultLengthBlocksForMode(lengthMode)
-    // simGroupMode berücksichtigen
-    const simGroupMode = settings.simGroupMode?.value || settings.simGroupMode
-    if (simGroupMode === 'dot') {
+    const simGroupMode = settings.simGroupMode?.value ?? settings.simGroupMode
+    if (simGroupMode === 'dot' && Number(lengthBlocks) > 0.25) {
       lengthBlocks = Number(lengthBlocks) * 1.5
     }
     return {
@@ -187,6 +186,22 @@ export const useNotesStore = defineStore('notes', () => {
     return note
   }
 
+  function addNotes(notesArray, { tag = 'addMany' } = {}) {
+    if (!Array.isArray(notesArray) || !notesArray.length) return []
+
+    const normalized = []
+    const fallbackStart = activeNotes.value.length + 1
+    for (const item of notesArray) {
+      const note = normalizeNote(item, { fallbackGridIndex: fallbackStart + normalized.length })
+      if (note) normalized.push(note)
+    }
+    if (!normalized.length) return []
+
+    pushUndoPoint(tag)
+    activeNotes.value.push(...normalized)
+    return normalized
+  }
+
   function removeNote(key) {
     const i = findIndexByKey(String(key))
     if (i > -1) pushUndoPoint('delete')
@@ -226,6 +241,7 @@ export const useNotesStore = defineStore('notes', () => {
     redo,
     setNotes,
     addNote,
+    addNotes,
     removeNote,
     toggleNote,
     clearNotes,

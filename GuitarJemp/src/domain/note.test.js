@@ -7,15 +7,10 @@ describe('domain/note', () => {
   })
 
   it('createNoteKey uses crypto.randomUUID when available', () => {
-    const originalCrypto = globalThis.crypto
-
-    globalThis.crypto = {
-      randomUUID: vi.fn(() => 'uuid-123'),
-    }
+    const spy = vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('uuid-123')
 
     expect(createNoteKey()).toBe('uuid-123')
-
-    globalThis.crypto = originalCrypto
+    spy.mockRestore()
   })
 
   it('normalizeNote accepts a legacy fret-string key', () => {

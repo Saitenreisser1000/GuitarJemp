@@ -22,6 +22,7 @@ import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
+import { clampResizeLength } from '@/domain/timelineInteractions'
 const props = defineProps({
   note: { type: Object, required: true },
   totalBlocks: { type: Number, default: 16 },
@@ -48,7 +49,6 @@ const safeLengthBlocks = computed(() => {
   const raw = Number(props.note?.lengthBlocks ?? 1)
   return Number.isFinite(raw) && raw > 0 ? raw : 1
 })
-const lengthVisualScale = computed(() => (props.simGroupMode === 'dot' ? 1.5 : 1))
 
 function selectForwardFromHere({ allStrings = false } = {}) {
   const key = props.note?.key
@@ -127,7 +127,7 @@ const leftPercent = computed(() => {
 
 const widthPercent = computed(() => {
   const total = Math.max(1, Number(props.totalBlocks) || 1)
-  const baseLen = safeLengthBlocks.value * lengthVisualScale.value
+  const baseLen = safeLengthBlocks.value
   const useGroup = isGroupSelected.value && selection.groupResizeActive
   const previewDelta =
     isGroupSelected.value && selection.groupResizeActive
@@ -230,7 +230,7 @@ function onResizePointerDown(e) {
 
   startClientX = e.clientX
   startGridIndex = Number(props.note?.gridIndex ?? 1)
-  startLength = safeLengthBlocks.value * lengthVisualScale.value
+  startLength = safeLengthBlocks.value
   dragLength.value = startLength
   isResizing.value = true
 
@@ -275,9 +275,14 @@ function onPointerMove(e) {
       selection.setGroupResize(true, deltaQuantized)
       return
     }
-    const maxLen = Math.max(TIMELINE_SNAP_STEP_BLOCKS, total - (startGridIndex - 1))
-    const nextLen = startLength + deltaQuantized
-    dragLength.value = Math.min(maxLen, Math.max(TIMELINE_SNAP_STEP_BLOCKS, nextLen))
+    dragLength.value = clampResizeLength({
+      startLength,
+      deltaBlocks: deltaQuantized,
+      startGridIndex,
+      totalBlocks: total,
+      snapEnabled: props.snapEnabled,
+      snapStepBlocks: TIMELINE_SNAP_STEP_BLOCKS,
+    })
   }
 }
 
@@ -299,14 +304,12 @@ function onPointerUp() {
   if (isResizing.value) {
     isResizing.value = false
     if (isGroupSelected.value) {
-      const deltaVisual = Number((selection.groupResizeDeltaBlocks || 0).toFixed(2))
-      const delta = Number((deltaVisual / lengthVisualScale.value).toFixed(2))
+      const delta = Number((selection.groupResizeDeltaBlocks || 0).toFixed(2))
       selection.setGroupResize(false, 0)
       dragLength.value = null
       if (props.note?.key && delta) emit('group-resize', props.note.key, delta)
     } else {
-      const nextLenVisual = Number((dragLength.value ?? startLength).toFixed(2))
-      const nextLen = Number((nextLenVisual / lengthVisualScale.value).toFixed(2))
+      const nextLen = Number((dragLength.value ?? startLength).toFixed(2))
       dragLength.value = null
       if (props.note?.key) emit('update-length', props.note.key, nextLen)
     }

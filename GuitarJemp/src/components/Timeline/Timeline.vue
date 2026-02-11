@@ -38,6 +38,7 @@ import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { createNoteKey } from '@/domain/note'
+import { buildPastedNotes, computePasteRange } from '@/domain/timelineInteractions'
 
 defineProps({
   compact: { type: Boolean, default: false },
@@ -233,47 +234,17 @@ function handlePasteAtPlayhead() {
   const items = Array.isArray(clip?.value) ? clip.value : Array.isArray(clip) ? clip : []
   if (!items.length) return
 
-  store.pushUndoPoint('paste')
-
-  const minGrid = Math.min(
-    ...items.map((n) => Number(n.gridIndex)).filter((v) => Number.isFinite(v)),
-  )
-  const safeMinGrid = Number.isFinite(minGrid) ? minGrid : 1
-
-  // End edge of the group relative to safeMinGrid (in blocks).
-  // Example: a note at grid=1 with len=1 ends at edge=1.
-  const endEdge = Math.max(
-    0,
-    ...items.map((n) => {
-      const start = Number(n.gridIndex)
-      const len = Number(n.lengthBlocks)
-      const safeStart = Number.isFinite(start) && start > 0 ? start : safeMinGrid
-      const safeLen = Number.isFinite(len) && len > 0 ? len : 1
-      return safeStart - safeMinGrid + safeLen
-    }),
-  )
+  const { safeMinGrid, endEdge } = computePasteRange(items)
 
   const base = Math.max(1, playheadGridIndex())
 
-  for (const src of items) {
-    const offset = (Number(src.gridIndex) || safeMinGrid) - safeMinGrid
-    const len = Number(src.lengthBlocks) || 1
-    const safeLen = Number.isFinite(len) && len > 0 ? len : 1
-
-    const nextStart = base + offset
-
-    const note = {
-      key: createNoteKey(),
-      fret: Number(src.fret),
-      string: Number(src.string),
-      ...(typeof src.color === 'string' && src.color ? { color: src.color } : {}),
-      gridIndex: Number(nextStart.toFixed(2)),
-      lengthBlocks: Number(safeLen.toFixed(2)),
-      placedAtMs: Date.now(),
-    }
-
-    store.activeNotes.push(note)
-  }
+  const notesToInsert = buildPastedNotes(items, {
+    baseGridIndex: base,
+    safeMinGrid,
+    createKey: createNoteKey,
+    nowMs: Date.now(),
+  })
+  store.addNotes(notesToInsert, { tag: 'paste' })
 
   // Move playhead to the end of the pasted group.
   // Do this after reactive totals update so seekPlayhead doesn't get clamped to the old duration.
