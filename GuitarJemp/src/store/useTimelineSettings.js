@@ -41,11 +41,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   )
 
   const activeTool = ref(stored.activeTool === 'select' ? 'select' : 'arrow')
-  const storedSimModeRaw = typeof stored.simGroupMode === 'string' ? stored.simGroupMode : ''
-  const storedSimMode = storedSimModeRaw === 'dot' ? 'dotted' : storedSimModeRaw
-  const simGroupMode = ref(
-    storedSimMode === 'dotted' || storedSimMode === '3' ? storedSimMode : '',
-  )
+  // Always start with no active note modifier (neither dotted nor triplet).
+  const simGroupMode = ref('')
 
   const stringsCollapsed = ref(
     typeof stored.stringsCollapsed === 'boolean' ? stored.stringsCollapsed : false,

@@ -94,9 +94,11 @@ export const useSelectionStore = defineStore('selection', () => {
       const string = Number(n.string)
       const gridIndex = Number(n.gridIndex)
       const lengthBlocks = Number(n.lengthBlocks)
+      const subdivisionRaw = Number(n.subdivision)
       if (!Number.isFinite(fret) || !Number.isFinite(string)) continue
       if (!Number.isFinite(gridIndex) || !(gridIndex > 0)) continue
       const safeLen = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+      const subdivision = subdivisionRaw === 3 ? 3 : 2
       const color = typeof n.color === 'string' && n.color ? n.color : null
 
       normalized.push({
@@ -104,6 +106,7 @@ export const useSelectionStore = defineStore('selection', () => {
         string,
         gridIndex,
         lengthBlocks: safeLen,
+        subdivision,
         ...(color ? { color } : {}),
       })
     }

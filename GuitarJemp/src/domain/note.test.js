@@ -15,7 +15,13 @@ describe('domain/note', () => {
 
   it('normalizeNote accepts a legacy fret-string key', () => {
     const note = normalizeNote('7-2', { fallbackGridIndex: 5 })
-    expect(note).toMatchObject({ fret: 7, string: 2, gridIndex: 5, lengthBlocks: 1 })
+    expect(note).toMatchObject({
+      fret: 7,
+      string: 2,
+      gridIndex: 5,
+      lengthBlocks: 1,
+      subdivision: 2,
+    })
     expect(typeof note.key).toBe('string')
     expect(typeof note.placedAtMs).toBe('number')
   })
@@ -30,6 +36,7 @@ describe('domain/note', () => {
         lengthBlocks: 0,
         placedAtMs: 'not-a-number',
         color: '#abc',
+        subdivision: 3,
       },
       { fallbackGridIndex: 9 },
     )
@@ -41,6 +48,7 @@ describe('domain/note', () => {
       gridIndex: 9,
       lengthBlocks: 1,
       color: '#abc',
+      subdivision: 3,
     })
     expect(typeof note.placedAtMs).toBe('number')
   })

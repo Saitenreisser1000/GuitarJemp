@@ -22,7 +22,7 @@ import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
-import { clampResizeLength } from '@/domain/timelineInteractions'
+import { clampResizeLength, snapStepBlocksForMode } from '@/domain/timelineInteractions'
 const props = defineProps({
   note: { type: Object, required: true },
   totalBlocks: { type: Number, default: 16 },
@@ -30,6 +30,7 @@ const props = defineProps({
   color: String,
   snapEnabled: Boolean,
   step: Number,
+  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'group-resize'])
@@ -42,6 +43,9 @@ const transport = useTransportStore()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
+)
+const snapStepBlocks = computed(() =>
+  snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
 )
 
 const safeLengthBlocks = computed(() => {
@@ -250,7 +254,7 @@ function onPointerMove(e) {
   if (isDragging.value) {
     const deltaBlocks = deltaPx / cellWidthPx
     const deltaQuantized = props.snapEnabled
-      ? Math.round(deltaBlocks / TIMELINE_SNAP_STEP_BLOCKS) * TIMELINE_SNAP_STEP_BLOCKS
+      ? Math.round(deltaBlocks / snapStepBlocks.value) * snapStepBlocks.value
       : deltaBlocks
 
     if (isGroupSelected.value) {
@@ -267,7 +271,7 @@ function onPointerMove(e) {
   if (isResizing.value) {
     const deltaBlocks = deltaPx / cellWidthPx
     const deltaQuantized = props.snapEnabled
-      ? Math.round(deltaBlocks / TIMELINE_SNAP_STEP_BLOCKS) * TIMELINE_SNAP_STEP_BLOCKS
+      ? Math.round(deltaBlocks / snapStepBlocks.value) * snapStepBlocks.value
       : deltaBlocks
 
     if (isGroupSelected.value) {
@@ -280,7 +284,7 @@ function onPointerMove(e) {
       startGridIndex,
       totalBlocks: total,
       snapEnabled: props.snapEnabled,
-      snapStepBlocks: TIMELINE_SNAP_STEP_BLOCKS,
+      snapStepBlocks: snapStepBlocks.value,
     })
   }
 }

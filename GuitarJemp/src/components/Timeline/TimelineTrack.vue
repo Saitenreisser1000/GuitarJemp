@@ -12,6 +12,7 @@
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
         :time-per-block-ms="timePerBlockMs" :snapEnabled="props.snapEnabled" :step="props.step"
+        :sim-group-mode="props.simGroupMode"
         @update-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
         @update-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
         @group-move="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)" @group-resize="
@@ -25,6 +26,7 @@
 import NoteEvent from './NoteEvent.vue'
 import { computed, ref } from 'vue'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
+import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
 
 const props = defineProps({
   string: Number,
@@ -39,6 +41,7 @@ const props = defineProps({
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
   trackMinWidthPx: { type: Number, default: 0 },
+  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -58,6 +61,10 @@ const trackStyle = computed(() => {
   // Use a fixed width so zoom-in AND zoom-out are visible.
   return w > 0 ? { width: `${w}px`, minWidth: `${w}px` } : {}
 })
+
+const snapStepBlocks = computed(() =>
+  snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
+)
 
 const playheadPercent = computed(() => {
   const total = Number(props.totalDuration) || 0
@@ -81,7 +88,7 @@ function timeFromPointerEvent(e) {
   const timePerBlock = total / totalBlocks
   if (!(timePerBlock > 0)) return rawTime
 
-  const stepBlocks = TIMELINE_SNAP_STEP_BLOCKS
+  const stepBlocks = snapStepBlocks.value
 
   const rawBlocks = rawTime / timePerBlock
   const snappedBlocks = Math.round(rawBlocks / stepBlocks) * stepBlocks
@@ -139,10 +146,13 @@ const blocksPerBar = computed(() => {
 })
 
 const gridBackgroundStyle = computed(() => {
+  const snapStep = snapStepBlocks.value
+  const subdivisionsPerBlock = Math.max(1, Math.round(1 / snapStep))
   return {
     '--total-blocks': String(props.totalBlocks),
     '--blocks-per-beat': String(blocksPerBeat.value),
     '--blocks-per-bar': String(blocksPerBar.value),
+    '--subdiv-per-block': String(subdivisionsPerBlock),
   }
 })
 
@@ -224,7 +234,7 @@ function getNoteColor(fret) {
   height: 100%;
   pointer-events: none;
   --cell: calc(100% / var(--total-blocks));
-  --sub: calc(var(--cell) / 4);
+  --sub: calc(var(--cell) / var(--subdiv-per-block));
   --beat: calc(var(--cell) * var(--blocks-per-beat));
   --bar: calc(var(--cell) * var(--blocks-per-bar));
   background-image:

@@ -38,7 +38,11 @@ import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { createNoteKey } from '@/domain/note'
-import { buildPastedNotes, computePasteRange } from '@/domain/timelineInteractions'
+import {
+  buildPastedNotes,
+  computePasteRange,
+  snapStepBlocksForMode,
+} from '@/domain/timelineInteractions'
 
 defineProps({
   compact: { type: Boolean, default: false },
@@ -92,7 +96,8 @@ const notesForRender = computed(() => {
     // 1-based raster index stored per note (fallback to insertion order)
     const gridIndex = Number.isFinite(note?.gridIndex) ? note.gridIndex : idx + 1
     const lengthBlocks = Number.isFinite(note?.lengthBlocks) ? note.lengthBlocks : 1
-    return { key, fret, string, color, gridIndex, lengthBlocks }
+    const subdivision = Number(note?.subdivision) === 3 ? 3 : 2
+    return { key, fret, string, color, gridIndex, lengthBlocks, subdivision }
   })
 })
 
@@ -129,7 +134,8 @@ function clamp(v, min, max) {
 function quantizeBlocks(v) {
   const raw = Number(v) || 0
   if (!snapEnabled.value) return raw
-  return Math.round(raw / TIMELINE_SNAP_STEP_BLOCKS) * TIMELINE_SNAP_STEP_BLOCKS
+  const snapStep = snapStepBlocksForMode(simGroupMode.value, TIMELINE_SNAP_STEP_BLOCKS)
+  return Math.round(raw / snapStep) * snapStep
 }
 
 function handleGroupMoveNotes(anchorKey, deltaBlocks) {
@@ -169,7 +175,8 @@ function handleGroupResizeNotes(anchorKey, deltaBlocks) {
   if (!delta) return
 
   const total = Math.max(1, Number(totalBlocks.value) || 1)
-  const minLen = snapEnabled.value ? TIMELINE_SNAP_STEP_BLOCKS : 0.01
+  const snapStep = snapStepBlocksForMode(simGroupMode.value, TIMELINE_SNAP_STEP_BLOCKS)
+  const minLen = snapEnabled.value ? snapStep : 0.01
 
   for (const k of keys) {
     const note = store.activeNotes.find((n) => n?.key === k)
@@ -203,6 +210,7 @@ function handleCopySelection() {
       const lengthBlocks = Number(n?.lengthBlocks)
       const safeGrid = Number.isFinite(gridIndex) && gridIndex > 0 ? gridIndex : 1
       const safeLen = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+      const subdivision = Number(n?.subdivision) === 3 ? 3 : 2
       const fret = Number(n?.fret)
       const string = Number(n?.string)
       const color = typeof n?.color === 'string' ? n.color : null
@@ -211,6 +219,7 @@ function handleCopySelection() {
         string,
         gridIndex: safeGrid,
         lengthBlocks: safeLen,
+        subdivision,
         ...(color ? { color } : {}),
       }
     })

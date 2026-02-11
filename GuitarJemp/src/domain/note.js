@@ -17,6 +17,11 @@ function looksLikeFretStringKey(key) {
   return /^\d+-\d+$/.test(String(key))
 }
 
+function normalizeSubdivision(raw) {
+  const n = Number(raw)
+  return n === 3 ? 3 : 2
+}
+
 export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
   if (!input) return null
 
@@ -28,6 +33,7 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
       string,
       gridIndex: fallbackGridIndex,
       lengthBlocks: 1,
+      subdivision: 2,
       placedAtMs: Date.now(),
     }
   }
@@ -49,6 +55,8 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
     const lengthRaw = Number(input.lengthBlocks)
     const lengthBlocks = Number.isFinite(lengthRaw) && lengthRaw > 0 ? lengthRaw : 1
 
+    const subdivision = normalizeSubdivision(input.subdivision)
+
     const placedAtRaw = Number(input.placedAtMs)
     const placedAtMs = Number.isFinite(placedAtRaw) ? placedAtRaw : Date.now()
 
@@ -59,6 +67,7 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
       ...(color ? { color } : {}),
       gridIndex,
       lengthBlocks,
+      subdivision,
       placedAtMs,
     }
   }

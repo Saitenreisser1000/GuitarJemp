@@ -11,6 +11,7 @@ export const useNotesStore = defineStore('notes', () => {
   // key: "fret-string" (e.g. "3-1")
   // gridIndex: 1-based raster position (can be fractional)
   // lengthBlocks: note length in raster blocks (can be fractional, e.g. 0.25)
+  // subdivision: rhythmic subdivision marker (2 = binary, 3 = triplet)
   // placedAtMs: wall-clock timestamp when note was created
   const activeNotes = ref([])
 
@@ -110,8 +111,12 @@ export const useNotesStore = defineStore('notes', () => {
     let lengthBlocks = defaultLengthBlocksForMode(lengthMode)
     const rawSimGroupMode = settings.simGroupMode?.value ?? settings.simGroupMode
     const simGroupMode = rawSimGroupMode === 'dot' ? 'dotted' : rawSimGroupMode
+    const subdivision = simGroupMode === '3' ? 3 : 2
     if (simGroupMode === 'dotted' && Number(lengthBlocks) > 0.25) {
       lengthBlocks = Number(lengthBlocks) * 1.5
+    } else if (simGroupMode === '3') {
+      // Triplet length = base note value * 2/3.
+      lengthBlocks = Number((Number(lengthBlocks) * (2 / 3)).toFixed(4))
     }
     return {
       key: createNoteKey(),
@@ -120,6 +125,7 @@ export const useNotesStore = defineStore('notes', () => {
       color: settings.selectedColor,
       gridIndex,
       lengthBlocks,
+      subdivision,
       placedAtMs: Date.now(),
     }
   }

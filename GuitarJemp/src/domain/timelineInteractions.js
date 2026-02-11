@@ -9,6 +9,14 @@ export function lengthVisualScale(simGroupMode) {
   return simGroupMode === 'dotted' || simGroupMode === 'dot' ? 1.5 : 1
 }
 
+export function snapStepBlocksForMode(
+  simGroupMode,
+  baseStepBlocks = TIMELINE_SNAP_STEP_BLOCKS,
+) {
+  const base = safePositiveNumber(baseStepBlocks, TIMELINE_SNAP_STEP_BLOCKS)
+  return simGroupMode === '3' ? base / 3 : base
+}
+
 export function visualLengthBlocks(lengthBlocks, simGroupMode) {
   const safeLen = safePositiveNumber(lengthBlocks, 1)
   return safeLen * lengthVisualScale(simGroupMode)
@@ -64,6 +72,7 @@ export function buildPastedNotes(
   return items.map((src) => {
     const offset = safePositiveNumber(src?.gridIndex, minGrid) - minGrid
     const safeLen = safePositiveNumber(src?.lengthBlocks, 1)
+    const subdivision = Number(src?.subdivision) === 3 ? 3 : 2
     const nextStart = base + offset
     return {
       key: makeKey(),
@@ -72,6 +81,7 @@ export function buildPastedNotes(
       ...(typeof src?.color === 'string' && src.color ? { color: src.color } : {}),
       gridIndex: Number(nextStart.toFixed(2)),
       lengthBlocks: Number(safeLen.toFixed(2)),
+      subdivision,
       placedAtMs: nowMs,
     }
   })
