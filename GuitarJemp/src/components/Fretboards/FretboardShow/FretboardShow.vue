@@ -19,6 +19,11 @@
           </text>
         </g>
 
+        <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
+          <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y" :width="handPositionOverlayRect.width"
+            :height="handPositionOverlayRect.height" :rx="handPositionOverlayRect.rx" />
+        </g>
+
         <!-- ToneDots -->
         <g class="fb-tone-dots">
           <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
@@ -67,6 +72,7 @@ import { useSelectionStore } from '@/store/useSelection'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
+import { useHandPositionsStore } from '@/store/useHandPositions'
 import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
@@ -98,8 +104,10 @@ const selection = useSelectionStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
+const handPositionsStore = useHandPositionsStore()
 
 const { playState, playheadMs } = storeToRefs(transport)
+const { handPositions } = storeToRefs(handPositionsStore)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
@@ -581,6 +589,67 @@ const strings = computed(() => {
     res.push({ string: i + 1, y, w })
   }
   return res
+})
+
+function parseFretRange(rawLabel) {
+  const text = String(rawLabel ?? '').trim()
+  const m = text.match(/^(\d+)\s*-\s*(\d+)$/)
+  if (!m) return { fromFret: 1, toFret: 4 }
+  const a = Number(m[1])
+  const b = Number(m[2])
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return { fromFret: 1, toFret: 4 }
+  const min = Math.max(1, Math.min(a, b))
+  const max = Math.max(min, Math.max(a, b))
+  return { fromFret: min, toFret: max }
+}
+
+const activeHandPosition = computed(() => {
+  const t = Number(playheadMs.value)
+  if (!Number.isFinite(t)) return null
+
+  const items = Array.isArray(handPositions.value) ? handPositions.value : []
+  let best = null
+  let bestStart = -Infinity
+  for (const hp of items) {
+    const gridIndex = Number(hp?.gridIndex)
+    const lengthBlocks = Number(hp?.lengthBlocks)
+    if (!Number.isFinite(gridIndex) || !Number.isFinite(lengthBlocks)) continue
+    if (!(gridIndex > 0) || !(lengthBlocks > 0)) continue
+
+    const startMs = (gridIndex - 1) * DEFAULT_TIME_PER_BLOCK_MS
+    const endMs = startMs + lengthBlocks * DEFAULT_TIME_PER_BLOCK_MS
+    if (!(t >= startMs && t < endMs)) continue
+
+    if (startMs >= bestStart) {
+      bestStart = startMs
+      best = hp
+    }
+  }
+  return best
+})
+
+const handPositionOverlayRect = computed(() => {
+  const hp = activeHandPosition.value
+  if (!hp) return null
+
+  const { fromFret, toFret } = parseFretRange(hp?.fret)
+  const maxFret = Math.max(1, Number(props.numFrets) || 12)
+  const startFret = Math.min(maxFret, Math.max(1, fromFret))
+  const endFret = Math.min(maxFret, Math.max(startFret, toFret))
+
+  const topY = Number(strings.value[0]?.y)
+  const bottomY = Number(strings.value[strings.value.length - 1]?.y)
+  if (!Number.isFinite(topY) || !Number.isFinite(bottomY)) return null
+
+  const lines = fretLinesPx.value
+  const xLeft = startFret <= 1 ? NUT_WIDTH : Number(lines[startFret - 1] ?? NUT_WIDTH)
+  const xRight = Number(lines[endFret] ?? FB_WIDTH)
+  if (!(xRight > xLeft)) return null
+
+  const padY = 16
+  const y = topY - padY
+  const height = bottomY - topY + padY * 2
+  return { x: xLeft, y, width: xRight - xLeft, height, rx: 10 }
 })
 
 const fretLabels = computed(() => {
@@ -1079,6 +1148,13 @@ watch(
   stroke-width: 3.5;
   stroke-linecap: round;
   filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+}
+
+.fb-hand-position-overlay rect {
+  fill: rgba(165, 118, 55, 0.3);
+  stroke: rgba(112, 78, 34, 0.65);
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 5px rgba(133, 91, 39, 0.45));
 }
 
 .fb-tooltip {

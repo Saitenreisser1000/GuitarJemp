@@ -5,6 +5,7 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
+    :hand-position-notes="handPositionNotes"
     @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
@@ -15,8 +16,10 @@
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
     @update-frets="(v) => emit('update-frets', v)"
     @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
+    @update-note-label="handleUpdateNoteLabel"
     @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
-    @copy-selection="handleCopySelection" @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo"
+    @add-hand-position="handleAddHandPosition" @copy-selection="handleCopySelection"
+    @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo"
     @redo="handleRedo" :compact="compact" />
 </template>
 
@@ -30,6 +33,7 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useSelectionStore } from '@/store/useSelection'
+import { useHandPositionsStore } from '@/store/useHandPositions'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 import { DEFAULT_TIME_PER_BLOCK_MS, TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
@@ -57,9 +61,11 @@ const settings = useTimelineSettingsStore()
 const instrument = useInstrumentStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const selection = useSelectionStore()
+const handPositionsStore = useHandPositionsStore()
 
 const { tempo } = storeToRefs(transport)
 const { playheadMs } = storeToRefs(transport)
+const { handPositions: handPositionNotes } = storeToRefs(handPositionsStore)
 const {
   selectedMode,
   lastRhythmMode,
@@ -86,6 +92,45 @@ const effectiveMode = computed(() =>
   selectedMode.value === 'sim' ? lastRhythmMode.value : selectedMode.value,
 )
 const currentStep = computed(() => stepMap[effectiveMode.value] ?? 1)
+function isHandPositionKey(noteKey) {
+  return String(noteKey || '').startsWith('hp_')
+}
+
+function blocksPerBar() {
+  const top = Number(beatTop.value) || 4
+  const bottom = Number(beatBottom.value) || 4
+  const raw = top * (4 / bottom)
+  const safe = Number.isFinite(raw) && raw > 0 ? raw : 4
+  return Number(safe.toFixed(2))
+}
+
+function updateHandPositionNoteGridIndex(noteKey, gridIndex) {
+  handPositionsStore.setHandPositionGridIndex(noteKey, gridIndex)
+}
+
+function updateHandPositionNoteLength(noteKey, lengthBlocks) {
+  handPositionsStore.setHandPositionLength(noteKey, lengthBlocks)
+}
+
+function handleAddHandPosition() {
+  const len = blocksPerBar()
+  const endEdges = handPositionNotes.value.map((n) => {
+    const start = Number(n?.gridIndex)
+    const l = Number(n?.lengthBlocks)
+    const safeStart = Number.isFinite(start) && start > 0 ? start : 1
+    const safeLen = Number.isFinite(l) && l > 0 ? l : len
+    return safeStart + safeLen
+  })
+  const nextGrid = endEdges.length ? Math.max(...endEdges) : 1
+  handPositionsStore.addHandPosition({
+    key: `hp_${createNoteKey()}`,
+    fret: '1-4',
+    string: 0,
+    color: '#9A7B4F',
+    gridIndex: Number(nextGrid.toFixed(2)),
+    lengthBlocks: len,
+  })
+}
 
 const notesForRender = computed(() => {
   return store.activeNotes.map((note, idx) => {
@@ -118,13 +163,26 @@ const tracks = computed(() => {
 })
 
 function handleUpdateNoteGridIndex(noteKey, gridIndex) {
+  if (isHandPositionKey(noteKey)) {
+    updateHandPositionNoteGridIndex(noteKey, gridIndex)
+    return
+  }
   store.setNoteGridIndex(noteKey, gridIndex)
   seekToNoteEnd(noteKey, { gridIndex })
 }
 
 function handleUpdateNoteLength(noteKey, lengthBlocks) {
+  if (isHandPositionKey(noteKey)) {
+    updateHandPositionNoteLength(noteKey, lengthBlocks)
+    return
+  }
   store.setNoteLength(noteKey, lengthBlocks)
   seekToNoteEnd(noteKey, { lengthBlocks })
+}
+
+function handleUpdateNoteLabel(noteKey, label) {
+  if (!isHandPositionKey(noteKey)) return
+  handPositionsStore.setHandPositionLabel(noteKey, label)
 }
 
 function clamp(v, min, max) {
@@ -441,15 +499,10 @@ const totalDuration = computed(() => {
 })
 
 const totalBlocks = computed(() => {
-  const beatTopValue = Number(beatTop.value) || 4
-  const beatBottomValue = Number(beatBottom.value) || 4
-  const blocksPerBarRaw = beatTopValue * (4 / beatBottomValue)
-  const blocksPerBar = Math.max(
-    1,
-    Math.ceil(Number.isFinite(blocksPerBarRaw) ? blocksPerBarRaw : 4),
-  )
+  const oneBarBlocks = blocksPerBar()
+  const blocksPerBarCeil = Math.max(1, Math.ceil(oneBarBlocks))
 
-  const maxEnd = Math.max(
+  const maxNotesEnd = Math.max(
     0,
     ...notesForRender.value.map((n) => {
       const start = Number(n.gridIndex) || 0
@@ -457,10 +510,19 @@ const totalBlocks = computed(() => {
       return start + Math.max(0, len) - 1
     }),
   )
+  const maxHandPosEnd = Math.max(
+    0,
+    ...handPositionNotes.value.map((n) => {
+      const start = Number(n?.gridIndex) || 0
+      const len = Number(n?.lengthBlocks) || oneBarBlocks
+      return start + Math.max(0, len) - 1
+    }),
+  )
+  const maxEnd = Math.max(maxNotesEnd, maxHandPosEnd)
 
   // Keep 1 bar of space to the right; minimum timeline is 1 bar.
-  const withPadding = Math.ceil(maxEnd + blocksPerBar)
-  return Math.max(blocksPerBar, withPadding)
+  const withPadding = Math.ceil(maxEnd + blocksPerBarCeil)
+  return Math.max(blocksPerBarCeil, withPadding)
 })
 
 const playhead = ref(0)

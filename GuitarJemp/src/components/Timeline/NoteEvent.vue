@@ -2,8 +2,11 @@
   <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
     :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
-    <div class="note-label">
-      <span class="fret-number">{{ note.fret }}</span>
+    <div class="note-label" :class="{ 'is-hand-position-label': isHandPositionNote }">
+      <span class="fret-number" :class="{ 'is-editable': isHandPositionNote }" @pointerdown.stop
+        @click.stop="onEditLabel" @dblclick.stop="onEditLabel">
+        {{ note.fret }}
+      </span>
       <span v-if="pitchLabel" class="pitch-label">{{ pitchLabel }}</span>
     </div>
     <div class="resize-handle" @pointerdown.stop="onResizePointerDown" />
@@ -17,6 +20,7 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
+import { useHandPositionsStore } from '@/store/useHandPositions'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -33,17 +37,19 @@ const props = defineProps({
   simGroupMode: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'group-resize'])
+const emit = defineEmits(['update-grid-index', 'update-length', 'update-label', 'group-move', 'group-resize'])
 
 const selection = useSelectionStore()
 const notesStore = useNotesStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const handPositions = useHandPositionsStore()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
 )
+const isHandPositionNote = computed(() => String(props.note?.key ?? '').startsWith('hp_'))
 const snapStepBlocks = computed(() =>
   snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
 )
@@ -94,6 +100,7 @@ function selectForwardFromHere({ allStrings = false } = {}) {
 }
 
 const pitchLabel = computed(() => {
+  if (isHandPositionNote.value) return ''
   const t = getTuning(instrument.tuningId)
   const midi = midiForNote(props.note, t)
   if (!Number.isFinite(Number(midi))) return ''
@@ -156,6 +163,13 @@ const title = computed(() => {
 function onPointerDown(e) {
   if (isResizing.value) return
   const key = props.note?.key
+
+  // Allow double-click label editing on HandPosition events without starting drag.
+  if (isHandPositionNote.value && e?.target?.closest?.('.fret-number.is-editable')) {
+    if (key && !selection.isSelected(key)) selection.selectNote(key)
+    return
+  }
+
   // Selection behavior:
   // - Cmd+Option+Shift+click: select this and all following notes (all strings)
   // - Shift+Option+click: select this and all following notes (same string)
@@ -318,6 +332,19 @@ function onPointerUp() {
     }
   }
 }
+
+function onEditLabel() {
+  if (!isHandPositionNote.value) return
+  const current = String(props.note?.fret ?? '1-4')
+  const next = globalThis?.prompt?.('Hand position (z.B. 1-4)', current)
+  if (next == null) return
+  const value = String(next).trim()
+  if (!value) return
+  if (props.note?.key) {
+    handPositions.setHandPositionLabel(props.note.key, value)
+    emit('update-label', props.note.key, value)
+  }
+}
 </script>
 
 <style scoped>
@@ -342,6 +369,16 @@ function onPointerUp() {
   align-items: center;
   gap: 6px;
   pointer-events: none;
+}
+
+.note-label.is-hand-position-label {
+  pointer-events: auto;
+}
+
+.fret-number.is-editable {
+  pointer-events: auto;
+  cursor: text;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.8);
 }
 
 .note-event.is-selected {

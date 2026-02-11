@@ -1,9 +1,16 @@
 <template>
-  <div class="string-line">
-    <button class="string-label" type="button" :class="{ 'is-active': Number(activeString) === Number(string) }"
-      @click="() => emit('update-active-string', Number(string))"
-      :title="`Aktive Saite: ${stringLabel || `Saite ${string}`}`">
-      {{ stringLabel || `Saite ${string}` }}
+  <div class="string-line" :class="{ 'is-aux-track': props.isAuxTrack }">
+    <button class="string-label" type="button" :class="labelClasses"
+      @click="onLabelClick" :title="labelTitle">
+      <template v-if="props.isAuxTrack">
+        <span class="aux-hand-btn" aria-hidden="true">
+          <span>✋</span>
+          <span class="aux-plus">+</span>
+        </span>
+      </template>
+      <template v-else>
+        {{ stringLabel || `Saite ${string}` }}
+      </template>
     </button>
     <div ref="trackEl" class="timeline-track" :style="trackStyle" @pointerdown="onScrubPointerDown"
       @pointermove="onScrubPointerMove" @pointerup="onScrubPointerUp" @pointercancel="onScrubPointerUp">
@@ -15,6 +22,7 @@
         :sim-group-mode="props.simGroupMode"
         @update-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
         @update-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
+        @update-label="(key, label) => emit('update-note-label', key, label)"
         @group-move="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)" @group-resize="
           (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
         " />
@@ -42,12 +50,15 @@ const props = defineProps({
   beatBottom: { type: Number, default: 4 },
   trackMinWidthPx: { type: Number, default: 0 },
   simGroupMode: { type: String, default: '' },
+  isAuxTrack: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'update-active-string',
+  'add-aux-item',
   'update-note-grid-index',
   'update-note-length',
+  'update-note-label',
   'group-move-notes',
   'group-resize-notes',
   'seek-playhead',
@@ -61,6 +72,25 @@ const trackStyle = computed(() => {
   // Use a fixed width so zoom-in AND zoom-out are visible.
   return w > 0 ? { width: `${w}px`, minWidth: `${w}px` } : {}
 })
+
+const labelClasses = computed(() => ({
+  'is-active': !props.isAuxTrack && Number(props.activeString) === Number(props.string),
+  'is-aux': props.isAuxTrack,
+}))
+
+const labelTitle = computed(() => {
+  const label = props.stringLabel || `Saite ${props.string}`
+  if (props.isAuxTrack) return label
+  return `Aktive Saite: ${label}`
+})
+
+function onLabelClick() {
+  if (props.isAuxTrack) {
+    emit('add-aux-item')
+    return
+  }
+  emit('update-active-string', Number(props.string))
+}
 
 const snapStepBlocks = computed(() =>
   snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
@@ -175,6 +205,12 @@ function getNoteColor(fret) {
   border-bottom: 0;
 }
 
+.string-line.is-aux-track {
+  border-bottom: 4px solid rgba(70, 70, 70, 0.75);
+  margin-bottom: 4px;
+}
+
+
 .string-label {
   width: 96px;
   min-width: 96px;
@@ -201,6 +237,31 @@ function getNoteColor(fret) {
   color: rgba(20, 20, 20, 0.95);
 }
 
+.string-label.is-aux {
+  cursor: pointer;
+  color: rgba(70, 70, 70, 0.9);
+}
+
+.aux-hand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid rgba(70, 70, 70, 0.45);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.aux-plus {
+  font-size: 13px;
+  font-weight: 800;
+  margin-left: -1px;
+}
+
 .string-label:focus {
   outline: none;
 }
@@ -222,6 +283,10 @@ function getNoteColor(fret) {
   transform: translateY(-0.5px);
   pointer-events: none;
   z-index: 4;
+}
+
+.string-line.is-aux-track .timeline-track::after {
+  content: none;
 }
 
 .timeline-track {

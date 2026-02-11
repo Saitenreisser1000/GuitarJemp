@@ -49,17 +49,32 @@
           @pointercancel.capture="onMarqueePointerUp">
           <div class="timeline-content">
             <div class="strings-timeline">
+              <TimelineTrack :string="0" string-label="HandPosition" :active-string="activeString"
+                :notes="handPositionNotes"
+                :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
+                :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
+                :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx" :is-aux-track="true"
+                @add-aux-item="() => emit('add-hand-position')" @seek-playhead="(t) => emit('seek-playhead', t)"
+                @update-note-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
+                @update-note-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
+                @update-note-label="(key, label) => emit('update-note-label', key, label)"
+                @group-move-notes="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)"
+                @group-resize-notes="
+                  (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+                " />
+
               <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
                 :string-label="track.label" :active-string="activeString" :notes="track.notes"
                 :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                :sim-group-mode="simGroupMode"
-                :track-min-width-px="trackMinWidthPx"
+                :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
                 @update-active-string="(v) => emit('update-active-string', v)"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                   (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
                 " @update-note-length="
                   (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                " @update-note-label="
+                  (key, label) => emit('update-note-label', key, label)
                 " @group-move-notes="
                   (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
                 " @group-resize-notes="
@@ -138,6 +153,7 @@ const props = defineProps({
   currentStep: { type: Number, required: true },
 
   tracks: { type: Array, required: true },
+  handPositionNotes: { type: Array, default: () => [] },
   simGroupMode: { type: String, default: '' },
 })
 
@@ -161,8 +177,10 @@ const emit = defineEmits([
   'seek-playhead',
   'update-note-grid-index',
   'update-note-length',
+  'update-note-label',
   'group-move-notes',
   'group-resize-notes',
+  'add-hand-position',
   'copy-selection',
   'paste-at-playhead',
   'undo',
