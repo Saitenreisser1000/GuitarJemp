@@ -1,6 +1,5 @@
 <script setup>
 import FretboardEdit from '@/components/Fretboards/FretboardEdit/FretboardEdit.vue'
-import FretboardShow from '@/components/Fretboards/FretboardShow/FretboardShow.vue'
 import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
 import Timeline from '@/components/Timeline/Timeline.vue'
 import AuthDialog from '@/components/Cloud/AuthDialog.vue'
@@ -25,14 +24,6 @@ const library = useLibraryStore()
 const authOpen = ref(false)
 const libraryOpen = ref(false)
 const connectionsOpen = ref(false)
-
-// Temporarily hide instrument type toggle (Guitar/Bass/Ukulele).
-const showInstrumentTypeToggle = false
-
-const instrumentType = computed({
-  get: () => instrument.instrumentType,
-  set: (v) => instrument.setInstrumentType(v),
-})
 
 const fretboardMode = ref('editor')
 const numFrets = ref(12)
@@ -211,7 +202,7 @@ async function onSaveCloud() {
     <ConnectionsDialog v-model="connectionsOpen" />
 
     <v-layout>
-      <v-app-bar color="primary" density="compact">
+      <v-app-bar class="app-bar-sticky" color="primary" density="compact">
         <v-toolbar-title>GuitarJemp</v-toolbar-title>
 
         <v-spacer />
@@ -266,18 +257,6 @@ async function onSaveCloud() {
       <v-main>
         <div class="app-shell">
           <v-container fluid class="py-2">
-            <header class="text-center text-white">
-              <h1 class="app-title">GuitarJemp</h1>
-
-              <div v-if="showInstrumentTypeToggle" class="d-flex flex-wrap justify-center align-center ga-3 mt-3">
-                <v-btn-toggle v-model="instrumentType" mandatory divided>
-                  <v-btn value="guitar" variant="tonal">Guitar</v-btn>
-                  <v-btn value="bass" variant="tonal">Bass</v-btn>
-                  <v-btn value="ukulele" variant="tonal">Ukulele</v-btn>
-                </v-btn-toggle>
-              </div>
-            </header>
-
             <v-row class="mt-2" align="start" justify="center" dense>
               <v-col cols="12">
                 <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
@@ -286,9 +265,7 @@ async function onSaveCloud() {
 
                 <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
                   @update-frets="(n) => (numFrets = n)" />
-                <div v-else class="fretboard-show-wrap">
-                  <FretboardShow class="fretboard" :num-frets="numFrets" />
-                </div>
+                <FretboardEdit v-else class="fretboard" :num-frets="numFrets" :editable="false" :show-controls="true" />
               </v-col>
 
               <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -319,11 +296,12 @@ async function onSaveCloud() {
                 </v-card>
               </v-dialog>
 
-              <v-col cols="12" :md="fretboardMode === 'show' ? 12 : 8" :lg="fretboardMode === 'show' ? 12 : 9">
+              <v-col cols="12">
                 <Timeline class="timeline" :compact="fretboardMode === 'show'" :num-frets="numFrets"
                   @update-frets="(n) => (numFrets = n)" />
               </v-col>
-              <v-col v-if="fretboardMode !== 'show'" cols="12" md="4" lg="3">
+
+              <v-col v-if="fretboardMode !== 'show'" cols="12">
                 <ActiveTonesWindow class="active-tones" />
               </v-col>
             </v-row>
@@ -335,27 +313,21 @@ async function onSaveCloud() {
 </template>
 
 <style scoped>
+.app-bar-sticky {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
 .app-shell {
   min-height: 100vh;
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-2) 100%);
   font-family: Arial, sans-serif;
 }
 
-header {
-  color: white;
-}
-
-.app-title {
-  font-size: 2.5rem;
-  margin: 0;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
 .fretboard {
   width: 100%;
-}
-
-.fretboard-show-wrap {
-  padding: 8px;
 }
 </style>

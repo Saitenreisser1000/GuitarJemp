@@ -1,10 +1,5 @@
 <template>
-  <div class="timeline-main">
-    <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :loop-enabled="loopEnabled" :playhead="playhead"
-      :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-      @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-      @update-loop="(v) => emit('update-loop', v)" />
-
+  <div class="timeline-main" :style="timelineMainStyle">
     <ModeSelector v-if="!compact" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
       :sound-preview-enabled="soundPreviewEnabled" :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
       :beat-bottom="beatBottom" :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
@@ -91,6 +86,15 @@
         </div>
       </div>
     </v-card>
+
+    <div ref="transportEl" class="timeline-transport" aria-label="Transport">
+      <div class="timeline-transport-inner">
+        <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :loop-enabled="loopEnabled" :playhead="playhead"
+          :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
+          @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
+          @update-loop="(v) => emit('update-loop', v)" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -98,7 +102,7 @@
 import PlaybackControls from './controls/PlaybackControls.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
 
 const props = defineProps({
@@ -173,6 +177,16 @@ const visibleTracks = computed(() => {
 })
 
 const selection = useSelectionStore()
+
+const transportEl = ref(null)
+const transportHeightPx = ref(0)
+let transportObserver = null
+
+const timelineMainStyle = computed(() => {
+  return {
+    '--timeline-transport-h': `${Math.max(0, Number(transportHeightPx.value) || 0)}px`,
+  }
+})
 
 const scrollEl = ref(null)
 const marqueeActive = ref(false)
@@ -295,6 +309,28 @@ function onMarqueePointerUp(e) {
 
 onBeforeUnmount(() => {
   if (marqueeRaf) cancelAnimationFrame(marqueeRaf)
+
+  if (transportObserver) {
+    transportObserver.disconnect?.()
+    transportObserver = null
+  }
+})
+
+onMounted(() => {
+  const el = transportEl.value
+  if (!el) return
+
+  // Keep the bottom padding in sync with the fixed transport height.
+  if (typeof ResizeObserver !== 'undefined') {
+    transportObserver = new ResizeObserver((entries) => {
+      const entry = entries?.[0]
+      const h = entry?.contentRect?.height
+      transportHeightPx.value = Number.isFinite(h) ? h : (el.getBoundingClientRect?.().height ?? 0)
+    })
+    transportObserver.observe(el)
+  } else {
+    transportHeightPx.value = el.getBoundingClientRect?.().height ?? 0
+  }
 })
 
 const trackMinWidthPx = computed(() => {
@@ -347,6 +383,26 @@ const barBeatLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  padding-bottom: calc(var(--timeline-transport-h, 0px) + 15px);
+}
+
+.timeline-transport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  pointer-events: none;
+}
+
+.timeline-transport-inner {
+  width: 100%;
+  max-width: none;
+  pointer-events: auto;
 }
 
 .timeline {

@@ -1,13 +1,27 @@
 <template>
   <v-card class="pa-3 mb-4" variant="flat" border>
     <div class="d-flex align-center flex-wrap ga-4">
-      <div class="text-subtitle-2 text-medium-emphasis">note:</div>
+      <!--div class="text-subtitle-2 text-medium-emphasis">note:</div-->
 
       <v-btn-toggle v-model="modeLocal" mandatory divided>
-        <v-btn v-for="label in labels" :key="label" :value="label" variant="tonal">
-          {{ label }}
+        <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" :title="item.title">
+          <v-icon v-if="item.icon" class="mode-icon" :icon="item.icon" size="34" />
+          <template v-else>{{ item.label }}</template>
         </v-btn>
       </v-btn-toggle>
+
+      <v-menu location="bottom" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="tonal" class="symbols-btn" :title="`Symbole (${selectedColor})`">
+            <span>Symbole</span>
+            <span class="symbols-swatch" :style="{ backgroundColor: selectedColor }" aria-hidden="true" />
+          </v-btn>
+        </template>
+
+        <v-card class="pa-2" min-width="260" variant="flat" border>
+          <ColorPalette orientation="horizontal" />
+        </v-card>
+      </v-menu>
 
       <div class="ms-auto d-flex align-center ga-2">
         <v-menu location="bottom end" :close-on-content-click="false">
@@ -63,6 +77,8 @@
 
 <script setup>
 import { computed } from 'vue'
+import ColorPalette from '../../Fretboards/FretboardEdit/controls/ColorPalette.vue'
+import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
 const props = defineProps({
   selectedMode: { type: String, required: true },
@@ -88,7 +104,17 @@ const emit = defineEmits([
   'update-strings-collapsed',
 ])
 
-const labels = ['1/16', '1/8', '1/4', '1/2', '1', 'sim']
+const settings = useTimelineSettingsStore()
+const selectedColor = computed(() => String(settings.selectedColor || ''))
+
+const modeItems = [
+  { value: '1/16', icon: 'mdi-music-note-sixteenth', label: '1/16', title: '1/16' },
+  { value: '1/8', icon: 'mdi-music-note-eighth', label: '1/8', title: '1/8' },
+  { value: '1/4', icon: 'mdi-music-note-quarter', label: '1/4', title: '1/4' },
+  { value: '1/2', icon: 'mdi-music-note-half', label: '1/2', title: '1/2' },
+  { value: '1', icon: 'mdi-music-note-whole', label: '1', title: '1' },
+  { value: 'sim', label: 'sim', title: 'sim' },
+]
 
 const beatBottomItems = [1, 2, 4, 8]
 
@@ -122,3 +148,22 @@ function updateBeatBottom(v) {
   emit('update-beat-bottom', beatBottomItems.includes(parsed) ? parsed : 4)
 }
 </script>
+
+<style scoped>
+.mode-icon {
+  line-height: 1;
+}
+
+.symbols-btn :deep(.v-btn__content) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.symbols-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--color-border-strong);
+}
+</style>
