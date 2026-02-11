@@ -30,7 +30,6 @@ const props = defineProps({
   color: String,
   snapEnabled: Boolean,
   step: Number,
-  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'group-resize'])

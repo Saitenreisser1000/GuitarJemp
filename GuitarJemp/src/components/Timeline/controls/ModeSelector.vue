@@ -1,24 +1,24 @@
 <template>
   <v-card class="pa-3 mb-4" variant="flat" border>
     <div class="d-flex align-center flex-wrap ga-4">
-      <!--div class="text-subtitle-2 text-medium-emphasis">note:</div-->
+      <!--div class="text-subtitle-2 text-medium-emphasis section-label">Note Value</div-->
 
-      <v-btn-toggle v-model="modeLocal" mandatory divided class="note-btns">
+      <v-btn-toggle v-model="noteValueLocal" mandatory divided class="note-btns">
         <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" :title="item.title">
           <v-icon v-if="item.icon" class="mode-icon" :icon="item.icon" size="34" />
           <template v-else>{{ item.label }}</template>
         </v-btn>
       </v-btn-toggle>
 
-      <v-btn-toggle v-model="simGroupModeLocal" divided class="sim-group-btns"
+      <v-btn-toggle v-model="noteModifierLocal" divided class="sim-group-btns"
         style="margin-left: 12px; margin-right: 12px">
-        <v-btn value="dot" variant="tonal" title=".">.</v-btn>
+        <v-btn value="dotted" variant="tonal" title=".">.</v-btn>
         <v-btn value="3" variant="tonal" title="3">3</v-btn>
       </v-btn-toggle>
 
       <v-btn variant="tonal" :active="Boolean(isSimOn)" :color="isSimOn ? 'grey-darken-3' : 'grey-lighten-2'"
-        :title="isSimOn ? 'SIM aus' : 'SIM an'" :aria-pressed="String(isSimOn)" @click="toggleSim" class="sim-btn">
-        SIM
+        :title="isSimOn ? 'Chord Off' : 'Chord On'" :aria-pressed="String(isSimOn)" @click="toggleSim" class="sim-btn">
+        Chord
       </v-btn>
 
       <v-menu location="bottom" :close-on-content-click="false">
@@ -116,17 +116,17 @@ const emit = defineEmits([
   'update-strings-collapsed',
   'update-sim-group-mode',
 ])
-// --- simGroupModeLocal: lokale Steuerung für die Radiobutton-Gruppe
-const simGroupModeLocal = ref(props.simGroupMode)
+// Local state for the note-length modifier toggle group (dot/triplet).
+const noteModifierLocal = ref(props.simGroupMode)
 
 watch(
   () => props.simGroupMode,
   (val) => {
-    if (val !== simGroupModeLocal.value) simGroupModeLocal.value = val
+    if (val !== noteModifierLocal.value) noteModifierLocal.value = val
   },
 )
 
-watch(simGroupModeLocal, (val) => {
+watch(noteModifierLocal, (val) => {
   if (val !== props.simGroupMode) emit('update-sim-group-mode', val)
 })
 
@@ -134,20 +134,43 @@ const settings = useTimelineSettingsStore()
 const selectedColor = computed(() => String(settings.selectedColor || ''))
 
 const modeItems = [
-  { value: '1/16', icon: 'mdi-music-note-sixteenth', label: '1/16', title: '1/16' },
-  { value: '1/8', icon: 'mdi-music-note-eighth', label: '1/8', title: '1/8' },
-  { value: '1/4', icon: 'mdi-music-note-quarter', label: '1/4', title: '1/4' },
-  { value: '1/2', icon: 'mdi-music-note-half', label: '1/2', title: '1/2' },
-  { value: '1', icon: 'mdi-music-note-whole', label: '1', title: '1' },
-  { value: 'sim', label: 'sim', title: 'sim' },
+  { value: '1/16', icon: 'mdi-music-note-sixteenth', label: '1/16', title: 'Sixteenth Note' },
+  { value: '1/8', icon: 'mdi-music-note-eighth', label: '1/8', title: 'Eighth Note' },
+  { value: '1/4', icon: 'mdi-music-note-quarter', label: '1/4', title: 'Quarter Note' },
+  { value: '1/2', icon: 'mdi-music-note-half', label: '1/2', title: 'Half Note' },
+  { value: '1', icon: 'mdi-music-note-whole', label: '1', title: 'Whole Note' },
 ]
 
 const beatBottomItems = [1, 2, 4, 8]
 
-const modeLocal = computed({
-  get: () => props.selectedMode,
-  set: (v) => emit('update-mode', String(v)),
+const lastNonSimMode = ref(props.selectedMode !== 'sim' ? String(props.selectedMode) : '1/4')
+
+watch(
+  () => props.selectedMode,
+  (val) => {
+    if (val !== 'sim') lastNonSimMode.value = String(val)
+  },
+  { immediate: true },
+)
+
+const noteValueLocal = computed({
+  get: () => (props.selectedMode === 'sim' ? lastNonSimMode.value : props.selectedMode),
+  set: (v) => {
+    const mode = String(v)
+    if (mode !== 'sim') lastNonSimMode.value = mode
+    emit('update-mode', mode)
+  },
 })
+
+const isSimOn = computed(() => props.selectedMode === 'sim')
+
+function toggleSim() {
+  if (isSimOn.value) {
+    emit('update-mode', lastNonSimMode.value || '1/4')
+    return
+  }
+  emit('update-mode', 'sim')
+}
 
 const soundDurationLocal = computed({
   get: () => props.soundDurationScale,
@@ -178,6 +201,10 @@ function updateBeatBottom(v) {
 <style scoped>
 .mode-icon {
   line-height: 1;
+}
+
+.section-label {
+  min-width: 92px;
 }
 
 .symbols-btn :deep(.v-btn__content) {

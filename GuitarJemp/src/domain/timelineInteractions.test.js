@@ -8,10 +8,10 @@ import {
 } from './timelineInteractions'
 
 describe('domain/timelineInteractions', () => {
-  it('scales visual length by 1.5 in dot mode only', () => {
-    expect(lengthVisualScale('dot')).toBe(1.5)
+  it('scales visual length by 1.5 in dotted mode only', () => {
+    expect(lengthVisualScale('dotted')).toBe(1.5)
     expect(lengthVisualScale('3')).toBe(1)
-    expect(visualLengthBlocks(2, 'dot')).toBe(3)
+    expect(visualLengthBlocks(2, 'dotted')).toBe(3)
     expect(visualLengthBlocks(2, '')).toBe(2)
   })
 

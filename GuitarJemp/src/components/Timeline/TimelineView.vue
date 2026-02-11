@@ -53,7 +53,7 @@
                 :string-label="track.label" :active-string="activeString" :notes="track.notes"
                 :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                :track-min-width-px="trackMinWidthPx" :sim-group-mode="simGroupMode"
+                :track-min-width-px="trackMinWidthPx"
                 @update-active-string="(v) => emit('update-active-string', v)"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                   (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)

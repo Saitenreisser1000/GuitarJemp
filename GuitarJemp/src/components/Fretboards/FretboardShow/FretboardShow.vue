@@ -19,21 +19,21 @@
           </text>
         </g>
 
-        <!-- Dots -->
-        <g class="fb-dots">
+        <!-- ToneDots -->
+        <g class="fb-tone-dots">
           <!-- Hover preview for inactive positions (editor only) -->
-          <circle v-if="hoveredPreviewDot" :cx="dotX(hoveredPreviewDot)" :cy="dotY(hoveredPreviewDot)" :r="previewR()"
+          <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
             fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
 
-          <circle v-for="d in dotsForRender" :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="dotX(d)"
-            :cy="dotY(d)" :r="dotR(d)" :fill="dotFill(d)" :opacity="dotOpacity(d)" :stroke="dotStroke(d)"
-            :stroke-width="dotStrokeWidth(d)" @mouseenter="onDotEnter(d, $event)" @mouseleave="onDotLeave(d)"
-            @click="onDotClick(d, $event)" @pointerdown="onDotPointerDown(d, $event)"
-            @pointermove="onDotPointerMove($event)" @pointerup="onDotPointerUp($event)"
-            @pointercancel="onDotPointerUp($event)" />
+          <circle v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="toneDotX(d)"
+            :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)"
+            :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
+            @click="onToneDotClick(d, $event)" @pointerdown="onToneDotPointerDown(d, $event)"
+            @pointermove="onToneDotPointerMove($event)" @pointerup="onToneDotPointerUp($event)"
+            @pointercancel="onToneDotPointerUp($event)" />
 
           <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
-          <circle v-if="dragPreviewDot" :cx="dotX(dragPreviewDot)" :cy="dotY(dragPreviewDot)" :r="dotR(dragPreviewDot)"
+          <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
             fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4" style="pointer-events: none" />
         </g>
       </svg>
@@ -181,12 +181,12 @@ function stringLabelFor(stringNumber) {
   return stringLabelByNumber.value.get(s) ?? String(stringNumber)
 }
 
-// Per string/fret queue of note keys.
-// Queue front is the centered (vorderste) dot: order[0] is centered,
+// Per string/fret DotQueue of note keys.
+// DotQueue front is the centered ToneDot: order[0] is centered,
 // order[1] shifts left by one offset, etc.
-const queueOrderByPosKey = ref(new Map())
+const dotQueueByPosKey = ref(new Map())
 
-const defaultOrderByPosKey = computed(() => {
+const defaultDotQueueByPosKey = computed(() => {
   const m = new Map()
   for (const note of store.activeNotes) {
     const string = Number(note?.string)
@@ -209,7 +209,7 @@ const defaultOrderByPosKey = computed(() => {
       if (ta !== tb) return ta - tb
       return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
     })
-    // Default queue: newest at front (center).
+    // Default DotQueue: newest at front (center).
     out.set(
       posKey,
       items
@@ -221,11 +221,11 @@ const defaultOrderByPosKey = computed(() => {
   return out
 })
 
-// Keep queue state in sync with current notes.
+// Keep DotQueue state in sync with current notes.
 watch(
-  () => defaultOrderByPosKey.value,
+  () => defaultDotQueueByPosKey.value,
   (next) => {
-    const prev = queueOrderByPosKey.value
+    const prev = dotQueueByPosKey.value
     const merged = new Map()
 
     for (const [posKey, defaultKeys] of next.entries()) {
@@ -241,13 +241,13 @@ watch(
       merged.set(posKey, [...prepended, ...kept])
     }
 
-    queueOrderByPosKey.value = merged
+    dotQueueByPosKey.value = merged
   },
   { immediate: true },
 )
 
-// Playback queue behavior:
-// - When a dot starts playing, it becomes the queue front (center + top).
+// Playback DotQueue behavior:
+// - When a ToneDot starts playing, it becomes the queue front (center + top).
 // - When it stops being highlighted, it moves to the back.
 const lastPulseId = ref('')
 watch(
@@ -266,17 +266,17 @@ watch(
     const posKey = posKeyForNote(note)
     if (!posKey) return
 
-    const order = queueOrderByPosKey.value.get(posKey)
+    const order = dotQueueByPosKey.value.get(posKey)
     if (!Array.isArray(order) || order.length < 2) return
 
     const idx = order.findIndex((x) => String(x ?? '') === k)
     if (idx < 0) return
 
-    // Bring played dot to the front (center/top).
+    // Bring played ToneDot to the front (center/top).
     const rotated = [order[idx], ...order.slice(0, idx), ...order.slice(idx + 1)]
-    const next = new Map(queueOrderByPosKey.value)
+    const next = new Map(dotQueueByPosKey.value)
     next.set(posKey, rotated)
-    queueOrderByPosKey.value = next
+    dotQueueByPosKey.value = next
   },
   { deep: true },
 )
@@ -302,7 +302,7 @@ watch(
     }
 
     let changed = false
-    const nextQueue = new Map(queueOrderByPosKey.value)
+    const nextQueue = new Map(dotQueueByPosKey.value)
 
     for (const k of ended) {
       const note = store.activeNotes.find((n) => String(n?.key ?? '') === k)
@@ -320,16 +320,16 @@ watch(
       changed = true
     }
 
-    if (changed) queueOrderByPosKey.value = nextQueue
+    if (changed) dotQueueByPosKey.value = nextQueue
     prevHighlightedKeys = next
   },
   { deep: true, immediate: true },
 )
 
-const dotsForRender = computed(() => {
+const toneDotsForRender = computed(() => {
   const out = []
 
-  // Render order per position is driven by a queue (see queueOrderByPosKey).
+  // Render order per position is driven by a DotQueue (see dotQueueByPosKey).
   // This allows rotating the visual stack when notes are played.
   const notesByPos = new Map()
   for (const note of store.activeNotes) {
@@ -347,7 +347,7 @@ const dotsForRender = computed(() => {
   for (const [posKey, notes] of notesByPos.entries()) {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
-    const order = queueOrderByPosKey.value.get(posKey) ?? []
+    const order = dotQueueByPosKey.value.get(posKey) ?? []
     const visibleLimit = props.editable ? Infinity : 2
     const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
 
@@ -377,11 +377,11 @@ const dotsForRender = computed(() => {
   return out
 })
 
-const noteDotByPosKey = computed(() => {
+const toneDotByPosKey = computed(() => {
   const m = new Map()
-  for (const d of dotsForRender.value) {
+  for (const d of toneDotsForRender.value) {
     const key = `${Number(d.string)}-${Number(d.fret)}`
-    // Pick queue front (center) for show-mode selection.
+    // Pick DotQueue front (center) for show-mode selection.
     const prev = m.get(key)
     const i = Number(d?._stackIndex)
     const pi = Number(prev?._stackIndex)
@@ -392,14 +392,14 @@ const noteDotByPosKey = computed(() => {
 
 const hoveredFret = ref(null)
 const hoveredPosKey = ref(null)
-const hoveredDotKey = ref(null)
+const hoveredToneDotKey = ref(null)
 
-const hoveredPreviewDot = computed(() => {
+const hoveredPreviewToneDot = computed(() => {
   if (!props.editable) return null
   if (dragState.value?.active) return null
   const key = hoveredPosKey.value
   if (!key) return null
-  if (noteDotByPosKey.value.get(key)) return null
+  if (toneDotByPosKey.value.get(key)) return null
   const [stringRaw, fretRaw] = String(key).split('-')
   const string = Number(stringRaw)
   const fret = Number(fretRaw)
@@ -407,7 +407,7 @@ const hoveredPreviewDot = computed(() => {
   return { string, fret }
 })
 
-const dragPreviewDot = computed(() => {
+const dragPreviewToneDot = computed(() => {
   if (!props.editable) return null
   const s = dragState.value
   if (!s?.active) return null
@@ -577,7 +577,7 @@ function onClick(event) {
   }
 
   // Show-mode: only allow selecting/previewing existing notes.
-  const d = noteDotByPosKey.value.get(`${string}-${fret}`)
+  const d = toneDotByPosKey.value.get(`${string}-${fret}`)
   if (!d?._noteKey) return
 
   selection.selectNote(d._noteKey)
@@ -600,7 +600,7 @@ function onClick(event) {
 
 function onMouseMove(event) {
   // If the pointer is currently inside a dot, keep hover stable.
-  if (hoveredDotKey.value) {
+  if (hoveredToneDotKey.value) {
     if (tooltip.value.visible) setTooltipFromEvent(event, tooltip.value.text)
     return
   }
@@ -624,7 +624,7 @@ function onMouseMove(event) {
 
   // In Show: Tooltip only where a note exists. In Edit: always show hovered pitch.
   if (!props.editable) {
-    const d = noteDotByPosKey.value.get(nextKey)
+    const d = toneDotByPosKey.value.get(nextKey)
     if (!d) {
       hideTooltip()
       return
@@ -639,34 +639,34 @@ function onMouseLeave() {
   if (hoveredFret.value === null) return
   hoveredFret.value = null
   hoveredPosKey.value = null
-  hoveredDotKey.value = null
+  hoveredToneDotKey.value = null
   hideTooltip()
 }
 
 const DOT_BASE_R = 14.4
 const DOT_HOVER_R_FACTOR = 1.12
 
-function posKeyForDot(d) {
+function posKeyForToneDot(d) {
   return `${Number(d?.string)}-${Number(d?.fret)}`
 }
 
-function noteKeyForDot(d) {
+function noteKeyForToneDot(d) {
   return d?._noteKey ? String(d._noteKey) : null
 }
 
-function hoverKeyForDot(d) {
-  return noteKeyForDot(d) ?? posKeyForDot(d)
+function hoverKeyForToneDot(d) {
+  return noteKeyForToneDot(d) ?? posKeyForToneDot(d)
 }
 
-function isDotHovered(d) {
-  const key = hoverKeyForDot(d)
-  return hoveredDotKey.value === key
+function isToneDotHovered(d) {
+  const key = hoverKeyForToneDot(d)
+  return hoveredToneDotKey.value === key
 }
 
-function onDotEnter(d, event) {
-  const key = hoverKeyForDot(d)
-  hoveredDotKey.value = key
-  hoveredPosKey.value = posKeyForDot(d)
+function onToneDotEnter(d, event) {
+  const key = hoverKeyForToneDot(d)
+  hoveredToneDotKey.value = key
+  hoveredPosKey.value = posKeyForToneDot(d)
   hoveredFret.value = Number(d?.fret)
 
   const t = tuning.value
@@ -677,23 +677,23 @@ function onDotEnter(d, event) {
   if (text) setTooltipFromEvent(event, text)
 }
 
-function onDotLeave(d) {
-  const key = hoverKeyForDot(d)
-  if (hoveredDotKey.value === key) hoveredDotKey.value = null
+function onToneDotLeave(d) {
+  const key = hoverKeyForToneDot(d)
+  if (hoveredToneDotKey.value === key) hoveredToneDotKey.value = null
   // leave hoveredPosKey to mousemove (field hover) or mouseleave
   hideTooltip()
 }
 
-function onDotClick(d, event) {
+function onToneDotClick(d, event) {
   if (Date.now() < suppressClicksUntilMs) return
-  const noteKey = noteKeyForDot(d)
+  const noteKey = noteKeyForToneDot(d)
   if (!noteKey) return
 
   const isShift = Boolean(event?.shiftKey)
 
   // In edit mode, a normal click should still add a new note (stacking), so we let it bubble.
   // Shift-click toggles selection without creating a note.
-  // In show mode, clicking a dot should always address exactly this dot.
+  // In show mode, clicking a ToneDot should always address exactly this dot.
   if (!props.editable || isShift) event?.stopPropagation?.()
 
   if (isShift) selection.toggleNoteInSelection(noteKey)
@@ -726,11 +726,11 @@ function clearLongPressTimer() {
   longPressTimer = null
 }
 
-function onDotPointerDown(d, event) {
+function onToneDotPointerDown(d, event) {
   if (!props.editable) return
   if (isPlaying.value) return
 
-  const noteKey = noteKeyForDot(d)
+  const noteKey = noteKeyForToneDot(d)
   if (!noteKey) return
 
   const pointerId = event?.pointerId
@@ -756,7 +756,7 @@ function onDotPointerDown(d, event) {
   event?.currentTarget?.setPointerCapture?.(pointerId)
 }
 
-function onDotPointerMove(event) {
+function onToneDotPointerMove(event) {
   const s = dragState.value
   if (!s?.noteKey) return
   if (event?.pointerId !== s.pointerId) return
@@ -774,7 +774,7 @@ function onDotPointerMove(event) {
   if (text) setTooltipFromEvent(event, text)
 }
 
-function onDotPointerUp(event) {
+function onToneDotPointerUp(event) {
   const s = dragState.value
   if (!s?.noteKey) return
   if (event?.pointerId !== s.pointerId) return
@@ -798,27 +798,27 @@ function onDotPointerUp(event) {
   hideTooltip()
 }
 
-function dotX(d) {
+function toneDotX(d) {
   const fret = Math.max(0, Number(d?.fret) || 0)
   const lines = fretLinesPx.value
   const max = Math.min(fret, Number(props.numFrets) || 12)
 
-  // Open-string dot: on the nut.
-  if (max === 0) return NUT_WIDTH / 2 + dotOffset(d).dx
+  // Open-string ToneDot: on the nut.
+  if (max === 0) return NUT_WIDTH / 2 + toneDotOffset(d).dx
 
-  // Fret n dot belongs to the field between (n-1) and n.
+  // Fret n ToneDot belongs to the field between (n-1) and n.
   const left = max === 1 ? NUT_WIDTH : Number(lines[max - 1] ?? 0)
   const right = Number(lines[max] ?? FB_WIDTH)
-  return (left + right) / 2 + dotOffset(d).dx
+  return (left + right) / 2 + toneDotOffset(d).dx
 }
 
-function dotY(d) {
+function toneDotY(d) {
   const string = Number(d?.string)
   const s = strings.value.find((x) => Number(x.string) === string)
   return Number(s?.y) || 0
 }
 
-function dotOffset(d) {
+function toneDotOffset(d) {
   const count = Number(d?._stackCount) || 1
   if (count <= 1) return { dx: 0, dy: 0 }
 
@@ -832,35 +832,35 @@ function dotOffset(d) {
   return { dx: -i * OX, dy: 0 }
 }
 
-function dotFill(d) {
+function toneDotFill(d) {
   return d?.color ?? 'white'
 }
 
-function dotOpacity(d) {
+function toneDotOpacity(d) {
   if (!isPlaying.value) return 1
-  const nk = noteKeyForDot(d)
+  const nk = noteKeyForToneDot(d)
   if (!nk) return FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
   return highlightedNoteKeySet.value.has(nk) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
 }
 
-function dotStroke(d) {
-  const hk = hoverKeyForDot(d)
+function toneDotStroke(d) {
+  const hk = hoverKeyForToneDot(d)
   const hoverStroke =
-    hoveredDotKey.value === hk ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
+    hoveredToneDotKey.value === hk ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
 
-  const nk = noteKeyForDot(d)
+  const nk = noteKeyForToneDot(d)
   if (nk && String(selection.selectedNoteKey || '') === nk) return 'rgba(20, 20, 20, 0.95)'
 
   return hoverStroke
 }
 
-function dotStrokeWidth(d) {
-  const hk = hoverKeyForDot(d)
-  let w = hoveredDotKey.value === hk ? 4 : 2
+function toneDotStrokeWidth(d) {
+  const hk = hoverKeyForToneDot(d)
+  let w = hoveredToneDotKey.value === hk ? 4 : 2
 
-  if (isDotHovered(d)) w = Math.max(w, 4)
+  if (isToneDotHovered(d)) w = Math.max(w, 4)
 
-  const nk = noteKeyForDot(d)
+  const nk = noteKeyForToneDot(d)
   if (nk && String(selection.selectedNoteKey || '') === nk) w = 4
 
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
@@ -874,10 +874,10 @@ function dotStrokeWidth(d) {
   return w + FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD * bump
 }
 
-function dotR(d) {
-  const hk = hoverKeyForDot(d)
-  const baseR = DOT_BASE_R * (hoveredDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
-  const nk = noteKeyForDot(d)
+function toneDotR(d) {
+  const hk = hoverKeyForToneDot(d)
+  const baseR = DOT_BASE_R * (hoveredToneDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
+  const nk = noteKeyForToneDot(d)
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
   if (!Number.isFinite(startedAt)) return baseR
 
@@ -890,7 +890,7 @@ function dotR(d) {
 }
 
 function previewR() {
-  // Keep preview a touch smaller than a fully hovered active dot.
+  // Keep preview a touch smaller than a fully hovered active ToneDot.
   return DOT_BASE_R * 1.02
 }
 
@@ -909,7 +909,7 @@ watch(
       // Clear hover/tooltip markings when playback starts.
       hoveredFret.value = null
       hoveredPosKey.value = null
-      hoveredDotKey.value = null
+      hoveredToneDotKey.value = null
       hideTooltip()
       startAnim()
       return
@@ -926,7 +926,7 @@ watch(
     () => props.numFrets,
     () => instrument.numStrings,
     () => instrument.tuningId,
-    () => dotsForRender.value,
+    () => toneDotsForRender.value,
     () => selection.selectedNoteKey,
     () => playState.value,
     () => highlightedNoteKeys.value,

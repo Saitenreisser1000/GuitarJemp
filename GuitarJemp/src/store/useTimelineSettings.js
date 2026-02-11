@@ -41,8 +41,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   )
 
   const activeTool = ref(stored.activeTool === 'select' ? 'select' : 'arrow')
+  const storedSimModeRaw = typeof stored.simGroupMode === 'string' ? stored.simGroupMode : ''
+  const storedSimMode = storedSimModeRaw === 'dot' ? 'dotted' : storedSimModeRaw
   const simGroupMode = ref(
-    typeof stored.simGroupMode === 'string' ? stored.simGroupMode : '',
+    storedSimMode === 'dotted' || storedSimMode === '3' ? storedSimMode : '',
   )
 
   const stringsCollapsed = ref(
@@ -107,8 +109,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   }
 
   function setSimGroupMode(v) {
-    const next = String(v || '')
-    simGroupMode.value = next === 'dot' || next === '3' ? next : ''
+    const raw = String(v || '')
+    const next = raw === 'dot' ? 'dotted' : raw
+    simGroupMode.value = next === 'dotted' || next === '3' ? next : ''
   }
 
   persistRefs(STORAGE_KEY, {

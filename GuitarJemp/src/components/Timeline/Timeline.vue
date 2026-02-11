@@ -402,7 +402,27 @@ watch(
     const prev = new Set(prevKeys)
     const addedKey = keys.find((k) => !prev.has(k))
     if (!addedKey) return
+
+    // In chord mode, keep the playhead fixed but remember the last created note.
+    if (selectedMode.value === 'sim') {
+      pendingChordExitSeekNoteKey.value = addedKey
+      return
+    }
+
     seekToNoteEnd(addedKey)
+  },
+)
+
+watch(
+  () => selectedMode.value,
+  (nextMode, prevMode) => {
+    if (playback.isPlaying.value) return
+    if (prevMode !== 'sim' || nextMode === 'sim') return
+
+    const key = pendingChordExitSeekNoteKey.value
+    pendingChordExitSeekNoteKey.value = null
+    if (!key) return
+    seekToNoteEnd(key)
   },
 )
 
@@ -437,6 +457,7 @@ const totalBlocks = computed(() => {
 const playhead = ref(0)
 let lastAudioTickMs = -Infinity
 let triggeredNoteKeys = new Set()
+const pendingChordExitSeekNoteKey = ref(null)
 
 function maybePlayNotesAt(tMs) {
   if (!soundPreviewEnabled.value) return

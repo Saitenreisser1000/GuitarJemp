@@ -6,7 +6,7 @@ function safePositiveNumber(v, fallback) {
 }
 
 export function lengthVisualScale(simGroupMode) {
-  return simGroupMode === 'dot' ? 1.5 : 1
+  return simGroupMode === 'dotted' || simGroupMode === 'dot' ? 1.5 : 1
 }
 
 export function visualLengthBlocks(lengthBlocks, simGroupMode) {

@@ -108,8 +108,9 @@ export const useNotesStore = defineStore('notes', () => {
     const lengthMode =
       settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
     let lengthBlocks = defaultLengthBlocksForMode(lengthMode)
-    const simGroupMode = settings.simGroupMode?.value ?? settings.simGroupMode
-    if (simGroupMode === 'dot' && Number(lengthBlocks) > 0.25) {
+    const rawSimGroupMode = settings.simGroupMode?.value ?? settings.simGroupMode
+    const simGroupMode = rawSimGroupMode === 'dot' ? 'dotted' : rawSimGroupMode
+    if (simGroupMode === 'dotted' && Number(lengthBlocks) > 0.25) {
       lengthBlocks = Number(lengthBlocks) * 1.5
     }
     return {
