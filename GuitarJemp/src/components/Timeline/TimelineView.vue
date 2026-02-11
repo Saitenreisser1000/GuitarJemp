@@ -3,6 +3,7 @@
     <ModeSelector v-if="!compact" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
       :sound-preview-enabled="soundPreviewEnabled" :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
       :beat-bottom="beatBottom" :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
+      :sim-group-mode="simGroupMode.value" @update-sim-group-mode="handleUpdateSimGroupMode"
       @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
       @update-sound-preview="(v) => emit('update-sound-preview', v)"
       @update-sound-duration-scale="(v) => emit('update-sound-duration-scale', v)"
@@ -52,7 +53,8 @@
                 :string-label="track.label" :active-string="activeString" :notes="track.notes"
                 :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                :track-min-width-px="trackMinWidthPx" @update-active-string="(v) => emit('update-active-string', v)"
+                :track-min-width-px="trackMinWidthPx" :sim-group-mode="simGroupMode.value"
+                @update-active-string="(v) => emit('update-active-string', v)"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                   (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
                 " @update-note-length="
@@ -99,6 +101,7 @@
 </template>
 
 <script setup>
+import { watch } from 'vue'
 import PlaybackControls from './controls/PlaybackControls.vue'
 import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
@@ -135,6 +138,7 @@ const props = defineProps({
   currentStep: { type: Number, required: true },
 
   tracks: { type: Array, required: true },
+  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -163,7 +167,24 @@ const emit = defineEmits([
   'paste-at-playhead',
   'undo',
   'redo',
+  'update-sim-group-mode',
 ])
+
+// ref und watch werden bereits oben importiert
+const simGroupMode = ref(props.simGroupMode || '')
+
+function handleUpdateSimGroupMode(v) {
+  simGroupMode.value = v
+  emit('update-sim-group-mode', v)
+}
+
+// Falls das Prop von außen geändert wird, synchronisieren
+watch(
+  () => props.simGroupMode,
+  (val) => {
+    if (val !== simGroupMode.value) simGroupMode.value = val
+  },
+)
 
 const zoomLocal = computed({
   get: () => props.zoomPxPerBlock,

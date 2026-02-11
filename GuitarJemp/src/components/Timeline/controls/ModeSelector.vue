@@ -87,7 +87,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 import ColorPalette from '../../Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
@@ -101,6 +101,7 @@ const props = defineProps({
   numStrings: { type: Number, default: 6 },
   numFrets: { type: Number, default: 12 },
   stringsCollapsed: { type: Boolean, default: false },
+  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits([
@@ -113,7 +114,21 @@ const emit = defineEmits([
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
+  'update-sim-group-mode',
 ])
+// --- simGroupModeLocal: lokale Steuerung für die Radiobutton-Gruppe
+const simGroupModeLocal = ref(props.simGroupMode)
+
+watch(
+  () => props.simGroupMode,
+  (val) => {
+    if (val !== simGroupModeLocal.value) simGroupModeLocal.value = val
+  },
+)
+
+watch(simGroupModeLocal, (val) => {
+  if (val !== props.simGroupMode) emit('update-sim-group-mode', val)
+})
 
 const settings = useTimelineSettingsStore()
 const selectedColor = computed(() => String(settings.selectedColor || ''))

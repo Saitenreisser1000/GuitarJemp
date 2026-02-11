@@ -4,14 +4,16 @@
     :sound-duration-scale="soundDurationScale" :active-string="activeString" :active-tool="activeTool"
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
-    :num-frets="numFrets" :strings-collapsed="stringsCollapsed" @toggle-play="togglePlay"
+    :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
+    @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
     @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
-    @update-strings-collapsed="settings.setStringsCollapsed" @update-frets="(v) => emit('update-frets', v)"
+    @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
+    @update-frets="(v) => emit('update-frets', v)"
     @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
     @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
     @copy-selection="handleCopySelection" @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo"
@@ -62,6 +64,7 @@ const {
   activeString,
   activeTool,
   stringsCollapsed,
+  simGroupMode,
   loopEnabled,
   beatTop,
   beatBottom,
@@ -109,13 +112,11 @@ const tracks = computed(() => {
 })
 
 function handleUpdateNoteGridIndex(noteKey, gridIndex) {
-  store.pushUndoPoint('move')
   store.setNoteGridIndex(noteKey, gridIndex)
   seekToNoteEnd(noteKey, { gridIndex })
 }
 
 function handleUpdateNoteLength(noteKey, lengthBlocks) {
-  store.pushUndoPoint('resize')
   store.setNoteLength(noteKey, lengthBlocks)
   seekToNoteEnd(noteKey, { lengthBlocks })
 }
@@ -139,7 +140,6 @@ function handleGroupMoveNotes(anchorKey, deltaBlocks) {
   const delta = Number(quantizeBlocks(deltaBlocks).toFixed(2))
   if (!delta) return
 
-  store.pushUndoPoint('move')
   const total = Math.max(1, Number(totalBlocks.value) || 1)
 
   for (const k of keys) {
@@ -167,7 +167,6 @@ function handleGroupResizeNotes(anchorKey, deltaBlocks) {
   const delta = Number(quantizeBlocks(deltaBlocks).toFixed(2))
   if (!delta) return
 
-  store.pushUndoPoint('resize')
   const total = Math.max(1, Number(totalBlocks.value) || 1)
   const minLen = snapEnabled.value ? TIMELINE_SNAP_STEP_BLOCKS : 0.01
 
@@ -230,9 +229,7 @@ function playheadGridIndex() {
 
 function handlePasteAtPlayhead() {
   if (playback.isPlaying.value) return
-  const clip = Array.isArray(selection.clipboardNotes)
-    ? selection.clipboardNotes
-    : selection.clipboardNotes
+  const clip = selection.clipboardNotes
   const items = Array.isArray(clip?.value) ? clip.value : Array.isArray(clip) ? clip : []
   if (!items.length) return
 
@@ -393,7 +390,6 @@ function seekPlayhead(tMs) {
 
   playback.seek(t)
   playhead.value = t
-  transport.setPlayheadMs(t)
   playbackVisuals.prune(t)
 }
 

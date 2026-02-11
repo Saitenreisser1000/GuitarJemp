@@ -107,7 +107,12 @@ export const useNotesStore = defineStore('notes', () => {
 
     const lengthMode =
       settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
-    const lengthBlocks = defaultLengthBlocksForMode(lengthMode)
+    let lengthBlocks = defaultLengthBlocksForMode(lengthMode)
+    // simGroupMode berücksichtigen
+    const simGroupMode = settings.simGroupMode?.value || settings.simGroupMode
+    if (simGroupMode === 'dot') {
+      lengthBlocks = Number(lengthBlocks) * 1.5
+    }
     return {
       key: createNoteKey(),
       fret,

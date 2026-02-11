@@ -41,6 +41,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   )
 
   const activeTool = ref(stored.activeTool === 'select' ? 'select' : 'arrow')
+  const simGroupMode = ref(
+    typeof stored.simGroupMode === 'string' ? stored.simGroupMode : '',
+  )
 
   const stringsCollapsed = ref(
     typeof stored.stringsCollapsed === 'boolean' ? stored.stringsCollapsed : false,
@@ -103,6 +106,11 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     stringsCollapsed.value = Boolean(v)
   }
 
+  function setSimGroupMode(v) {
+    const next = String(v || '')
+    simGroupMode.value = next === 'dot' || next === '3' ? next : ''
+  }
+
   persistRefs(STORAGE_KEY, {
     selectedMode,
     lastRhythmMode,
@@ -117,6 +125,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     activeString,
     activeTool,
     stringsCollapsed,
+    simGroupMode,
   })
 
   return {
@@ -133,6 +142,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     activeString,
     activeTool,
     stringsCollapsed,
+    simGroupMode,
     setSelectedMode,
     setSnapEnabled,
     setSoundPreviewEnabled,
@@ -145,5 +155,6 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setActiveString,
     setActiveTool,
     setStringsCollapsed,
+    setSimGroupMode,
   }
 })

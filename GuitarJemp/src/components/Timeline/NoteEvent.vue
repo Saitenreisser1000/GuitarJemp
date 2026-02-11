@@ -23,12 +23,13 @@ import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 const props = defineProps({
-  note: Object,
+  note: { type: Object, required: true },
   totalBlocks: { type: Number, default: 16 },
   timePerBlockMs: { type: Number, default: 0 },
   color: String,
   snapEnabled: Boolean,
   step: Number,
+  simGroupMode: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update-grid-index', 'update-length', 'group-move', 'group-resize'])
@@ -42,6 +43,12 @@ const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
 )
+
+const safeLengthBlocks = computed(() => {
+  const raw = Number(props.note?.lengthBlocks ?? 1)
+  return Number.isFinite(raw) && raw > 0 ? raw : 1
+})
+const lengthVisualScale = computed(() => (props.simGroupMode === 'dot' ? 1.5 : 1))
 
 function selectForwardFromHere({ allStrings = false } = {}) {
   const key = props.note?.key
@@ -120,7 +127,7 @@ const leftPercent = computed(() => {
 
 const widthPercent = computed(() => {
   const total = Math.max(1, Number(props.totalBlocks) || 1)
-  const baseLen = Number(props.note?.lengthBlocks ?? 1)
+  const baseLen = safeLengthBlocks.value * lengthVisualScale.value
   const useGroup = isGroupSelected.value && selection.groupResizeActive
   const previewDelta =
     isGroupSelected.value && selection.groupResizeActive
@@ -137,15 +144,11 @@ const widthPercent = computed(() => {
 })
 
 const title = computed(() => {
-  const len = props.note?.lengthBlocks
+  const len = safeLengthBlocks.value
   const p = pitchLabel.value
   const pPart = p ? ` (${p})` : ''
   return `Bund ${props.note?.fret}, Saite ${props.note?.string}${pPart}, Raster ${props.note?.gridIndex}, Länge ${len}`
 })
-
-function clampInt(v, min, max) {
-  return Math.min(max, Math.max(min, v))
-}
 
 function onPointerDown(e) {
   if (isResizing.value) return
@@ -227,7 +230,7 @@ function onResizePointerDown(e) {
 
   startClientX = e.clientX
   startGridIndex = Number(props.note?.gridIndex ?? 1)
-  startLength = Number(props.note?.lengthBlocks ?? 1)
+  startLength = safeLengthBlocks.value * lengthVisualScale.value
   dragLength.value = startLength
   isResizing.value = true
 
@@ -296,12 +299,14 @@ function onPointerUp() {
   if (isResizing.value) {
     isResizing.value = false
     if (isGroupSelected.value) {
-      const delta = Number((selection.groupResizeDeltaBlocks || 0).toFixed(2))
+      const deltaVisual = Number((selection.groupResizeDeltaBlocks || 0).toFixed(2))
+      const delta = Number((deltaVisual / lengthVisualScale.value).toFixed(2))
       selection.setGroupResize(false, 0)
       dragLength.value = null
       if (props.note?.key && delta) emit('group-resize', props.note.key, delta)
     } else {
-      const nextLen = Number((dragLength.value ?? startLength).toFixed(2))
+      const nextLenVisual = Number((dragLength.value ?? startLength).toFixed(2))
+      const nextLen = Number((nextLenVisual / lengthVisualScale.value).toFixed(2))
       dragLength.value = null
       if (props.note?.key) emit('update-length', props.note.key, nextLen)
     }
