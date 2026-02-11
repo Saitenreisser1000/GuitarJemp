@@ -37,6 +37,7 @@ const props = defineProps({
   snapEnabled: Boolean,
   step: Number,
   beatTop: { type: Number, default: 4 },
+  beatBottom: { type: Number, default: 4 },
   trackMinWidthPx: { type: Number, default: 0 },
 })
 
@@ -116,14 +117,32 @@ function onScrubPointerUp() {
 }
 
 const beatsPerBar = computed(() => {
-  const v = Number.parseInt(props.beatTop, 10)
+  const v = Number.parseInt(String(props.beatTop), 10)
+  return Number.isFinite(v) && v > 0 ? v : 1
+})
+
+const beatBottomValue = computed(() => {
+  const v = Number.parseInt(String(props.beatBottom), 10)
+  return [1, 2, 4, 8].includes(v) ? v : 4
+})
+
+// Blocks are quarter-notes (1 block = 1/4). A beat is 4/beatBottom blocks.
+const blocksPerBeat = computed(() => {
+  const bb = Number(beatBottomValue.value) || 4
+  const v = 4 / bb
+  return Number.isFinite(v) && v > 0 ? v : 1
+})
+
+const blocksPerBar = computed(() => {
+  const v = beatsPerBar.value * blocksPerBeat.value
   return Number.isFinite(v) && v > 0 ? v : 1
 })
 
 const gridBackgroundStyle = computed(() => {
   return {
     '--total-blocks': String(props.totalBlocks),
-    '--beats-per-bar': String(beatsPerBar.value),
+    '--blocks-per-beat': String(blocksPerBeat.value),
+    '--blocks-per-bar': String(blocksPerBar.value),
   }
 })
 
@@ -206,7 +225,8 @@ function getNoteColor(fret) {
   pointer-events: none;
   --cell: calc(100% / var(--total-blocks));
   --sub: calc(var(--cell) / 4);
-  --bar: calc(var(--cell) * var(--beats-per-bar));
+  --beat: calc(var(--cell) * var(--blocks-per-beat));
+  --bar: calc(var(--cell) * var(--blocks-per-bar));
   background-image:
     repeating-linear-gradient(to right,
       rgba(208, 208, 208, 0.35) 0px,
@@ -217,7 +237,7 @@ function getNoteColor(fret) {
       #d0d0d0 0px,
       #d0d0d0 2px,
       transparent 2px,
-      transparent var(--cell)),
+      transparent var(--beat)),
     repeating-linear-gradient(to right,
       rgba(70, 70, 70, 0.45) 0px,
       rgba(70, 70, 70, 0.45) 4px,
