@@ -3,12 +3,23 @@
     <div class="d-flex align-center flex-wrap ga-4">
       <!--div class="text-subtitle-2 text-medium-emphasis">note:</div-->
 
-      <v-btn-toggle v-model="modeLocal" mandatory divided>
+      <v-btn-toggle v-model="modeLocal" mandatory divided class="note-btns">
         <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" :title="item.title">
           <v-icon v-if="item.icon" class="mode-icon" :icon="item.icon" size="34" />
           <template v-else>{{ item.label }}</template>
         </v-btn>
       </v-btn-toggle>
+
+      <v-btn-toggle v-model="simGroupModeLocal" divided class="sim-group-btns"
+        style="margin-left: 12px; margin-right: 12px">
+        <v-btn value="dot" variant="tonal" title=".">.</v-btn>
+        <v-btn value="3" variant="tonal" title="3">3</v-btn>
+      </v-btn-toggle>
+
+      <v-btn variant="tonal" :active="Boolean(isSimOn)" :color="isSimOn ? 'grey-darken-3' : 'grey-lighten-2'"
+        :title="isSimOn ? 'SIM aus' : 'SIM an'" :aria-pressed="String(isSimOn)" @click="toggleSim" class="sim-btn">
+        SIM
+      </v-btn>
 
       <v-menu location="bottom" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
@@ -76,7 +87,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import ColorPalette from '../../Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
