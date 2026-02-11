@@ -28,7 +28,13 @@
           <circle v-for="d in dotsForRender" :key="`dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="dotX(d)"
             :cy="dotY(d)" :r="dotR(d)" :fill="dotFill(d)" :opacity="dotOpacity(d)" :stroke="dotStroke(d)"
             :stroke-width="dotStrokeWidth(d)" @mouseenter="onDotEnter(d, $event)" @mouseleave="onDotLeave(d)"
-            @click="onDotClick(d, $event)" />
+            @click="onDotClick(d, $event)" @pointerdown="onDotPointerDown(d, $event)"
+            @pointermove="onDotPointerMove($event)" @pointerup="onDotPointerUp($event)"
+            @pointercancel="onDotPointerUp($event)" />
+
+          <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
+          <circle v-if="dragPreviewDot" :cx="dotX(dragPreviewDot)" :cy="dotY(dragPreviewDot)" :r="dotR(dragPreviewDot)"
+            fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4" style="pointer-events: none" />
         </g>
       </svg>
     </div>
@@ -91,6 +97,20 @@ const { playState } = storeToRefs(transport)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
+
+const LONG_PRESS_MS = 180
+const CLICK_SUPPRESS_MS = 250
+
+const dragState = ref({
+  active: false,
+  noteKey: null,
+  pointerId: null,
+  startAtMs: 0,
+  target: null,
+})
+
+let longPressTimer = null
+let suppressClicksUntilMs = 0
 
 function posKeyForNote(note) {
   const string = Number(note?.string)
@@ -376,6 +396,7 @@ const hoveredDotKey = ref(null)
 
 const hoveredPreviewDot = computed(() => {
   if (!props.editable) return null
+  if (dragState.value?.active) return null
   const key = hoveredPosKey.value
   if (!key) return null
   if (noteDotByPosKey.value.get(key)) return null
@@ -384,6 +405,19 @@ const hoveredPreviewDot = computed(() => {
   const fret = Number(fretRaw)
   if (!Number.isFinite(string) || !Number.isFinite(fret)) return null
   return { string, fret }
+})
+
+const dragPreviewDot = computed(() => {
+  if (!props.editable) return null
+  const s = dragState.value
+  if (!s?.active) return null
+  const t = s?.target
+  const string = Number(t?.string)
+  const fret = Number(t?.fret)
+  if (!Number.isFinite(string) || !Number.isFinite(fret)) return null
+  const noteKey = s?.noteKey != null ? String(s.noteKey) : null
+  if (!noteKey) return null
+  return { string, fret, _noteKey: noteKey, _stackCount: 1, _stackIndex: 0 }
 })
 
 const tooltip = ref({ visible: false, x: 0, y: 0, text: '' })
@@ -513,6 +547,7 @@ function hoveredPosFromEvent(event) {
 }
 
 function onClick(event) {
+  if (Date.now() < suppressClicksUntilMs) return
   const pos = hoveredPosFromEvent(event)
   if (!pos) return
   const { fret, string } = pos
@@ -650,6 +685,7 @@ function onDotLeave(d) {
 }
 
 function onDotClick(d, event) {
+  if (Date.now() < suppressClicksUntilMs) return
   const noteKey = noteKeyForDot(d)
   if (!noteKey) return
 
@@ -682,6 +718,84 @@ function onDotClick(d, event) {
   const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
 
   void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+}
+
+function clearLongPressTimer() {
+  if (longPressTimer == null) return
+  clearTimeout(longPressTimer)
+  longPressTimer = null
+}
+
+function onDotPointerDown(d, event) {
+  if (!props.editable) return
+  if (isPlaying.value) return
+
+  const noteKey = noteKeyForDot(d)
+  if (!noteKey) return
+
+  const pointerId = event?.pointerId
+  if (pointerId == null) return
+
+  clearLongPressTimer()
+  dragState.value = {
+    active: false,
+    noteKey: String(noteKey),
+    pointerId,
+    startAtMs: Date.now(),
+    target: hoveredPosFromEvent(event),
+  }
+
+  // Activate drag only after a long press.
+  longPressTimer = setTimeout(() => {
+    const s = dragState.value
+    if (!s?.noteKey) return
+    if (s.pointerId !== pointerId) return
+    dragState.value = { ...s, active: true }
+  }, LONG_PRESS_MS)
+
+  event?.currentTarget?.setPointerCapture?.(pointerId)
+}
+
+function onDotPointerMove(event) {
+  const s = dragState.value
+  if (!s?.noteKey) return
+  if (event?.pointerId !== s.pointerId) return
+
+  if (!s.active) return
+
+  const pos = hoveredPosFromEvent(event)
+  if (!pos) return
+
+  dragState.value = { ...s, target: pos }
+
+  const t = tuning.value
+  const midi = midiForFretString({ fret: pos.fret, string: pos.string }, t)
+  const text = Number.isFinite(Number(midi)) ? midiToNoteName(midi, { includeOctave: true }) : ''
+  if (text) setTooltipFromEvent(event, text)
+}
+
+function onDotPointerUp(event) {
+  const s = dragState.value
+  if (!s?.noteKey) return
+  if (event?.pointerId !== s.pointerId) return
+
+  clearLongPressTimer()
+
+  if (s.active) {
+    const target = s.target ?? hoveredPosFromEvent(event)
+    if (target) {
+      store.setNotePosition(s.noteKey, { fret: target.fret, string: target.string })
+      selection.selectNote(s.noteKey)
+    }
+
+    // Prevent the subsequent click (which would otherwise add a note in edit mode).
+    suppressClicksUntilMs = Date.now() + CLICK_SUPPRESS_MS
+    event?.preventDefault?.()
+    event?.stopPropagation?.()
+  }
+
+  dragState.value = { active: false, noteKey: null, pointerId: null, startAtMs: 0, target: null }
+  hideTooltip()
 }
 
 function dotX(d) {

@@ -145,6 +145,24 @@ export const useNotesStore = defineStore('notes', () => {
     activeNotes.value[idx].lengthBlocks = safe
   }
 
+  function setNotePosition(key, { fret, string } = {}) {
+    const idx = findIndexByKey(String(key))
+    if (idx === -1) return
+
+    const nextFret = Number(fret)
+    const nextString = Number(string)
+    if (!Number.isFinite(nextFret) || nextFret < 0) return
+    if (!Number.isFinite(nextString) || nextString < 1) return
+
+    const prevFret = Number(activeNotes.value[idx]?.fret)
+    const prevString = Number(activeNotes.value[idx]?.string)
+    if (prevFret === nextFret && prevString === nextString) return
+
+    pushUndoPoint('movePitch')
+    activeNotes.value[idx].fret = nextFret
+    activeNotes.value[idx].string = nextString
+  }
+
   function setNotes(notesArray) {
     // Accept both legacy keys and note-objects; normalize to the canonical note shape.
     const normalized = []
@@ -208,6 +226,7 @@ export const useNotesStore = defineStore('notes', () => {
     clearNotes,
     setNoteGridIndex,
     setNoteLength,
+    setNotePosition,
     getNoteTimeMs,
     getNoteDurationMs,
   }
