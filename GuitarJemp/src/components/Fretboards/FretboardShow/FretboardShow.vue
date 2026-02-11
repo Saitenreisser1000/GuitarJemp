@@ -21,6 +21,11 @@
 
         <!-- ToneDots -->
         <g class="fb-tone-dots">
+          <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
+            <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
+              :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" />
+          </g>
+
           <!-- Hover preview for inactive positions (editor only) -->
           <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
             fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
@@ -72,6 +77,7 @@ import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForFretString } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
+import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
 
 defineOptions({ name: 'FretboardShow' })
 
@@ -93,7 +99,7 @@ const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
 
-const { playState } = storeToRefs(transport)
+const { playState, playheadMs } = storeToRefs(transport)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
@@ -375,6 +381,104 @@ const toneDotsForRender = computed(() => {
   }
 
   return out
+})
+
+const renderedToneDotByNoteKey = computed(() => {
+  const m = new Map()
+  for (const d of toneDotsForRender.value) {
+    const k = noteKeyForToneDot(d)
+    if (!k) continue
+    if (!m.has(k)) m.set(k, d)
+  }
+  return m
+})
+
+const sortedNotesByStart = computed(() => {
+  const items = Array.isArray(store.activeNotes) ? [...store.activeNotes] : []
+  items.sort((a, b) => {
+    const ga = Number(a?.gridIndex) || 0
+    const gb = Number(b?.gridIndex) || 0
+    if (ga !== gb) return ga - gb
+    const ta = Number(a?.placedAtMs) || 0
+    const tb = Number(b?.placedAtMs) || 0
+    if (ta !== tb) return ta - tb
+    return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+  })
+  return items
+})
+
+const noteStartMsByKey = computed(() => {
+  const m = new Map()
+  for (const n of sortedNotesByStart.value) {
+    const key = String(n?.key ?? '')
+    if (!key) continue
+    const gridIndex = Number(n?.gridIndex)
+    if (!Number.isFinite(gridIndex)) continue
+    m.set(key, (gridIndex - 1) * DEFAULT_TIME_PER_BLOCK_MS)
+  }
+  return m
+})
+
+const nextNoteKeyByKey = computed(() => {
+  const notes = sortedNotesByStart.value
+  const out = new Map()
+  for (let i = 0; i < notes.length; i++) {
+    const current = notes[i]
+    const currentKey = String(current?.key ?? '')
+    if (!currentKey) continue
+    const currentStart = noteStartMsByKey.value.get(currentKey)
+    if (!Number.isFinite(currentStart)) continue
+
+    let nextKey = null
+    for (let j = i + 1; j < notes.length; j++) {
+      const candidateKey = String(notes[j]?.key ?? '')
+      if (!candidateKey) continue
+      const candidateStart = noteStartMsByKey.value.get(candidateKey)
+      if (!Number.isFinite(candidateStart)) continue
+      if (candidateStart > currentStart) {
+        nextKey = candidateKey
+        break
+      }
+    }
+    if (nextKey) out.set(currentKey, nextKey)
+  }
+  return out
+})
+
+const playbackTravelLine = computed(() => {
+  if (!isPlaying.value) return null
+
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  if (!fromKey) return null
+
+  const toKey = nextNoteKeyByKey.value.get(fromKey)
+  if (!toKey) return null
+
+  const fromDot = renderedToneDotByNoteKey.value.get(fromKey)
+  const toDot = renderedToneDotByNoteKey.value.get(toKey)
+  if (!fromDot || !toDot) return null
+
+  const startMs = Number(noteStartMsByKey.value.get(fromKey))
+  const endMs = Number(noteStartMsByKey.value.get(toKey))
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
+
+  const spanMs = endMs - startMs
+  if (!(spanMs > 0)) return null
+
+  const nowMs = Number(playheadMs.value)
+  const p = Number.isFinite(nowMs) ? (nowMs - startMs) / spanMs : 0
+  const progress = Math.min(1, Math.max(0, p))
+
+  const x1 = toneDotX(fromDot)
+  const y1 = toneDotY(fromDot)
+  const xTarget = toneDotX(toDot)
+  const yTarget = toneDotY(toDot)
+  const x2 = x1 + (xTarget - x1) * progress
+  const y2 = y1 + (yTarget - y1) * progress
+  const color = toneDotFill(toDot)
+
+  return { x1, y1, x2, y2, color }
 })
 
 const toneDotByPosKey = computed(() => {
@@ -969,6 +1073,12 @@ watch(
   display: block;
   cursor: pointer;
   overflow: visible;
+}
+
+.fb-playback-travel-line line {
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
 }
 
 .fb-tooltip {
