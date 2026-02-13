@@ -5,7 +5,7 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
-    :hand-position-notes="handPositionNotes"
+    :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
     @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
@@ -14,6 +14,7 @@
     @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
     @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
+    @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
     @update-frets="(v) => emit('update-frets', v)"
     @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
     @update-note-label="handleUpdateNoteLabel"
@@ -36,12 +37,18 @@ import { useSelectionStore } from '@/store/useSelection'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
-import { DEFAULT_TIME_PER_BLOCK_MS, TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
+import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { createNoteKey } from '@/domain/note'
+import {
+  gridIndexToStartMs,
+  lengthBlocksToDurationMs,
+  playheadMsToGridIndex,
+  safeTimePerBlockMs,
+} from '@/domain/timelineTime'
 import {
   buildPastedNotes,
   computePasteRange,
@@ -51,9 +58,10 @@ import {
 defineProps({
   compact: { type: Boolean, default: false },
   numFrets: { type: Number, default: 12 },
+  activeNotesVisible: { type: Boolean, default: true },
 })
 
-const emit = defineEmits(['update-frets'])
+const emit = defineEmits(['update-frets', 'update-active-notes-visible'])
 
 const store = useNotesStore()
 const transport = useTransportStore()
@@ -138,11 +146,12 @@ const notesForRender = computed(() => {
     const fret = note?.fret
     const string = note?.string
     const color = note?.color
+    const noteValue = typeof note?.noteValue === 'string' ? note.noteValue : ''
     // 1-based raster index stored per note (fallback to insertion order)
     const gridIndex = Number.isFinite(note?.gridIndex) ? note.gridIndex : idx + 1
     const lengthBlocks = Number.isFinite(note?.lengthBlocks) ? note.lengthBlocks : 1
     const subdivision = Number(note?.subdivision) === 3 ? 3 : 2
-    return { key, fret, string, color, gridIndex, lengthBlocks, subdivision }
+    return { key, fret, string, color, noteValue, gridIndex, lengthBlocks, subdivision }
   })
 })
 
@@ -272,12 +281,14 @@ function handleCopySelection() {
       const fret = Number(n?.fret)
       const string = Number(n?.string)
       const color = typeof n?.color === 'string' ? n.color : null
+      const noteValue = typeof n?.noteValue === 'string' ? n.noteValue : null
       return {
         fret,
         string,
         gridIndex: safeGrid,
         lengthBlocks: safeLen,
         subdivision,
+        ...(noteValue ? { noteValue } : {}),
         ...(color ? { color } : {}),
       }
     })
@@ -291,7 +302,8 @@ function handleCopySelection() {
 
 function playheadGridIndex() {
   const t = Number(playheadMs.value) || 0
-  const idx = t / DEFAULT_TIME_PER_BLOCK_MS + 1
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const idx = playheadMsToGridIndex(t, timePerBlock)
   return Number.isFinite(idx) && idx > 0 ? idx : 1
 }
 
@@ -315,8 +327,11 @@ function handlePasteAtPlayhead() {
 
   // Move playhead to the end of the pasted group.
   // Do this after reactive totals update so seekPlayhead doesn't get clamped to the old duration.
-  const timePerBlock = Number(grid.grid.value.timePerBlock) || DEFAULT_TIME_PER_BLOCK_MS
-  const endMs = Math.max(0, (base - 1 + endEdge) * timePerBlock)
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const endMs = Math.max(
+    0,
+    gridIndexToStartMs(base, timePerBlock) + lengthBlocksToDurationMs(endEdge, timePerBlock),
+  )
   void nextTick().then(() => seekPlayhead(endMs))
 }
 
@@ -451,8 +466,9 @@ function seekToNoteEnd(noteKey, overrides = {}) {
   const safeGridIndex = gridIndex > 0 ? gridIndex : 1
   const safeLen = lengthBlocks > 0 ? lengthBlocks : 1
 
-  const timePerBlock = Number(grid.grid.value.timePerBlock) || DEFAULT_TIME_PER_BLOCK_MS
-  const endMs = (safeGridIndex - 1 + safeLen) * timePerBlock
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const endMs =
+    gridIndexToStartMs(safeGridIndex, timePerBlock) + lengthBlocksToDurationMs(safeLen, timePerBlock)
   seekPlayhead(endMs)
 }
 
@@ -542,7 +558,7 @@ function maybePlayNotesAt(tMs) {
 
   const tempoValue = Number(tempo.value) || 120
   const tempoScale = 120 / tempoValue
-  const timePerBlock = Number(grid.grid.value.timePerBlock) || DEFAULT_TIME_PER_BLOCK_MS
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
 
   for (const note of store.activeNotes) {
     const key = note?.key
@@ -551,7 +567,7 @@ function maybePlayNotesAt(tMs) {
     const gridIndex = Number(note?.gridIndex)
     if (!Number.isFinite(gridIndex)) continue
 
-    const startMs = (gridIndex - 1) * timePerBlock
+    const startMs = gridIndexToStartMs(gridIndex, timePerBlock)
     if (!(startMs > t0 && startMs <= t1)) continue
 
     const midi = midiForNote(note, t)
@@ -559,7 +575,7 @@ function maybePlayNotesAt(tMs) {
 
     const lengthBlocks = Number(note?.lengthBlocks)
     const len = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
-    const durationPlayheadMs = len * timePerBlock
+    const durationPlayheadMs = lengthBlocksToDurationMs(len, timePerBlock)
     const durScale = Number(soundDurationScale.value)
     const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
     const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)

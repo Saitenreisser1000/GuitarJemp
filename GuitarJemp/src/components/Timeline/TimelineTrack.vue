@@ -194,7 +194,7 @@ const timePerBlockMs = computed(() => {
 })
 
 function getNoteColor(fret) {
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+  const colors = ['#D5763D', '#2E7D6E', '#4A78B0', '#B85C4C', '#7F8F4E', '#6E66A9']
   return colors[fret % colors.length]
 }
 </script>
@@ -212,10 +212,10 @@ function getNoteColor(fret) {
 
 
 .string-label {
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
-  padding: 0 10px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  padding: 0 4px;
   font-weight: bold;
   color: #666;
   background: #f0f0f0;

@@ -5,14 +5,16 @@ import Timeline from '@/components/Timeline/Timeline.vue'
 import AuthDialog from '@/components/Cloud/AuthDialog.vue'
 import LibraryDialog from '@/components/Cloud/LibraryDialog.vue'
 import ConnectionsDialog from '@/components/Cloud/ConnectionsDialog.vue'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
 import { useNotesStore } from '@/store/useNotes'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { useLibraryStore } from '@/store/useLibrary'
+import { useHandPositionsStore } from '@/store/useHandPositions'
 import { isSupabaseConfigured } from '@/infra/supabase/client'
+import { useTheme } from 'vuetify'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -20,6 +22,7 @@ const notes = useNotesStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const library = useLibraryStore()
+const handPositions = useHandPositionsStore()
 
 const authOpen = ref(false)
 const libraryOpen = ref(false)
@@ -27,6 +30,7 @@ const connectionsOpen = ref(false)
 
 const fretboardMode = ref('editor')
 const numFrets = ref(12)
+const activeNotesVisible = ref(true)
 
 const saveBusy = ref(false)
 const saveError = ref('')
@@ -35,6 +39,31 @@ const saveAsNewOpen = ref(false)
 const saveAsNewTitle = ref('')
 const saveAsNewVisibility = ref('private')
 const saveAsNewBusy = ref(false)
+
+const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
+const theme = useTheme()
+const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark))
+
+function applyTheme(name) {
+  const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
+  theme.global.name.value = next
+  localStorage.setItem(THEME_STORAGE_KEY, next)
+}
+
+function toggleTheme() {
+  applyTheme(isDarkTheme.value ? 'guitarjemp' : 'guitarjempDark')
+}
+
+onMounted(() => {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === 'guitarjemp' || stored === 'guitarjempDark') {
+    applyTheme(stored)
+    return
+  }
+
+  const prefersDark = Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+  applyTheme(prefersDark ? 'guitarjempDark' : 'guitarjemp')
+})
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
 const canUpdateCurrentItem = computed(() => {
@@ -87,6 +116,7 @@ function makeSnapshot() {
       selectedColor: timelineSettings.selectedColor,
     },
     notes: notes.activeNotes,
+    handPositions: handPositions.handPositions,
   }
 }
 
@@ -112,6 +142,10 @@ function applySnapshot(snap) {
   }
 
   if (Array.isArray(snap?.notes)) notes.setNotes(snap.notes)
+  else notes.setNotes([])
+
+  if (Array.isArray(snap?.handPositions)) handPositions.setHandPositions(snap.handPositions)
+  else handPositions.setHandPositions([])
 }
 
 const canSaveAsNew = computed(() => {
@@ -202,7 +236,7 @@ async function onSaveCloud() {
     <ConnectionsDialog v-model="connectionsOpen" />
 
     <v-layout>
-      <v-app-bar class="app-bar-sticky" color="primary" density="compact">
+      <v-app-bar class="app-bar-sticky app-topbar" density="compact" elevation="0">
         <v-toolbar-title>GuitarJemp</v-toolbar-title>
 
         <v-spacer />
@@ -241,6 +275,10 @@ async function onSaveCloud() {
           <v-btn size="small" variant="tonal" prepend-icon="mdi-account" @click="authOpen = true">
             Account
           </v-btn>
+          <v-btn size="small" variant="tonal"
+            :prepend-icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" @click="toggleTheme">
+            {{ isDarkTheme ? 'Hell' : 'Dunkel' }}
+          </v-btn>
           <v-btn size="small" variant="tonal" prepend-icon="mdi-cloud" :disabled="!auth.isSignedIn"
             @click="libraryOpen = true">
             Library
@@ -256,7 +294,7 @@ async function onSaveCloud() {
 
       <v-main>
         <div class="app-shell">
-          <v-container fluid class="py-2">
+          <v-container fluid class="app-content py-3" :class="{ 'with-main-menu': fretboardMode !== 'show' }">
             <v-row class="mt-2" align="start" justify="center" dense>
               <v-col cols="12">
                 <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
@@ -298,10 +336,12 @@ async function onSaveCloud() {
 
               <v-col cols="12">
                 <Timeline class="timeline" :compact="fretboardMode === 'show'" :num-frets="numFrets"
+                  :active-notes-visible="activeNotesVisible"
+                  @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
                   @update-frets="(n) => (numFrets = n)" />
               </v-col>
 
-              <v-col v-if="fretboardMode !== 'show'" cols="12">
+              <v-col v-if="fretboardMode !== 'show' && activeNotesVisible" cols="12">
                 <ActiveTonesWindow class="active-tones" />
               </v-col>
             </v-row>
@@ -321,13 +361,53 @@ async function onSaveCloud() {
   z-index: 1000;
 }
 
+.app-topbar {
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent) !important;
+  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(10px);
+}
+
+.app-topbar :deep(.v-toolbar-title) {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-primary-2);
+}
+
 .app-shell {
+  --main-menu-w: 84px;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-2) 100%);
-  font-family: Arial, sans-serif;
+  background:
+    radial-gradient(1200px 500px at 10% -5%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 60%),
+    radial-gradient(1100px 450px at 90% 0%, color-mix(in srgb, var(--color-primary-2) 16%, transparent), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%) 0%, var(--color-surface-2) 100%);
+  font-family: var(--font-ui);
+}
+
+.app-content {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.app-content.with-main-menu {
+  padding-left: calc(var(--main-menu-w) + var(--space-4));
 }
 
 .fretboard {
   width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: clip;
+}
+
+.timeline,
+.active-tones {
+  border-radius: var(--radius-lg);
+  overflow: clip;
+}
+
+@media (max-width: 860px) {
+  .app-content.with-main-menu {
+    padding-left: 0;
+  }
 }
 </style>

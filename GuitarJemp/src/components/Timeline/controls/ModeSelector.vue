@@ -1,30 +1,79 @@
 <template>
-  <v-card class="pa-3 mb-4" variant="flat" border>
-    <div class="d-flex align-center flex-wrap ga-4">
-      <!--div class="text-subtitle-2 text-medium-emphasis section-label">Note Value</div-->
-
-      <v-btn-toggle v-model="noteValueLocal" mandatory divided class="note-btns">
-        <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" :title="item.title">
-          <v-icon v-if="item.icon" class="mode-icon" :icon="item.icon" size="34" />
-          <template v-else>{{ item.label }}</template>
-        </v-btn>
-      </v-btn-toggle>
-
-      <v-btn-toggle v-model="noteModifierLocal" divided class="sim-group-btns"
-        style="margin-left: 12px; margin-right: 12px">
-        <v-btn value="dotted" variant="tonal" title=".">.</v-btn>
-        <v-btn value="3" variant="tonal" title="3">3</v-btn>
-      </v-btn-toggle>
-
-      <v-btn variant="tonal" :active="Boolean(isSimOn)" :color="isSimOn ? 'grey-darken-3' : 'grey-lighten-2'"
-        :title="isSimOn ? 'Chord Off' : 'Chord On'" :aria-pressed="String(isSimOn)" @click="toggleSim" class="sim-btn">
-        Chord
+  <v-card class="main-menu-shell ui-panel pa-2" variant="flat">
+    <div class="main-menu">
+      <v-btn variant="tonal" class="control-btn undo-btn" title="Undo" @click="emit('undo')">
+        <v-icon icon="mdi-undo" size="22" />
       </v-btn>
 
-      <v-menu location="bottom" :close-on-content-click="false">
+      <v-btn variant="tonal" class="control-btn redo-btn" title="Redo" @click="emit('redo')">
+        <v-icon icon="mdi-redo" size="22" />
+      </v-btn>
+
+      <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="tonal" class="symbols-btn" :title="`Symbole (${selectedColor})`">
-            <span>Symbole</span>
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn mode-menu-btn" title="Notenwerte">
+            <v-icon v-if="activeModeItem?.icon" class="mode-icon" :icon="activeModeItem.icon" size="30" />
+            <span v-else-if="activeModeItem?.value === '1/2'" class="note-glyph note-glyph-half" aria-label="Half note">
+              <span class="note-head-outline"></span>
+              <span class="note-stem"></span>
+            </span>
+            <span v-else-if="activeModeItem?.value === '1'" class="note-glyph note-glyph-whole" aria-label="Whole note">
+              <span class="note-head-outline"></span>
+            </span>
+            <span v-else class="note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
+            <v-icon class="mode-menu-caret" icon="mdi-chevron-down" size="14" />
+          </v-btn>
+        </template>
+
+        <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
+          <div class="text-caption control-label">Notenwert</div>
+          <v-btn-toggle v-model="noteValueLocal" mandatory divided class="dropdown-toggle-row">
+            <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" class="dropdown-btn"
+              :title="item.title">
+              <v-icon v-if="item.icon" class="mode-icon" :icon="item.icon" size="22" />
+              <span v-else-if="item.value === '1/2'" class="note-glyph note-glyph-half dropdown-note" aria-label="Half note">
+                <span class="note-head-outline"></span>
+                <span class="note-stem"></span>
+              </span>
+              <span v-else-if="item.value === '1'" class="note-glyph note-glyph-whole dropdown-note" aria-label="Whole note">
+                <span class="note-head-outline"></span>
+              </span>
+              <span v-else class="note-glyph dropdown-note">{{ item.dotSymbol || item.label }}</span>
+            </v-btn>
+          </v-btn-toggle>
+
+          <div class="text-caption control-label">Modifier</div>
+          <v-btn-toggle v-model="noteModifierLocal" divided class="dropdown-toggle-row">
+            <v-btn value="dotted" variant="tonal" class="dropdown-btn" title="Punktiert">.</v-btn>
+            <v-btn value="3" variant="tonal" class="dropdown-btn" title="Triolen">3</v-btn>
+          </v-btn-toggle>
+        </v-card>
+      </v-menu>
+
+      <v-btn variant="tonal" class="control-btn sim-btn" :active="Boolean(isSimOn)"
+        :color="isSimOn ? 'primary' : undefined" :title="isSimOn ? 'Chord aus' : 'Chord an'"
+        :aria-pressed="String(isSimOn)" @click="toggleSim">
+        CH
+      </v-btn>
+
+      <v-btn variant="tonal" class="control-btn timeline-visibility-btn" :active="Boolean(timelineVisible)"
+        :color="timelineVisible ? 'primary' : undefined" :title="timelineVisible ? 'Timeline ausblenden' : 'Timeline einblenden'"
+        :aria-pressed="String(timelineVisible)" @click="emit('update-timeline-visible', !timelineVisible)">
+        <v-icon :icon="timelineVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" size="22" />
+      </v-btn>
+
+      <v-btn variant="tonal" class="control-btn active-notes-visibility-btn" :active="Boolean(activeNotesVisible)"
+        :color="activeNotesVisible ? 'primary' : undefined"
+        :title="activeNotesVisible ? 'Aktive Noten ausblenden' : 'Aktive Noten einblenden'"
+        :aria-pressed="String(activeNotesVisible)"
+        @click="emit('update-active-notes-visible', !activeNotesVisible)">
+        <v-icon :icon="activeNotesVisible ? 'mdi-music-note-outline' : 'mdi-music-note-off-outline'" size="22" />
+      </v-btn>
+
+      <v-menu location="right" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn symbols-btn" :title="`Symbole (${selectedColor})`">
+            <v-icon icon="mdi-palette-outline" size="22" />
             <span class="symbols-swatch" :style="{ backgroundColor: selectedColor }" aria-hidden="true" />
           </v-btn>
         </template>
@@ -34,54 +83,54 @@
         </v-card>
       </v-menu>
 
-      <div class="ms-auto d-flex align-center ga-2">
-        <v-menu location="bottom end" :close-on-content-click="false">
-          <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" density="compact" variant="tonal"> Optionen </v-btn>
-          </template>
+      <v-menu location="right" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn options-btn" title="Optionen">
+            <v-icon icon="mdi-cog-outline" size="24" />
+          </v-btn>
+        </template>
 
-          <v-card class="pa-3" min-width="320">
-            <div class="d-flex flex-column ga-3">
-              <div class="d-flex flex-column ga-2">
-                <div class="text-caption text-medium-emphasis">Griffbrett</div>
-                <div class="d-flex ga-2">
-                  <v-text-field v-model="numStringsLocal" density="compact" hide-details type="number" min="1" max="12"
-                    step="1" style="width: 84px" label="Saiten" />
+        <v-card class="pa-3" min-width="320">
+          <div class="d-flex flex-column ga-3">
+            <div class="d-flex flex-column ga-2">
+              <div class="text-caption control-label">Griffbrett</div>
+              <div class="d-flex ga-2">
+                <v-text-field v-model="numStringsLocal" density="compact" hide-details type="number" min="1" max="12"
+                  step="1" style="width: 84px" label="Saiten" />
 
-                  <v-text-field v-model="numFretsLocal" density="compact" hide-details type="number" min="1" max="24"
-                    step="1" style="width: 84px" label="Bünde" />
-                </div>
+                <v-text-field v-model="numFretsLocal" density="compact" hide-details type="number" min="1" max="24"
+                  step="1" style="width: 84px" label="Bünde" />
               </div>
-
-              <v-switch density="compact" hide-details inset label="Saiten einklappen" :model-value="stringsCollapsed"
-                @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
-
-              <div class="d-flex align-center ga-2">
-                <div class="text-caption text-medium-emphasis">Tondauer</div>
-                <v-text-field v-model="soundDurationLocal" density="compact" hide-details type="number" min="0.1"
-                  step="0.1" style="width: 92px" />
-              </div>
-
-              <div class="d-flex flex-column ga-2">
-                <div class="text-caption text-medium-emphasis">Beat</div>
-                <div class="d-flex ga-2">
-                  <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
-                    :model-value="beatTop" @update:model-value="updateBeatTop" />
-
-                  <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
-                    :model-value="beatBottom" @update:model-value="updateBeatBottom" />
-                </div>
-              </div>
-
-              <v-switch density="compact" hide-details inset label="Snap" :model-value="snapEnabled"
-                @update:model-value="(v) => emit('update-snap', Boolean(v))" />
-
-              <v-switch density="compact" hide-details inset label="Sound" :model-value="soundPreviewEnabled"
-                @update:model-value="(v) => emit('update-sound-preview', Boolean(v))" />
             </div>
-          </v-card>
-        </v-menu>
-      </div>
+
+            <v-switch density="compact" hide-details inset label="Saiten einklappen" :model-value="stringsCollapsed"
+              @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
+
+            <div class="d-flex align-center ga-2">
+              <div class="text-caption control-label">Tondauer</div>
+              <v-text-field v-model="soundDurationLocal" density="compact" hide-details type="number" min="0.1"
+                step="0.1" style="width: 92px" />
+            </div>
+
+            <div class="d-flex flex-column ga-2">
+              <div class="text-caption control-label">Beat</div>
+              <div class="d-flex ga-2">
+                <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
+                  :model-value="beatTop" @update:model-value="updateBeatTop" />
+
+                <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
+                  :model-value="beatBottom" @update:model-value="updateBeatBottom" />
+              </div>
+            </div>
+
+            <v-switch density="compact" hide-details inset label="Snap" :model-value="snapEnabled"
+              @update:model-value="(v) => emit('update-snap', Boolean(v))" />
+
+            <v-switch density="compact" hide-details inset label="Sound" :model-value="soundPreviewEnabled"
+              @update:model-value="(v) => emit('update-sound-preview', Boolean(v))" />
+          </div>
+        </v-card>
+      </v-menu>
     </div>
   </v-card>
 </template>
@@ -90,6 +139,7 @@
 import { computed, watch, ref } from 'vue'
 import ColorPalette from '../../Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
 
 const props = defineProps({
   selectedMode: { type: String, required: true },
@@ -102,6 +152,8 @@ const props = defineProps({
   numFrets: { type: Number, default: 12 },
   stringsCollapsed: { type: Boolean, default: false },
   simGroupMode: { type: String, default: '' },
+  timelineVisible: { type: Boolean, default: true },
+  activeNotesVisible: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
@@ -115,6 +167,10 @@ const emit = defineEmits([
   'update-frets',
   'update-strings-collapsed',
   'update-sim-group-mode',
+  'update-timeline-visible',
+  'update-active-notes-visible',
+  'undo',
+  'redo',
 ])
 // Local state for the note-length modifier toggle group (dot/triplet).
 const noteModifierLocal = ref(props.simGroupMode)
@@ -133,13 +189,11 @@ watch(noteModifierLocal, (val) => {
 const settings = useTimelineSettingsStore()
 const selectedColor = computed(() => String(settings.selectedColor || ''))
 
-const modeItems = [
-  { value: '1/16', icon: 'mdi-music-note-sixteenth', label: '1/16', title: 'Sixteenth Note' },
-  { value: '1/8', icon: 'mdi-music-note-eighth', label: '1/8', title: 'Eighth Note' },
-  { value: '1/4', icon: 'mdi-music-note-quarter', label: '1/4', title: 'Quarter Note' },
-  { value: '1/2', icon: 'mdi-music-note-half', label: '1/2', title: 'Half Note' },
-  { value: '1', icon: 'mdi-music-note-whole', label: '1', title: 'Whole Note' },
-]
+const modeItems = NOTE_VALUE_ITEMS
+const activeModeItem = computed(() => {
+  const activeValue = String(noteValueLocal.value || '')
+  return modeItems.find((item) => String(item.value) === activeValue) || modeItems[0]
+})
 
 const beatBottomItems = [1, 2, 4, 8]
 
@@ -203,20 +257,153 @@ function updateBeatBottom(v) {
   line-height: 1;
 }
 
-.section-label {
-  min-width: 92px;
+.note-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 500;
+  font-family: 'STIX Two Text', 'Times New Roman', serif;
+}
+
+.note-glyph-half,
+.note-glyph-whole {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  font-family: inherit;
+}
+
+.note-head-outline {
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  width: 13px;
+  height: 9px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  transform: rotate(-18deg);
+}
+
+.note-stem {
+  position: absolute;
+  left: 18px;
+  top: 1px;
+  width: 2px;
+  height: 16px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.main-menu-shell {
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  height: 100%;
+  align-self: flex-start;
+}
+
+.main-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 4px;
+}
+
+.control-label {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.mode-menu-btn {
+  position: relative;
+}
+
+.mode-menu-caret {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  opacity: 0.7;
 }
 
 .symbols-btn :deep(.v-btn__content) {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
 }
 
 .symbols-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
   border: 2px solid var(--color-border-strong);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-surface) 90%, transparent);
 }
+
+.main-menu-shell :deep(.v-btn-toggle .v-btn--active) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 75%, transparent);
+}
+
+.main-menu-shell :deep(.control-btn) {
+  --v-btn-height: 52px;
+  width: 52px;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  height: 52px !important;
+  padding-inline: 0;
+  line-height: 1;
+  align-self: center;
+}
+
+.main-menu-shell :deep(.control-btn .v-btn__content) {
+  min-height: 52px;
+  align-items: center;
+  line-height: 1;
+}
+
+.dropdown-toggle-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dropdown-btn {
+  --v-btn-height: 38px;
+  min-height: 38px !important;
+  height: 38px !important;
+  min-width: 38px;
+  padding: 0 10px;
+}
+
+.dropdown-note {
+  font-size: 22px;
+  min-width: 1.2em;
+}
+
+.sim-btn :deep(.v-icon),
+.options-btn :deep(.v-icon),
+.symbols-btn :deep(.v-icon) {
+  opacity: 0.9;
+}
+
+.main-menu-shell :deep(.v-btn) {
+  transition: filter var(--ui-fast), box-shadow var(--ui-fast), transform var(--ui-fast);
+}
+
+.main-menu-shell :deep(.v-btn:hover) {
+  filter: brightness(1.04);
+}
+
 </style>
