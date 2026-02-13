@@ -28,7 +28,6 @@ const authOpen = ref(false)
 const libraryOpen = ref(false)
 const connectionsOpen = ref(false)
 
-const fretboardMode = ref('editor')
 const numFrets = ref(12)
 const activeNotesVisible = ref(true)
 
@@ -74,23 +73,12 @@ const canUpdateCurrentItem = computed(() => {
 })
 
 const canSave = computed(() => {
-  if (fretboardMode.value !== 'editor') return false
   if (!isSupabaseConfigured) return false
   if (!auth.isSignedIn) return false
   if (!hasNotes.value) return false
   if (!library.currentItem?.id) return false
   if (!canUpdateCurrentItem.value) return false
   return true
-})
-
-const saveDisabledReason = computed(() => {
-  if (fretboardMode.value !== 'editor') return ''
-  if (!isSupabaseConfigured) return 'Cloud ist nicht konfiguriert.'
-  if (!auth.isSignedIn) return 'Bitte einloggen.'
-  if (!hasNotes.value) return 'Erstelle zuerst Töne.'
-  if (!library.currentItem?.id) return 'Lade zuerst ein Library-Item, das du besitzt.'
-  if (!canUpdateCurrentItem.value) return 'Nur der Owner kann dieses Item aktualisieren.'
-  return ''
 })
 
 function makeSnapshot() {
@@ -149,7 +137,6 @@ function applySnapshot(snap) {
 }
 
 const canSaveAsNew = computed(() => {
-  if (fretboardMode.value !== 'editor') return false
   if (!isSupabaseConfigured) return false
   if (!auth.isSignedIn) return false
   if (!hasNotes.value) return false
@@ -157,7 +144,6 @@ const canSaveAsNew = computed(() => {
 })
 
 const canReset = computed(() => {
-  if (fretboardMode.value !== 'editor') return false
   if (!library.currentItemContent) return false
   return true
 })
@@ -242,28 +228,21 @@ async function onSaveCloud() {
         <v-spacer />
 
         <div class="d-flex flex-wrap align-center ga-2">
-          <v-btn-toggle v-model="fretboardMode" mandatory divided>
-            <v-btn value="editor" size="small" variant="tonal">Editor</v-btn>
-            <v-btn value="show" size="small" variant="tonal">Show</v-btn>
-          </v-btn-toggle>
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="small" color="secondary" variant="flat" prepend-icon="mdi-content-save">
+                Save
+              </v-btn>
+            </template>
 
-          <template v-if="fretboardMode === 'editor'">
-            <v-btn size="small" variant="tonal" prepend-icon="mdi-restore" :disabled="!canReset"
-              title="Änderungen verwerfen" @click="onResetChanges">
-              Reset
-            </v-btn>
-
-            <v-btn size="small" variant="tonal" prepend-icon="mdi-content-save-plus" :disabled="!canSaveAsNew"
-              title="Als neues Item speichern" @click="openSaveAsNew">
-              Save as new
-            </v-btn>
-
-            <v-btn size="small" color="secondary" variant="flat" prepend-icon="mdi-content-save"
-              :disabled="!canSave || saveBusy" :title="saveDisabledReason || 'In Cloud Library speichern'"
-              @click="onSaveCloud">
-              Save
-            </v-btn>
-          </template>
+            <v-list density="compact" min-width="220">
+              <v-list-item prepend-icon="mdi-content-save" title="Save" :disabled="!canSave || saveBusy"
+                @click="onSaveCloud" />
+              <v-list-item prepend-icon="mdi-content-save-plus" title="Save as new" :disabled="!canSaveAsNew"
+                @click="openSaveAsNew" />
+              <v-list-item prepend-icon="mdi-restore" title="Reset" :disabled="!canReset" @click="onResetChanges" />
+            </v-list>
+          </v-menu>
 
           <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
             Cloud: nicht konfiguriert
@@ -272,21 +251,27 @@ async function onSaveCloud() {
             {{ auth.user?.email }}
           </v-chip>
 
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-account" @click="authOpen = true">
-            Account
-          </v-btn>
-          <v-btn size="small" variant="tonal"
-            :prepend-icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" @click="toggleTheme">
-            {{ isDarkTheme ? 'Hell' : 'Dunkel' }}
-          </v-btn>
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-cloud" :disabled="!auth.isSignedIn"
-            @click="libraryOpen = true">
-            Library
-          </v-btn>
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-account-multiple" :disabled="!auth.isSignedIn"
-            @click="connectionsOpen = true">
-            Freunde
-          </v-btn>
+          <v-menu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="small" variant="tonal" prepend-icon="mdi-account">
+                Account
+              </v-btn>
+            </template>
+
+            <v-list density="compact" min-width="180">
+              <v-list-item
+                :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
+                :title="auth.isSignedIn ? 'Logout' : 'Login'"
+                @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
+              />
+              <v-list-item
+                prepend-icon="mdi-account-multiple"
+                title="Freunde"
+                :disabled="!auth.isSignedIn"
+                @click="connectionsOpen = true"
+              />
+            </v-list>
+          </v-menu>
         </div>
       </v-app-bar>
 
@@ -294,16 +279,14 @@ async function onSaveCloud() {
 
       <v-main>
         <div class="app-shell">
-          <v-container fluid class="app-content py-3" :class="{ 'with-main-menu': fretboardMode !== 'show' }">
+          <v-container fluid class="app-content with-main-menu py-3">
             <v-row class="mt-2" align="start" justify="center" dense>
               <v-col cols="12">
-                <v-alert v-if="fretboardMode === 'editor' && saveError" type="error" variant="tonal" class="mb-2">
+                <v-alert v-if="saveError" type="error" variant="tonal" class="mb-2">
                   {{ saveError }}
                 </v-alert>
 
-                <FretboardEdit v-if="fretboardMode === 'editor'" class="fretboard" :num-frets="numFrets"
-                  @update-frets="(n) => (numFrets = n)" />
-                <FretboardEdit v-else class="fretboard" :num-frets="numFrets" :editable="false" :show-controls="true" />
+                <FretboardEdit class="fretboard" :num-frets="numFrets" @update-frets="(n) => (numFrets = n)" />
               </v-col>
 
               <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -335,13 +318,17 @@ async function onSaveCloud() {
               </v-dialog>
 
               <v-col cols="12">
-                <Timeline class="timeline" :compact="fretboardMode === 'show'" :num-frets="numFrets"
+                <Timeline class="timeline" :compact="false" :num-frets="numFrets"
+                  :library-enabled="auth.isSignedIn"
                   :active-notes-visible="activeNotesVisible"
+                  :is-dark-theme="isDarkTheme"
+                  @open-library="libraryOpen = true"
+                  @toggle-theme="toggleTheme"
                   @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
                   @update-frets="(n) => (numFrets = n)" />
               </v-col>
 
-              <v-col v-if="fretboardMode !== 'show' && activeNotesVisible" cols="12">
+              <v-col v-if="activeNotesVisible" cols="12">
                 <ActiveTonesWindow class="active-tones" />
               </v-col>
             </v-row>

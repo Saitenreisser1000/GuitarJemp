@@ -6,9 +6,12 @@
           :sound-preview-enabled="soundPreviewEnabled" :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
           :beat-bottom="beatBottom" :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
           :sim-group-mode="simGroupMode" :timeline-visible="timelineVisible" :active-notes-visible="activeNotesVisible"
+          :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
           @update-sim-group-mode="(v) => emit('update-sim-group-mode', v)"
           @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
           @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
+          @open-library="emit('open-library')"
+          @toggle-theme="emit('toggle-theme')"
           @undo="emit('undo')"
           @redo="emit('redo')"
           @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
@@ -89,7 +92,7 @@
           </div>
         </div>
 
-        <v-card v-if="timelineVisible" class="timeline-status ui-panel" variant="flat">
+        <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
           <div class="d-flex align-center ga-3 flex-wrap pa-2">
             <v-chip class="status-chip" label variant="tonal" color="primary">
               Zeit: {{ playheadTimeLabel }}
@@ -159,6 +162,8 @@ const props = defineProps({
   handPositionNotes: { type: Array, default: () => [] },
   simGroupMode: { type: String, default: '' },
   activeNotesVisible: { type: Boolean, default: true },
+  libraryEnabled: { type: Boolean, default: true },
+  isDarkTheme: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -191,6 +196,8 @@ const emit = defineEmits([
   'redo',
   'update-sim-group-mode',
   'update-active-notes-visible',
+  'open-library',
+  'toggle-theme',
 ])
 
 const zoomLocal = computed({
@@ -414,7 +421,7 @@ const barBeatLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding-bottom: calc(var(--timeline-transport-h, 0px) + var(--space-4));
+  padding-bottom: var(--space-1);
 }
 
 .timeline-layout {
@@ -452,14 +459,14 @@ const barBeatLabel = computed(() => {
   z-index: 30;
   display: flex;
   justify-content: center;
-  padding: 0 var(--space-4);
+  padding: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   pointer-events: none;
 }
 
 .timeline-transport-inner {
   width: 100%;
-  max-width: 1280px;
+  max-width: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
@@ -561,7 +568,7 @@ const barBeatLabel = computed(() => {
   position: relative;
 }
 
-.timeline-status {
+.timeline-info {
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -588,16 +595,16 @@ const barBeatLabel = computed(() => {
   max-width: 40vw;
 }
 
-.timeline-status :deep(.v-slider-track__background) {
+.timeline-info :deep(.v-slider-track__background) {
   opacity: 1;
   background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface-2));
 }
 
-.timeline-status :deep(.v-slider-track__fill) {
+.timeline-info :deep(.v-slider-track__fill) {
   background: var(--color-primary);
 }
 
-.timeline-status :deep(.v-slider-thumb__surface) {
+.timeline-info :deep(.v-slider-thumb__surface) {
   border: 2px solid color-mix(in srgb, var(--color-primary) 70%, var(--color-surface));
   box-shadow: 0 1px 7px rgb(0 0 0 / 22%);
 }

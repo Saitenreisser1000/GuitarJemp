@@ -70,6 +70,11 @@
         <v-icon :icon="activeNotesVisible ? 'mdi-music-note-outline' : 'mdi-music-note-off-outline'" size="22" />
       </v-btn>
 
+      <v-btn variant="tonal" class="control-btn library-btn" :disabled="!libraryEnabled"
+        :title="libraryEnabled ? 'Library öffnen' : 'Library: bitte einloggen'" @click="emit('open-library')">
+        <v-icon icon="mdi-cloud-outline" size="22" />
+      </v-btn>
+
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="tonal" class="control-btn symbols-btn" :title="`Symbole (${selectedColor})`">
@@ -128,6 +133,12 @@
 
             <v-switch density="compact" hide-details inset label="Sound" :model-value="soundPreviewEnabled"
               @update:model-value="(v) => emit('update-sound-preview', Boolean(v))" />
+
+            <v-btn density="comfortable" variant="tonal"
+              :prepend-icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
+              @click="emit('toggle-theme')">
+              {{ isDarkTheme ? 'Hell' : 'Dunkel' }}
+            </v-btn>
           </div>
         </v-card>
       </v-menu>
@@ -154,6 +165,8 @@ const props = defineProps({
   simGroupMode: { type: String, default: '' },
   timelineVisible: { type: Boolean, default: true },
   activeNotesVisible: { type: Boolean, default: true },
+  libraryEnabled: { type: Boolean, default: true },
+  isDarkTheme: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -169,6 +182,8 @@ const emit = defineEmits([
   'update-sim-group-mode',
   'update-timeline-visible',
   'update-active-notes-visible',
+  'open-library',
+  'toggle-theme',
   'undo',
   'redo',
 ])

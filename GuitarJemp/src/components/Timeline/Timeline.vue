@@ -6,6 +6,7 @@
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
     :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
+    :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
     @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
@@ -15,6 +16,8 @@
     @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
     @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
+    @open-library="emit('open-library')"
+    @toggle-theme="emit('toggle-theme')"
     @update-frets="(v) => emit('update-frets', v)"
     @update-note-grid-index="handleUpdateNoteGridIndex" @update-note-length="handleUpdateNoteLength"
     @update-note-label="handleUpdateNoteLabel"
@@ -59,9 +62,11 @@ defineProps({
   compact: { type: Boolean, default: false },
   numFrets: { type: Number, default: 12 },
   activeNotesVisible: { type: Boolean, default: true },
+  libraryEnabled: { type: Boolean, default: true },
+  isDarkTheme: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update-frets', 'update-active-notes-visible'])
+const emit = defineEmits(['update-frets', 'update-active-notes-visible', 'open-library', 'toggle-theme'])
 
 const store = useNotesStore()
 const transport = useTransportStore()

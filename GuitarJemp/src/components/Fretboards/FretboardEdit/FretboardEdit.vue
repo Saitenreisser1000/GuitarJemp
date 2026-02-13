@@ -5,7 +5,7 @@
     </FretboardControls>
 
     <div class="fretboard">
-      <FretboardShow :num-frets="props.numFrets" :editable="props.editable" />
+      <FretboardShow :num-frets="props.numFrets" :editable="true" />
     </div>
   </div>
 </template>
@@ -18,7 +18,6 @@ import FretboardShow from '../FretboardShow/FretboardShow.vue'
 const props = defineProps({
   numFrets: { type: Number, required: true },
   showControls: { type: Boolean, default: true },
-  editable: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update-frets'])
