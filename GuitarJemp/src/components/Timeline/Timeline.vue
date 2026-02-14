@@ -1,6 +1,10 @@
 <template>
   <TimelineView :is-playing="isPlaying" :tempo="tempo" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
     :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop" :beat-bottom="beatBottom"
+    :click-enabled="clickEnabled"
+    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
+    :count-in-visible="countInVisible" :count-in-beat="countInBeat"
+    :loop-start-block="loopStartBlock" :loop-end-block="loopEndBlock"
     :sound-duration-scale="soundDurationScale" :active-string="activeString" :active-tool="activeTool"
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
@@ -11,11 +15,17 @@
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
+    @update-click="settings.setClickEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
     @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
+    @update-loop-start-block="settings.setLoopStartBlock"
+    @update-loop-end-block="settings.setLoopEndBlock"
+    @update-pickup-enabled="settings.setPickupEnabled"
+    @update-pickup-beats="settings.setPickupBeats"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
     @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
+    @update-total-blocks="handleUpdateTotalBlocks"
     @open-library="emit('open-library')"
     @toggle-theme="emit('toggle-theme')"
     @update-frets="(v) => emit('update-frets', v)"
@@ -44,7 +54,7 @@ import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
-import { playMidi } from '@/domain/audio/simpleSynth'
+import { playMetronomeClick, playMidi } from '@/domain/audio/simpleSynth'
 import { createNoteKey } from '@/domain/note'
 import {
   gridIndexToStartMs,
@@ -84,15 +94,21 @@ const {
   lastRhythmMode,
   snapEnabled,
   soundPreviewEnabled,
+  clickEnabled,
   soundDurationScale,
   activeString,
   activeTool,
   stringsCollapsed,
   simGroupMode,
   loopEnabled,
+  loopStartBlock,
+  loopEndBlock,
   beatTop,
   beatBottom,
+  pickupEnabled,
+  pickupBeats,
   zoomPxPerBlock,
+  timelineLengthBlocks,
 } = storeToRefs(settings)
 const { numStrings } = storeToRefs(instrument)
 
@@ -115,6 +131,13 @@ function blocksPerBar() {
   const raw = top * (4 / bottom)
   const safe = Number.isFinite(raw) && raw > 0 ? raw : 4
   return Number(safe.toFixed(2))
+}
+
+function handleUpdateTotalBlocks(nextBlocks) {
+  const n = Number(nextBlocks)
+  if (!Number.isFinite(n)) return
+  const oneBarBlocks = Math.max(1, Number(blocksPerBar()) || 1)
+  settings.setTimelineLengthBlocks(Math.max(oneBarBlocks, n))
 }
 
 function updateHandPositionNoteGridIndex(noteKey, gridIndex) {
@@ -395,10 +418,12 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearCountInOverlay()
   window.removeEventListener('keydown', onGlobalKeyDown)
 })
 function togglePlay() {
   if (playback.isPlaying.value) {
+    clearCountInOverlay()
     playback.pause()
     return
   }
@@ -412,6 +437,7 @@ function togglePlay() {
   if (Number(playhead.value) >= Number(totalDuration.value || 0)) {
     seekPlayhead(0)
     lastAudioTickMs = -Infinity
+    lastClickTickMs = -Infinity
     triggeredNoteKeys = new Set()
     playbackVisuals.clear()
   }
@@ -420,17 +446,37 @@ function togglePlay() {
   // Example: first note at 0ms when starting from the beginning.
   const ph = Number(playhead.value)
   lastAudioTickMs = (Number.isFinite(ph) ? ph : 0) - 0.0001
+  lastClickTickMs = (Number.isFinite(ph) ? ph : 0) - 0.0001
 
-  // Count-in only when starting from the beginning (not when resuming mid-timeline).
-  const shouldCountIn = (Number.isFinite(ph) ? ph : 0) <= 0.0001
   const tempoValue = Number(transport.tempo) || 120
-  const countInMs = shouldCountIn ? Math.max(0, 60000 / tempoValue) : 0
+  const beatsPerBarRaw = Number.parseInt(String(beatTop.value), 10)
+  const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 4
+  const countInMs = Math.max(0, (60000 / tempoValue) * beatsPerBar)
+  startCountInOverlay(tempoValue, beatsPerBar)
 
   playback.start(totalDuration.value, transport.tempo, { delayMs: countInMs })
 }
 
 function seekStart() {
   // Only reposition the playhead; do not start playback.
+  if (!loopEnabled.value) {
+    seekPlayhead(0)
+    return
+  }
+
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const loopStartMs = loopRangeBlocks.value.start * timePerBlock
+  const loopEndMs = loopRangeBlocks.value.end * timePerBlock
+  const currentMs = Number(playhead.value)
+  const epsilonMs = 0.5
+  const isAtLoopStart = Math.abs(currentMs - loopStartMs) <= epsilonMs
+  const isInsideLoop = currentMs >= loopStartMs - epsilonMs && currentMs < loopEndMs - epsilonMs
+
+  if (Number.isFinite(loopStartMs) && Number.isFinite(loopEndMs) && loopEndMs > loopStartMs && isInsideLoop) {
+    seekPlayhead(isAtLoopStart ? 0 : loopStartMs)
+    return
+  }
+
   seekPlayhead(0)
 }
 
@@ -441,6 +487,7 @@ function seekPlayhead(tMs) {
   // Keep audio triggering consistent after scrubbing/auto-seeking.
   // Set these *before* calling playback.seek(), because seek triggers onTick().
   lastAudioTickMs = t
+  lastClickTickMs = t
   triggeredNoteKeys = new Set()
   playbackVisuals.clear()
 
@@ -519,7 +566,7 @@ const totalDuration = computed(() => {
   return totalBlocks.value * grid.grid.value.timePerBlock
 })
 
-const totalBlocks = computed(() => {
+const autoTotalBlocks = computed(() => {
   const oneBarBlocks = blocksPerBar()
   const blocksPerBarCeil = Math.max(1, Math.ceil(oneBarBlocks))
 
@@ -546,10 +593,114 @@ const totalBlocks = computed(() => {
   return Math.max(blocksPerBarCeil, withPadding)
 })
 
+const totalBlocks = computed(() => {
+  const manual = Number(timelineLengthBlocks.value) || 0
+  if (manual > 0) return manual
+  return autoTotalBlocks.value
+})
+
+const loopRangeBlocks = computed(() => {
+  const total = Math.max(1, Number(totalBlocks.value) || 1)
+  const step = Math.max(0.01, Number(currentStep.value) || 1)
+  const startRaw = Number(loopStartBlock.value)
+  const start = Number.isFinite(startRaw) ? Math.min(Math.max(0, startRaw), total - step) : 0
+  const endRaw = Number(loopEndBlock.value)
+  const defaultEnd = total
+  const endCandidate = Number.isFinite(endRaw) && endRaw > 0 ? endRaw : defaultEnd
+  const end = Math.min(total, Math.max(start + step, endCandidate))
+  return { start, end }
+})
+
 const playhead = ref(0)
 let lastAudioTickMs = -Infinity
+let lastClickTickMs = -Infinity
 let triggeredNoteKeys = new Set()
 const pendingChordExitSeekNoteKey = ref(null)
+const countInVisible = ref(false)
+const countInBeat = ref(0)
+let countInTimerId = null
+
+function clearCountInOverlay() {
+  if (countInTimerId) {
+    clearInterval(countInTimerId)
+    countInTimerId = null
+  }
+  countInVisible.value = false
+  countInBeat.value = 0
+}
+
+function startCountInOverlay(tempoValue, beatsPerBar) {
+  clearCountInOverlay()
+  const beatMs = Math.max(1, 60000 / (Number(tempoValue) || 120))
+  const beats = Math.max(1, Number.parseInt(String(beatsPerBar), 10) || 4)
+  countInVisible.value = true
+  const pickupRaw = Number.parseInt(String(pickupBeats.value), 10)
+  const pickup = Number.isFinite(pickupRaw) ? Math.max(1, Math.min(Math.max(1, beats - 1), pickupRaw)) : 1
+  const startBeat = pickupEnabled.value ? beats - pickup + 1 : 1
+
+  const sequence = []
+  for (let i = 0; i < beats; i += 1) {
+    sequence.push(((startBeat - 1 + i) % beats) + 1)
+  }
+
+  let idx = 0
+  const playCountInClick = (beatNumber) => {
+    if (!clickEnabled.value) return
+    void playMetronomeClick({ accent: Number(beatNumber) === 1 })
+  }
+  countInBeat.value = sequence[idx]
+  playCountInClick(countInBeat.value)
+  countInTimerId = setInterval(() => {
+    idx += 1
+    if (idx >= sequence.length) {
+      clearCountInOverlay()
+      return
+    }
+    countInBeat.value = sequence[idx]
+    playCountInClick(countInBeat.value)
+  }, beatMs)
+}
+
+function isBarStartBeat(beatIndex) {
+  const beatsPerBarRaw = Number.parseInt(String(beatTop.value), 10)
+  const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 4
+  if (!pickupEnabled.value) return beatIndex % beatsPerBar === 0
+
+  const rawPickup = Number.parseInt(String(pickupBeats.value), 10)
+  const pickup = Number.isFinite(rawPickup)
+    ? Math.max(1, Math.min(Math.max(1, beatsPerBar - 1), Math.min(9, rawPickup)))
+    : 1
+
+  if (beatIndex < pickup) return false
+  return (beatIndex - pickup) % beatsPerBar === 0
+}
+
+function maybePlayClickAt(tMs) {
+  if (!clickEnabled.value) return
+
+  const t0Raw = lastClickTickMs
+  const t1Raw = Number(tMs)
+  lastClickTickMs = t1Raw
+
+  const t0 = Number.isFinite(t0Raw) ? t0Raw : -0.0001
+  const t1 = Number.isFinite(t1Raw) ? t1Raw : 0
+
+  const beatBottomRaw = Number.parseInt(String(beatBottom.value), 10)
+  const bb = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
+  const blocksPerBeat = 4 / bb
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const msPerBeat = timePerBlock * blocksPerBeat
+  if (!(msPerBeat > 0)) return
+
+  const firstBeat = Math.floor(t0 / msPerBeat) + 1
+  const lastBeat = Math.floor(t1 / msPerBeat)
+  if (lastBeat < firstBeat) return
+
+  for (let b = firstBeat; b <= lastBeat; b += 1) {
+    if (b < 0) continue
+    void playMetronomeClick({ accent: isBarStartBeat(b) })
+  }
+}
 
 function maybePlayNotesAt(tMs) {
   if (!soundPreviewEnabled.value) return
@@ -598,12 +749,35 @@ const playback = usePlayback({
     // Loop wrap (or any backwards jump) should reset triggering state.
     if (t < playhead.value) {
       lastAudioTickMs = -Infinity
+      lastClickTickMs = -Infinity
       triggeredNoteKeys = new Set()
       playbackVisuals.clear()
     }
+
+    if (loopEnabled.value) {
+      const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+      const loopStartMs = loopRangeBlocks.value.start * timePerBlock
+      const loopEndMs = loopRangeBlocks.value.end * timePerBlock
+      if (Number.isFinite(loopStartMs) && Number.isFinite(loopEndMs) && loopEndMs > loopStartMs) {
+        if (t >= loopEndMs) {
+          lastAudioTickMs = loopStartMs - 0.0001
+          lastClickTickMs = loopStartMs - 0.0001
+          triggeredNoteKeys = new Set()
+          playbackVisuals.clear()
+          // Keep local/store playhead in sync before seek, so the next onTick is not
+          // interpreted as a generic backward jump (which would re-trigger old notes).
+          playhead.value = loopStartMs
+          transport.setPlayheadMs(loopStartMs)
+          playback.seek(loopStartMs)
+          return
+        }
+      }
+    }
+
     playhead.value = t
     transport.setPlayheadMs(t)
     playbackVisuals.prune(t)
+    if (playback.isPlaying.value) maybePlayClickAt(t)
     if (playback.isPlaying.value) maybePlayNotesAt(t)
   },
 })
@@ -620,6 +794,7 @@ watch(
     if (t === playhead.value) return
 
     lastAudioTickMs = t
+    lastClickTickMs = t
     triggeredNoteKeys = new Set()
     playbackVisuals.clear()
 

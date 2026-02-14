@@ -204,10 +204,17 @@ function applySnapshot(item) {
         if (s.snapEnabled != null) timelineSettings.setSnapEnabled(s.snapEnabled)
         if (s.soundPreviewEnabled != null)
             timelineSettings.setSoundPreviewEnabled(s.soundPreviewEnabled)
+        if (s.clickEnabled != null) timelineSettings.setClickEnabled(s.clickEnabled)
         if (s.loopEnabled != null) timelineSettings.setLoopEnabled(s.loopEnabled)
+        if (s.loopStartBlock != null) timelineSettings.setLoopStartBlock(s.loopStartBlock)
+        if (s.loopEndBlock != null) timelineSettings.setLoopEndBlock(s.loopEndBlock)
         if (s.beatTop != null) timelineSettings.setBeatTop(s.beatTop)
         if (s.beatBottom != null) timelineSettings.setBeatBottom(s.beatBottom)
+        if (s.pickupEnabled != null) timelineSettings.setPickupEnabled(s.pickupEnabled)
+        if (s.pickupBeats != null) timelineSettings.setPickupBeats(s.pickupBeats)
         if (s.zoomPxPerBlock != null) timelineSettings.setZoomPxPerBlock(s.zoomPxPerBlock)
+        if (s.timelineLengthBlocks != null)
+            timelineSettings.setTimelineLengthBlocks(s.timelineLengthBlocks)
         if (s.selectedColor) timelineSettings.setSelectedColor(s.selectedColor)
     }
 

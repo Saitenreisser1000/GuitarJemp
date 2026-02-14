@@ -126,6 +126,14 @@
                 <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
                   :model-value="beatBottom" @update:model-value="updateBeatBottom" />
               </div>
+              <div class="d-flex align-center ga-2">
+                <v-switch density="compact" hide-details inset label="Auftakt"
+                  :model-value="pickupEnabled"
+                  @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
+                <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax"
+                  step="1" style="width: 84px" label="Beats" :disabled="!pickupEnabled"
+                  :model-value="pickupBeats" @update:model-value="updatePickupBeats" />
+              </div>
             </div>
 
             <v-switch density="compact" hide-details inset label="Snap" :model-value="snapEnabled"
@@ -159,6 +167,8 @@ const props = defineProps({
   soundDurationScale: { type: Number, default: 1 },
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
+  pickupEnabled: { type: Boolean, default: false },
+  pickupBeats: { type: Number, default: 1 },
   numStrings: { type: Number, default: 6 },
   numFrets: { type: Number, default: 12 },
   stringsCollapsed: { type: Boolean, default: false },
@@ -176,6 +186,8 @@ const emit = defineEmits([
   'update-sound-duration-scale',
   'update-beat-top',
   'update-beat-bottom',
+  'update-pickup-enabled',
+  'update-pickup-beats',
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
@@ -211,6 +223,11 @@ const activeModeItem = computed(() => {
 })
 
 const beatBottomItems = [1, 2, 4, 8]
+const pickupMax = computed(() => {
+  const top = Number.parseInt(String(props.beatTop), 10)
+  const maxByBeat = Number.isFinite(top) && top > 1 ? top - 1 : 1
+  return Math.max(1, Math.min(9, maxByBeat))
+})
 
 const lastNonSimMode = ref(props.selectedMode !== 'sim' ? String(props.selectedMode) : '1/4')
 
@@ -264,6 +281,13 @@ function updateBeatTop(v) {
 function updateBeatBottom(v) {
   const parsed = Number.parseInt(String(v), 10)
   emit('update-beat-bottom', beatBottomItems.includes(parsed) ? parsed : 4)
+}
+
+function updatePickupBeats(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  if (!Number.isFinite(parsed)) return
+  const next = Math.max(1, Math.min(pickupMax.value, parsed))
+  emit('update-pickup-beats', next)
 }
 </script>
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
+  <div v-if="isVisibleInTimeline" class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
     :style="noteStyle" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
     <div class="note-label" :class="{ 'is-hand-position-label': isHandPositionNote }">
@@ -114,8 +114,7 @@ let startGridIndex = 1
 let cellWidthPx = 0
 let startLength = 1
 
-const leftPercent = computed(() => {
-  const total = Math.max(1, Number(props.totalBlocks) || 1)
+const visualGridIndex = computed(() => {
   const base = Number(props.note?.gridIndex ?? 1)
   const useGroup = isGroupSelected.value && selection.groupDragActive
   const previewDelta =
@@ -123,11 +122,24 @@ const leftPercent = computed(() => {
       ? Number(selection.groupDragDeltaBlocks || 0)
       : 0
   const preview = base + previewDelta
-  const gridIndex = useGroup
+  return useGroup
     ? preview
     : isDragging.value
       ? Number(dragGridIndex.value ?? base)
       : base
+})
+
+const isVisibleInTimeline = computed(() => {
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const gridIndex = Number(visualGridIndex.value)
+  if (!Number.isFinite(gridIndex)) return false
+  // Notes right of the current timeline end are hidden instead of being clamped to the edge.
+  return gridIndex <= total
+})
+
+const leftPercent = computed(() => {
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const gridIndex = Number(visualGridIndex.value)
   const clamped = Math.min(total, Math.max(1, gridIndex))
   // left edge of the cell: raster 1 => 0%
   return ((clamped - 1) / total) * 100

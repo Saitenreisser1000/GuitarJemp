@@ -1,5 +1,5 @@
 <template>
-  <v-card class="transport-controls ui-panel pa-3" variant="flat">
+  <v-card class="transport-controls ui-panel pa-3" variant="flat" tabindex="0" @keydown.tab.prevent="onTapTempo">
     <div class="d-flex align-center ga-4 flex-wrap">
       <div class="d-flex align-center ga-2">
         <v-btn color="primary" variant="flat" icon :title="isPlaying ? 'Pause' : 'Play'"
@@ -18,14 +18,29 @@
       <v-slider v-model="playheadLocal" class="transport-slider flex-grow-1" :min="0"
         :max="Math.max(0, Number(totalDuration) || 0)" :step="PLAYHEAD_STEP_MS" hide-details />
 
-      <v-text-field class="tempo-input" density="compact" hide-details variant="outlined" type="number" :min="TEMPO_MIN"
-        :max="TEMPO_MAX" step="1" suffix="BPM" :model-value="String(tempoLocal)" @update:model-value="onTempoInput" />
+      <div class="d-flex align-center ga-2">
+        <v-btn
+          class="click-btn"
+          size="small"
+          :variant="clickEnabled ? 'flat' : 'tonal'"
+          :color="clickEnabled ? 'primary' : undefined"
+          :title="clickEnabled ? 'Click ausschalten' : 'Click einschalten'"
+          @click="emit('update-click', !clickEnabled)"
+        >
+          Click
+        </v-btn>
+        <v-btn class="tap-btn" size="small" variant="tonal" title="TAB zum Eintappen der BPM" @click="onTapTempo">
+          TAB
+        </v-btn>
+        <v-text-field class="tempo-input" density="compact" hide-details variant="outlined" type="number" :min="TEMPO_MIN"
+          :max="TEMPO_MAX" step="1" suffix="BPM" :model-value="String(tempoLocal)" @update:model-value="onTempoInput" />
+      </div>
     </div>
   </v-card>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const TEMPO_MIN = 30
 const TEMPO_MAX = 200
@@ -34,6 +49,7 @@ const PLAYHEAD_STEP_MS = 10
 const props = defineProps({
   isPlaying: { type: Boolean, required: true },
   tempo: { type: Number, required: true },
+  clickEnabled: { type: Boolean, default: false },
   loopEnabled: { type: Boolean, default: false },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
@@ -44,8 +60,11 @@ const emit = defineEmits([
   'seek-start',
   'seek-playhead',
   'update-tempo',
+  'update-click',
   'update-loop',
 ])
+
+const tapTimesMs = ref([])
 
 const tempoLocal = computed({
   get: () => props.tempo,
@@ -84,12 +103,46 @@ function togglePlayPause() {
 function seekStart() {
   emit('seek-start')
 }
+
+function onTapTempo() {
+  const now = performance.now()
+  const MAX_GAP_MS = 2500
+  const taps = tapTimesMs.value
+  const prev = taps.length ? taps[taps.length - 1] : null
+  if (prev == null || now - prev > MAX_GAP_MS) {
+    tapTimesMs.value = [now]
+    return
+  }
+
+  taps.push(now)
+  if (taps.length > 6) taps.shift()
+
+  if (taps.length < 2) return
+  const intervals = []
+  for (let i = 1; i < taps.length; i += 1) {
+    const dt = taps[i] - taps[i - 1]
+    if (dt >= 200 && dt <= 2000) intervals.push(dt)
+  }
+  if (!intervals.length) return
+
+  const avgMs = intervals.reduce((sum, v) => sum + v, 0) / intervals.length
+  const bpm = clampTempo(60000 / avgMs)
+  emit('update-tempo', bpm)
+}
 </script>
 
 <style scoped>
 .tempo-input {
   width: 110px;
   min-width: 110px;
+}
+
+.click-btn {
+  min-width: 68px;
+}
+
+.tap-btn {
+  min-width: 56px;
 }
 
 .transport-slider {

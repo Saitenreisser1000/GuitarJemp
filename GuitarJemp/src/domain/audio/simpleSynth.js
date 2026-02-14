@@ -97,3 +97,11 @@ export async function playMidi(
 
   return playMidiSynth(effectiveMidi, { durationMs, type, gain })
 }
+
+export async function playMetronomeClick({ accent = false } = {}) {
+  const midi = accent ? 84 : 76
+  const type = accent ? 'square' : 'triangle'
+  const gain = accent ? 0.16 : 0.11
+  const durationMs = accent ? 55 : 42
+  return playMidiSynth(midi, { durationMs, type, gain })
+}

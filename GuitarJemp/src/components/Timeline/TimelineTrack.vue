@@ -15,6 +15,10 @@
     <div ref="trackEl" class="timeline-track" :style="trackStyle" @pointerdown="onScrubPointerDown"
       @pointermove="onScrubPointerMove" @pointerup="onScrubPointerUp" @pointercancel="onScrubPointerUp">
       <div class="grid-background" :style="gridBackgroundStyle"></div>
+      <div class="bar-lines" aria-hidden="true">
+        <span v-for="(left, idx) in barLinePositionsPct" :key="`bar-line-${idx}`" class="bar-line"
+          :style="{ left: `${left}%` }" />
+      </div>
       <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" title="Position ziehen" />
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
@@ -48,6 +52,8 @@ const props = defineProps({
   step: Number,
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
+  pickupEnabled: { type: Boolean, default: false },
+  pickupBeats: { type: Number, default: 1 },
   trackMinWidthPx: { type: Number, default: 0 },
   simGroupMode: { type: String, default: '' },
   isAuxTrack: { type: Boolean, default: false },
@@ -175,13 +181,44 @@ const blocksPerBar = computed(() => {
   return Number.isFinite(v) && v > 0 ? v : 1
 })
 
+const pickupBeatsClamped = computed(() => {
+  const raw = Number.parseInt(String(props.pickupBeats), 10)
+  const maxByBeat = Math.max(1, beatsPerBar.value - 1)
+  const max = Math.max(1, Math.min(9, maxByBeat))
+  if (!Number.isFinite(raw)) return 1
+  return Math.max(1, Math.min(max, raw))
+})
+
+const barLinePositionsPct = computed(() => {
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const bar = Math.max(0.0001, Number(blocksPerBar.value) || 1)
+  const out = []
+  const pushPct = (blockPos) => {
+    if (!(blockPos > 0) || !(blockPos < total)) return
+    out.push((blockPos / total) * 100)
+  }
+
+  if (Boolean(props.pickupEnabled)) {
+    const pickupBlocks = pickupBeatsClamped.value * blocksPerBeat.value
+    let pos = pickupBlocks
+    pushPct(pos)
+    while (pos < total) {
+      pos += bar
+      pushPct(pos)
+    }
+    return out
+  }
+
+  for (let pos = bar; pos < total; pos += bar) pushPct(pos)
+  return out
+})
+
 const gridBackgroundStyle = computed(() => {
   const snapStep = snapStepBlocks.value
   const subdivisionsPerBlock = Math.max(1, Math.round(1 / snapStep))
   return {
     '--total-blocks': String(props.totalBlocks),
     '--blocks-per-beat': String(blocksPerBeat.value),
-    '--blocks-per-bar': String(blocksPerBar.value),
     '--subdiv-per-block': String(subdivisionsPerBlock),
   }
 })
@@ -268,7 +305,7 @@ function getNoteColor(fret) {
 
 .timeline-track {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
   height: 44px;
 }
 
@@ -301,7 +338,6 @@ function getNoteColor(fret) {
   --cell: calc(100% / var(--total-blocks));
   --sub: calc(var(--cell) / var(--subdiv-per-block));
   --beat: calc(var(--cell) * var(--blocks-per-beat));
-  --bar: calc(var(--cell) * var(--blocks-per-bar));
   background-image:
     repeating-linear-gradient(to right,
       rgba(208, 208, 208, 0.35) 0px,
@@ -312,12 +348,23 @@ function getNoteColor(fret) {
       #d0d0d0 0px,
       #d0d0d0 2px,
       transparent 2px,
-      transparent var(--beat)),
-    repeating-linear-gradient(to right,
-      rgba(70, 70, 70, 0.45) 0px,
-      rgba(70, 70, 70, 0.45) 4px,
-      transparent 4px,
-      transparent var(--bar));
+      transparent var(--beat));
+}
+
+.bar-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bar-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  transform: translateX(-50%);
+  background: rgba(70, 70, 70, 0.45);
 }
 
 .playhead-indicator {

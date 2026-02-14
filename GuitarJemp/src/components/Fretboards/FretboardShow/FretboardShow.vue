@@ -30,6 +30,40 @@
             <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
               :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" />
           </g>
+          <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
+            <circle
+              class="self-loop-base"
+              :cx="playbackSelfLoop.cx"
+              :cy="playbackSelfLoop.cy"
+              :r="playbackSelfLoop.r"
+              fill="none"
+              :stroke="playbackSelfLoop.color"
+            />
+            <line
+              :x1="playbackSelfLoop.x1"
+              :y1="playbackSelfLoop.y1"
+              :x2="playbackSelfLoop.x2"
+              :y2="playbackSelfLoop.y2"
+              :stroke="playbackSelfLoop.color"
+            />
+            <circle
+              class="self-loop-progress"
+              :cx="playbackSelfLoop.cx"
+              :cy="playbackSelfLoop.cy"
+              :r="playbackSelfLoop.r"
+              fill="none"
+              :stroke="playbackSelfLoop.color"
+              :stroke-dasharray="playbackSelfLoop.dasharray"
+              :stroke-dashoffset="playbackSelfLoop.dashoffset"
+            />
+            <circle
+              class="self-loop-head"
+              :cx="playbackSelfLoop.headX"
+              :cy="playbackSelfLoop.headY"
+              :r="2.7"
+              :fill="playbackSelfLoop.color"
+            />
+          </g>
 
           <!-- Hover preview for inactive positions (editor only) -->
           <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
@@ -488,6 +522,12 @@ const playbackTravelLine = computed(() => {
   const toDot = renderedToneDotByNoteKey.value.get(toKey)
   if (!fromDot || !toDot) return null
 
+  const fromNote = noteByKey.value.get(fromKey)
+  const toNote = noteByKey.value.get(toKey)
+  const sameString = Number(fromNote?.string) === Number(toNote?.string)
+  const sameFret = Number(fromNote?.fret) === Number(toNote?.fret)
+  if (sameString && sameFret) return null
+
   const startMs = Number(noteStartMsByKey.value.get(fromKey))
   const endMs = Number(noteStartMsByKey.value.get(toKey))
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
@@ -508,6 +548,58 @@ const playbackTravelLine = computed(() => {
   const color = toneDotFill(toDot)
 
   return { x1, y1, x2, y2, color }
+})
+
+const playbackSelfLoop = computed(() => {
+  if (!isPlaying.value) return null
+
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  if (!fromKey) return null
+
+  const toKey = nextNoteKeyByKey.value.get(fromKey)
+  if (!toKey) return null
+
+  const fromDot = renderedToneDotByNoteKey.value.get(fromKey)
+  const toDot = renderedToneDotByNoteKey.value.get(toKey)
+  if (!fromDot || !toDot) return null
+
+  const fromNote = noteByKey.value.get(fromKey)
+  const toNote = noteByKey.value.get(toKey)
+  const sameString = Number(fromNote?.string) === Number(toNote?.string)
+  const sameFret = Number(fromNote?.fret) === Number(toNote?.fret)
+  if (!(sameString && sameFret)) return null
+
+  const startMs = Number(noteStartMsByKey.value.get(fromKey))
+  const endMs = Number(noteStartMsByKey.value.get(toKey))
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
+  const spanMs = endMs - startMs
+  if (!(spanMs > 0)) return null
+
+  const nowMs = Number(playheadMs.value)
+  const p = Number.isFinite(nowMs) ? (nowMs - startMs) / spanMs : 0
+  const progress = Math.min(1, Math.max(0, p))
+
+  const x = toneDotX(fromDot)
+  const y = toneDotY(fromDot)
+  const r = 8
+  const cx = x + 14
+  const cy = y - 16
+  const color = toneDotFill(toDot)
+  const circumference = 2 * Math.PI * r
+  const dasharray = `${Math.max(0.001, circumference * progress)} ${circumference}`
+  const dashoffset = `${circumference * 0.25}`
+  const angle = -Math.PI / 2 + progress * 2 * Math.PI
+  const headX = cx + Math.cos(angle) * r
+  const headY = cy + Math.sin(angle) * r
+
+  // Short connector from loop towards the original tone position.
+  const x1 = cx - r * 0.25
+  const y1 = cy + r * 0.95
+  const x2 = x1 + (x + 1 - x1) * progress
+  const y2 = y1 + (y - 2 - y1) * progress
+
+  return { cx, cy, r, x1, y1, x2, y2, color, dasharray, dashoffset, headX, headY }
 })
 
 const toneDotByPosKey = computed(() => {
@@ -1212,6 +1304,25 @@ watch(
   stroke-width: 3.5;
   stroke-linecap: round;
   filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+}
+
+.fb-playback-self-loop circle,
+.fb-playback-self-loop line {
+  stroke-width: 3.1;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+}
+
+.fb-playback-self-loop .self-loop-base {
+  opacity: 0.35;
+}
+
+.fb-playback-self-loop .self-loop-progress {
+  opacity: 1;
+}
+
+.fb-playback-self-loop .self-loop-head {
+  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.75));
 }
 
 .fb-tone-dot-symbol {
