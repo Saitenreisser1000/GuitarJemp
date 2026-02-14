@@ -20,6 +20,16 @@
 
       <div class="d-flex align-center ga-2">
         <v-btn
+          class="follow-btn"
+          size="small"
+          :variant="autoFollowEnabled ? 'flat' : 'tonal'"
+          :color="autoFollowEnabled ? 'primary' : undefined"
+          :title="autoFollowEnabled ? 'Auto-Follow ausschalten' : 'Auto-Follow einschalten'"
+          @click="emit('update-auto-follow', !autoFollowEnabled)"
+        >
+          Follow
+        </v-btn>
+        <v-btn
           class="click-btn"
           size="small"
           :variant="clickEnabled ? 'flat' : 'tonal'"
@@ -50,6 +60,7 @@ const props = defineProps({
   isPlaying: { type: Boolean, required: true },
   tempo: { type: Number, required: true },
   clickEnabled: { type: Boolean, default: false },
+  autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
@@ -61,6 +72,7 @@ const emit = defineEmits([
   'seek-playhead',
   'update-tempo',
   'update-click',
+  'update-auto-follow',
   'update-loop',
 ])
 
@@ -139,6 +151,10 @@ function onTapTempo() {
 
 .click-btn {
   min-width: 68px;
+}
+
+.follow-btn {
+  min-width: 72px;
 }
 
 .tap-btn {

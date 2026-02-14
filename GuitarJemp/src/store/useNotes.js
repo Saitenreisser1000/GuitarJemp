@@ -158,6 +158,46 @@ export const useNotesStore = defineStore('notes', () => {
     activeNotes.value[idx].lengthBlocks = safe
   }
 
+  function setManyGridIndices(entries) {
+    if (!Array.isArray(entries) || !entries.length) return 0
+    const changes = []
+    for (const entry of entries) {
+      const key = String(entry?.key || '')
+      if (!key) continue
+      const idx = findIndexByKey(key)
+      if (idx === -1) continue
+      const i = Number(entry?.gridIndex)
+      const safe = Number.isFinite(i) && i > 0 ? i : 1
+      const prev = Number(activeNotes.value[idx]?.gridIndex)
+      if (Number.isFinite(prev) && prev === safe) continue
+      changes.push({ idx, safe })
+    }
+    if (!changes.length) return 0
+    pushUndoPoint('moveBatch')
+    for (const c of changes) activeNotes.value[c.idx].gridIndex = c.safe
+    return changes.length
+  }
+
+  function setManyLengths(entries) {
+    if (!Array.isArray(entries) || !entries.length) return 0
+    const changes = []
+    for (const entry of entries) {
+      const key = String(entry?.key || '')
+      if (!key) continue
+      const idx = findIndexByKey(key)
+      if (idx === -1) continue
+      const n = Number(entry?.lengthBlocks)
+      const safe = Number.isFinite(n) && n > 0 ? n : 1
+      const prev = Number(activeNotes.value[idx]?.lengthBlocks)
+      if (Number.isFinite(prev) && prev === safe) continue
+      changes.push({ idx, safe })
+    }
+    if (!changes.length) return 0
+    pushUndoPoint('resizeBatch')
+    for (const c of changes) activeNotes.value[c.idx].lengthBlocks = c.safe
+    return changes.length
+  }
+
   function setNotePosition(key, { fret, string } = {}) {
     const idx = findIndexByKey(String(key))
     if (idx === -1) return
@@ -174,6 +214,36 @@ export const useNotesStore = defineStore('notes', () => {
     pushUndoPoint('movePitch')
     activeNotes.value[idx].fret = nextFret
     activeNotes.value[idx].string = nextString
+  }
+
+  function setManyPositions(entries) {
+    if (!Array.isArray(entries) || !entries.length) return 0
+    const changes = []
+    for (const entry of entries) {
+      const key = String(entry?.key || '')
+      if (!key) continue
+      const idx = findIndexByKey(key)
+      if (idx === -1) continue
+
+      const nextFret = Number(entry?.fret)
+      const nextString = Number(entry?.string)
+      if (!Number.isFinite(nextFret) || nextFret < 0) continue
+      if (!Number.isFinite(nextString) || nextString < 1) continue
+
+      const prevFret = Number(activeNotes.value[idx]?.fret)
+      const prevString = Number(activeNotes.value[idx]?.string)
+      if (prevFret === nextFret && prevString === nextString) continue
+
+      changes.push({ idx, nextFret, nextString })
+    }
+    if (!changes.length) return 0
+
+    pushUndoPoint('movePitchBatch')
+    for (const c of changes) {
+      activeNotes.value[c.idx].fret = c.nextFret
+      activeNotes.value[c.idx].string = c.nextString
+    }
+    return changes.length
   }
 
   function setNotes(notesArray) {
@@ -256,7 +326,10 @@ export const useNotesStore = defineStore('notes', () => {
     clearNotes,
     setNoteGridIndex,
     setNoteLength,
+    setManyGridIndices,
+    setManyLengths,
     setNotePosition,
+    setManyPositions,
     getNoteTimeMs,
     getNoteDurationMs,
   }

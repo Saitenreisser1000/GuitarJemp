@@ -54,9 +54,40 @@
               <button class="timeline-tool" type="button" title="Einfügen" @click="() => emit('paste-at-playhead')">
                 <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
               </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button" title="Marker bei Playhead"
+                @click="() => emit('add-marker-at-playhead')">
+                M+
+              </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button" title="Loop auf Auswahl"
+                @click="() => emit('loop-to-selection')">
+                Loop Sel
+              </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button" title="Auswahl quantisieren"
+                @click="() => emit('quantize-selection')">
+                Q
+              </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button" title="Länge Auswahl halbieren"
+                @click="() => emit('scale-selection-length', 0.5)">
+                1/2
+              </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button" title="Länge Auswahl verdoppeln"
+                @click="() => emit('scale-selection-length', 2)">
+                2x
+              </button>
+
+              <button class="timeline-tool timeline-tool-text" type="button"
+                :title="ghostNotesEnabled ? 'Ghost-Noten ausblenden' : 'Ghost-Noten einblenden'"
+                @click="() => emit('update-ghost-notes', !ghostNotesEnabled)">
+                Ghost
+              </button>
             </div>
 
-            <div ref="scrollEl" class="timeline-scroll" @pointerdown.capture="onMarqueePointerDown"
+            <div ref="scrollEl" class="timeline-scroll" @wheel="onTimelineWheel" @pointerdown.capture="onMarqueePointerDown"
               @pointermove.capture="onMarqueePointerMove" @pointerup.capture="onMarqueePointerUp"
               @pointercancel.capture="onMarqueePointerUp">
               <div class="timeline-content">
@@ -78,13 +109,28 @@
                   </div>
                 </div>
 
+                <div v-if="markerItems.length" class="marker-layer" aria-label="Marker">
+                  <button
+                    v-for="marker in markerItems"
+                    :key="marker.id"
+                    class="timeline-marker"
+                    type="button"
+                    :style="{ left: `${marker.leftPx}px` }"
+                    :title="marker.title"
+                    @click="() => emit('seek-playhead', marker.timeMs)"
+                  >
+                    <span class="timeline-marker-label">{{ marker.label }}</span>
+                  </button>
+                </div>
+
                 <div class="strings-timeline">
                   <TimelineTrack :string="0" string-label="HandPosition" :active-string="activeString"
                     :notes="handPositionNotes"
                     :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                     :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
                     :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-                    :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx" :is-aux-track="true"
+                    :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
+                    :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
                     @add-aux-item="() => emit('add-hand-position')" @seek-playhead="(t) => emit('seek-playhead', t)"
                     @update-note-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
                     @update-note-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
@@ -100,6 +146,7 @@
                     :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
                     :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
                     :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
+                    :ghost-notes-enabled="ghostNotesEnabled"
                     @update-active-string="(v) => emit('update-active-string', v)"
                     @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                       (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
@@ -160,10 +207,11 @@
 
     <div ref="transportEl" class="timeline-transport" aria-label="Transport">
       <div class="timeline-transport-inner">
-        <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
+        <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
           :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
           @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
           @update-click="(v) => emit('update-click', v)"
+          @update-auto-follow="(v) => emit('update-auto-follow', v)"
           @update-loop="(v) => emit('update-loop', v)" />
       </div>
     </div>
@@ -191,6 +239,7 @@ const props = defineProps({
   snapEnabled: { type: Boolean, default: true },
   soundPreviewEnabled: { type: Boolean, default: true },
   clickEnabled: { type: Boolean, default: false },
+  autoFollowEnabled: { type: Boolean, default: true },
   countInVisible: { type: Boolean, default: false },
   countInBeat: { type: Number, default: 0 },
   soundDurationScale: { type: Number, default: 1 },
@@ -215,6 +264,8 @@ const props = defineProps({
 
   tracks: { type: Array, required: true },
   handPositionNotes: { type: Array, default: () => [] },
+  markers: { type: Array, default: () => [] },
+  ghostNotesEnabled: { type: Boolean, default: false },
   simGroupMode: { type: String, default: '' },
   activeNotesVisible: { type: Boolean, default: true },
   libraryEnabled: { type: Boolean, default: true },
@@ -232,6 +283,7 @@ const emit = defineEmits([
   'update-snap',
   'update-sound-preview',
   'update-click',
+  'update-auto-follow',
   'update-sound-duration-scale',
   'update-active-string',
   'update-active-tool',
@@ -259,6 +311,11 @@ const emit = defineEmits([
   'open-library',
   'toggle-theme',
   'update-total-blocks',
+  'add-marker-at-playhead',
+  'loop-to-selection',
+  'quantize-selection',
+  'scale-selection-length',
+  'update-ghost-notes',
 ])
 
 const zoomLocal = computed({
@@ -601,10 +658,50 @@ const trackEndPx = computed(() => {
   return trackMinWidthPx.value + labelWidthPx
 })
 
+const markerItems = computed(() => {
+  const totalDurationMs = Number(props.totalDuration) || 0
+  if (!(totalDurationMs > 0)) return []
+  const labelWidthPx = 48
+  const zoom = zoomPx.value
+  return (Array.isArray(props.markers) ? props.markers : [])
+    .map((m, idx) => {
+      const tMs = Number(m?.timeMs)
+      if (!Number.isFinite(tMs) || tMs < 0) return null
+      const blocks = (tMs / totalDurationMs) * Math.max(1, Number(props.totalBlocks) || 1)
+      return {
+        id: String(m?.id ?? `m_${idx}`),
+        label: String(m?.label ?? `M${idx + 1}`),
+        title: String(m?.title ?? `Marker ${idx + 1}`),
+        timeMs: tMs,
+        leftPx: labelWidthPx + blocks * zoom,
+      }
+    })
+    .filter(Boolean)
+})
+
+function onTimelineWheel(e) {
+  if (!e?.ctrlKey) return
+  const el = scrollEl.value
+  if (!el?.getBoundingClientRect) return
+  e.preventDefault()
+  const rect = el.getBoundingClientRect()
+  const x = Number(e.clientX) - rect.left
+  const anchorContentX = el.scrollLeft + x
+  const current = zoomPx.value
+  const next = Math.max(8, Math.min(200, current + (Number(e.deltaY) < 0 ? 4 : -4)))
+  if (next === current) return
+  emit('update-zoom', next)
+  // Keep zoom anchored at cursor position.
+  requestAnimationFrame(() => {
+    const ratio = next / current
+    el.scrollLeft = Math.max(0, anchorContentX * ratio - x)
+  })
+}
+
 watch(
   () => [props.playhead, props.isPlaying, props.totalDuration, props.totalBlocks, zoomPx.value],
   () => {
-    if (!props.isPlaying) return
+    if (!props.isPlaying || !props.autoFollowEnabled) return
     const el = scrollEl.value
     if (!el) return
 
@@ -626,7 +723,9 @@ watch(
     const maxScrollLeft = Math.max(0, el.scrollWidth - viewportWidth)
     const targetScrollLeft = Math.min(maxScrollLeft, Math.max(0, playheadPx - viewportWidth / 2))
     if (targetScrollLeft <= el.scrollLeft + 0.5) return
-    el.scrollLeft = targetScrollLeft
+    // Soft follow instead of hard snapping.
+    const eased = el.scrollLeft + (targetScrollLeft - el.scrollLeft) * 0.3
+    el.scrollLeft = Math.min(maxScrollLeft, Math.max(0, eased))
   },
   { flush: 'post' },
 )
@@ -806,7 +905,7 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-tools {
-  flex: 0 0 38px;
+  flex: 0 0 66px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -820,7 +919,7 @@ const barBeatLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  width: 56px;
   height: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
@@ -829,6 +928,12 @@ const barBeatLabel = computed(() => {
   user-select: none;
   padding: 0;
   transition: border-color var(--ui-fast), box-shadow var(--ui-fast), background-color var(--ui-fast), transform var(--ui-fast);
+}
+
+.timeline-tool-text {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
 }
 
 .timeline-tool:hover {
@@ -864,6 +969,34 @@ const barBeatLabel = computed(() => {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+.marker-layer {
+  position: relative;
+  height: 16px;
+  margin-bottom: 2px;
+}
+
+.timeline-marker {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 16px;
+  transform: translateX(-50%);
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-primary) 65%, var(--color-text) 35%);
+  cursor: pointer;
+}
+
+.timeline-marker-label {
+  position: absolute;
+  top: 0;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .loop-bracket-layer {

@@ -9,6 +9,7 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
+    :auto-follow-enabled="autoFollowEnabled" :ghost-notes-enabled="ghostNotesEnabled" :markers="markers"
     :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
     :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
     @toggle-play="togglePlay"
@@ -16,6 +17,7 @@
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
     @update-click="settings.setClickEnabled"
+    @update-auto-follow="settings.setAutoFollowEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
     @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
@@ -34,7 +36,10 @@
     @group-move-notes="handleGroupMoveNotes" @group-resize-notes="handleGroupResizeNotes" @seek-playhead="seekPlayhead"
     @add-hand-position="handleAddHandPosition" @copy-selection="handleCopySelection"
     @paste-at-playhead="handlePasteAtPlayhead" @undo="handleUndo"
-    @redo="handleRedo" :compact="compact" />
+    @redo="handleRedo" @add-marker-at-playhead="handleAddMarkerAtPlayhead"
+    @loop-to-selection="handleLoopToSelection" @quantize-selection="handleQuantizeSelection"
+    @scale-selection-length="handleScaleSelectionLength" @update-ghost-notes="settings.setGhostNotesEnabled"
+    :compact="compact" />
 </template>
 
 <script setup>
@@ -108,6 +113,8 @@ const {
   pickupEnabled,
   pickupBeats,
   zoomPxPerBlock,
+  autoFollowEnabled,
+  ghostNotesEnabled,
   timelineLengthBlocks,
 } = storeToRefs(settings)
 const { numStrings } = storeToRefs(instrument)
@@ -363,6 +370,92 @@ function handlePasteAtPlayhead() {
   void nextTick().then(() => seekPlayhead(endMs))
 }
 
+function selectedTimelineItems() {
+  const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  if (!keys.length) return []
+
+  const items = []
+  for (const key of keys) {
+    const k = String(key || '')
+    if (!k) continue
+    const hp = handPositionNotes.value.find((n) => String(n?.key) === k)
+    if (hp) {
+      items.push({ type: 'hp', note: hp })
+      continue
+    }
+    const n = store.activeNotes.find((x) => String(x?.key) === k)
+    if (n) items.push({ type: 'note', note: n })
+  }
+  return items
+}
+
+function handleAddMarkerAtPlayhead() {
+  const tMs = Math.max(0, Number(playhead.value) || 0)
+  const nextIdx = markers.value.length + 1
+  markers.value.push({
+    id: `m_${Date.now()}_${nextIdx}`,
+    timeMs: tMs,
+    label: `M${nextIdx}`,
+    title: `Marker ${nextIdx} (${Math.round(tMs)}ms)`,
+  })
+}
+
+function handleLoopToSelection() {
+  const items = selectedTimelineItems()
+  if (!items.length) return
+
+  let minStart = Infinity
+  let maxEnd = -Infinity
+  for (const it of items) {
+    const startRaw = Number(it?.note?.gridIndex)
+    const lenRaw = Number(it?.note?.lengthBlocks)
+    const start = Number.isFinite(startRaw) && startRaw > 0 ? startRaw : 1
+    const len = Number.isFinite(lenRaw) && lenRaw > 0 ? lenRaw : 1
+    minStart = Math.min(minStart, start)
+    maxEnd = Math.max(maxEnd, start - 1 + len)
+  }
+  if (!Number.isFinite(minStart) || !Number.isFinite(maxEnd)) return
+  settings.setLoopStartBlock(Math.max(0, Number((minStart - 1).toFixed(4))))
+  settings.setLoopEndBlock(Math.max(0, Number(maxEnd.toFixed(4))))
+  settings.setLoopEnabled(true)
+}
+
+function handleQuantizeSelection() {
+  const items = selectedTimelineItems()
+  if (!items.length) return
+  const step = Math.max(0.01, Number(currentStep.value) || 1)
+  const noteUpdates = []
+
+  for (const it of items) {
+    const key = String(it?.note?.key || '')
+    if (!key) continue
+    const startRaw = Number(it?.note?.gridIndex)
+    const safe = Number.isFinite(startRaw) && startRaw > 0 ? startRaw : 1
+    const snapped = Math.max(1, Math.round((safe - 1) / step) * step + 1)
+    if (it.type === 'hp') handPositionsStore.setHandPositionGridIndex(key, Number(snapped.toFixed(2)))
+    else noteUpdates.push({ key, gridIndex: Number(snapped.toFixed(2)) })
+  }
+  if (noteUpdates.length) store.setManyGridIndices(noteUpdates)
+}
+
+function handleScaleSelectionLength(factor) {
+  const f = Number(factor)
+  if (!Number.isFinite(f) || f <= 0) return
+  const items = selectedTimelineItems()
+  if (!items.length) return
+  const noteUpdates = []
+  for (const it of items) {
+    const key = String(it?.note?.key || '')
+    if (!key) continue
+    const lenRaw = Number(it?.note?.lengthBlocks)
+    const safe = Number.isFinite(lenRaw) && lenRaw > 0 ? lenRaw : 1
+    const next = Math.max(0.01, Number((safe * f).toFixed(2)))
+    if (it.type === 'hp') handPositionsStore.setHandPositionLength(key, next)
+    else noteUpdates.push({ key, lengthBlocks: next })
+  }
+  if (noteUpdates.length) store.setManyLengths(noteUpdates)
+}
+
 function syncSelectionToExistingNotes() {
   const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
   if (!keys.length) return
@@ -612,6 +705,7 @@ const loopRangeBlocks = computed(() => {
 })
 
 const playhead = ref(0)
+const markers = ref([])
 let lastAudioTickMs = -Infinity
 let lastClickTickMs = -Infinity
 let triggeredNoteKeys = new Set()

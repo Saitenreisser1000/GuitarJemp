@@ -47,6 +47,12 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
       ? stored.zoomPxPerBlock
       : DEFAULT_GRID_SIZE_PX,
   )
+  const autoFollowEnabled = ref(
+    typeof stored.autoFollowEnabled === 'boolean' ? stored.autoFollowEnabled : true,
+  )
+  const ghostNotesEnabled = ref(
+    typeof stored.ghostNotesEnabled === 'boolean' ? stored.ghostNotesEnabled : false,
+  )
   const timelineLengthBlocks = ref(
     Number.isFinite(stored.timelineLengthBlocks) && stored.timelineLengthBlocks > 0
       ? Number(stored.timelineLengthBlocks)
@@ -141,6 +147,14 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     zoomPxPerBlock.value = Number.isFinite(n) ? Math.min(200, Math.max(8, n)) : DEFAULT_GRID_SIZE_PX
   }
 
+  function setAutoFollowEnabled(v) {
+    autoFollowEnabled.value = Boolean(v)
+  }
+
+  function setGhostNotesEnabled(v) {
+    ghostNotesEnabled.value = Boolean(v)
+  }
+
   function setTimelineLengthBlocks(v) {
     const n = Number(v)
     if (!Number.isFinite(n) || n <= 0) {
@@ -189,6 +203,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     pickupEnabled,
     pickupBeats,
     zoomPxPerBlock,
+    autoFollowEnabled,
+    ghostNotesEnabled,
     timelineLengthBlocks,
     selectedColor,
     activeString,
@@ -212,6 +228,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     pickupEnabled,
     pickupBeats,
     zoomPxPerBlock,
+    autoFollowEnabled,
+    ghostNotesEnabled,
     timelineLengthBlocks,
     selectedColor,
     activeString,
@@ -231,6 +249,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setPickupEnabled,
     setPickupBeats,
     setZoomPxPerBlock,
+    setAutoFollowEnabled,
+    setGhostNotesEnabled,
     setTimelineLengthBlocks,
     setSelectedColor,
     setActiveString,

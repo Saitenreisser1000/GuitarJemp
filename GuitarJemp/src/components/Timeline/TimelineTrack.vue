@@ -23,7 +23,7 @@
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
         :time-per-block-ms="timePerBlockMs" :snapEnabled="props.snapEnabled" :step="props.step"
-        :sim-group-mode="props.simGroupMode"
+        :sim-group-mode="props.simGroupMode" :ghost-outside-timeline="props.ghostNotesEnabled"
         @update-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
         @update-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
         @update-label="(key, label) => emit('update-note-label', key, label)"
@@ -56,6 +56,7 @@ const props = defineProps({
   pickupBeats: { type: Number, default: 1 },
   trackMinWidthPx: { type: Number, default: 0 },
   simGroupMode: { type: String, default: '' },
+  ghostNotesEnabled: { type: Boolean, default: false },
   isAuxTrack: { type: Boolean, default: false },
 })
 
@@ -216,10 +217,16 @@ const barLinePositionsPct = computed(() => {
 const gridBackgroundStyle = computed(() => {
   const snapStep = snapStepBlocks.value
   const subdivisionsPerBlock = Math.max(1, Math.round(1 / snapStep))
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const pxPerBlock = (Number(props.trackMinWidthPx) || 0) / total
+  const subOpacity = pxPerBlock >= 42 ? 0.35 : pxPerBlock >= 22 ? 0.2 : 0
+  const beatOpacity = pxPerBlock >= 12 ? 1 : 0.7
   return {
     '--total-blocks': String(props.totalBlocks),
     '--blocks-per-beat': String(blocksPerBeat.value),
     '--subdiv-per-block': String(subdivisionsPerBlock),
+    '--sub-opacity': String(subOpacity),
+    '--beat-opacity': String(beatOpacity),
   }
 })
 
@@ -340,13 +347,13 @@ function getNoteColor(fret) {
   --beat: calc(var(--cell) * var(--blocks-per-beat));
   background-image:
     repeating-linear-gradient(to right,
-      rgba(208, 208, 208, 0.35) 0px,
-      rgba(208, 208, 208, 0.35) 1px,
+      rgba(208, 208, 208, var(--sub-opacity, 0.35)) 0px,
+      rgba(208, 208, 208, var(--sub-opacity, 0.35)) 1px,
       transparent 1px,
       transparent var(--sub)),
     repeating-linear-gradient(to right,
-      #d0d0d0 0px,
-      #d0d0d0 2px,
+      rgba(208, 208, 208, var(--beat-opacity, 1)) 0px,
+      rgba(208, 208, 208, var(--beat-opacity, 1)) 2px,
       transparent 2px,
       transparent var(--beat));
 }

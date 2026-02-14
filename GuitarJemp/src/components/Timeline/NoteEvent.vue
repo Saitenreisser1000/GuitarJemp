@@ -1,5 +1,6 @@
 <template>
-  <div v-if="isVisibleInTimeline" class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
+  <div v-if="isVisibleInTimeline || isGhostVisible" class="note-event"
+    :class="{ 'is-selected': isSelected, 'is-ghost': isGhostVisible }" :data-note-key="note?.key"
     :style="noteStyle" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
     <div class="note-label" :class="{ 'is-hand-position-label': isHandPositionNote }">
@@ -9,6 +10,7 @@
       </span>
       <span v-if="pitchLabel" class="pitch-label">{{ pitchLabel }}</span>
     </div>
+    <div v-if="dragTooltip" class="drag-tooltip">{{ dragTooltip }}</div>
     <div class="resize-handle" @pointerdown.stop="onResizePointerDown" />
   </div>
 </template>
@@ -34,6 +36,7 @@ const props = defineProps({
   snapEnabled: Boolean,
   step: Number,
   simGroupMode: { type: String, default: '' },
+  ghostOutsideTimeline: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update-grid-index', 'update-length', 'update-label', 'group-move', 'group-resize'])
@@ -137,6 +140,14 @@ const isVisibleInTimeline = computed(() => {
   return gridIndex <= total
 })
 
+const isGhostVisible = computed(() => {
+  if (!props.ghostOutsideTimeline) return false
+  if (isVisibleInTimeline.value) return false
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const gridIndex = Number(visualGridIndex.value)
+  return Number.isFinite(gridIndex) && gridIndex > total
+})
+
 const leftPercent = computed(() => {
   const total = Math.max(1, Number(props.totalBlocks) || 1)
   const gridIndex = Number(visualGridIndex.value)
@@ -213,13 +224,25 @@ const noteTextColor = computed(() => {
 
 const noteStyle = computed(() => {
   const base = String(props.color || '#4f6f8f')
+  const ghost = isGhostVisible.value
+  const total = Math.max(1, Number(props.totalBlocks) || 1)
+  const safeLen = safeLengthBlocks.value
+  const visibleLen = ghost ? Math.min(safeLen, 0.25) : safeLen
   return {
-    left: `${leftPercent.value}%`,
-    width: `${widthPercent.value}%`,
+    left: `${ghost ? ((total - 0.25) / total) * 100 : leftPercent.value}%`,
+    width: `${(visibleLen / total) * 100}%`,
     backgroundColor: base,
     color: noteTextColor.value,
     '--note-base-color': base,
   }
+})
+
+const dragTooltip = computed(() => {
+  if (!isDragging.value && !isResizing.value) return ''
+  const gi = Number(visualGridIndex.value)
+  const len = isResizing.value ? Number(dragLength.value ?? safeLengthBlocks.value) : safeLengthBlocks.value
+  if (!Number.isFinite(gi) || !Number.isFinite(len)) return ''
+  return `Raster ${gi.toFixed(2)} | Länge ${Math.max(0.01, len).toFixed(2)}`
 })
 
 const title = computed(() => {
@@ -463,8 +486,29 @@ function onEditLabel() {
   z-index: 6;
 }
 
+.note-event.is-ghost {
+  opacity: 0.45;
+  border-style: dashed;
+  pointer-events: none;
+}
+
 .note-event:active {
   cursor: grabbing;
+}
+
+.drag-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 75%);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .pitch-label {

@@ -23,12 +23,49 @@
           <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y" :width="handPositionOverlayRect.width"
             :height="handPositionOverlayRect.height" :rx="handPositionOverlayRect.rx" />
         </g>
+        <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested" style="pointer-events: none">
+          <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
+            :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
+            :rx="suggestedHandPositionOverlayRect.rx" />
+          <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
+            Empf. Lage {{ suggestedHandPositionOverlayRect.fromFret }}-{{ suggestedHandPositionOverlayRect.toFret }}
+          </text>
+        </g>
 
         <!-- ToneDots -->
         <g class="fb-tone-dots">
           <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
             <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
-              :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" />
+              :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color"
+              :style="{ strokeWidth: `${playbackTravelLine.strokeWidth}px`, filter: playbackTravelLine.filter }" />
+          </g>
+          <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
+            <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
+              <line
+                class="fb-now-string-line"
+                :x1="NUT_WIDTH"
+                :y1="m.y"
+                :x2="FB_WIDTH"
+                :y2="m.y"
+                :stroke="m.color"
+                :style="{ opacity: m.lineOpacity }"
+              />
+              <line
+                class="fb-now-cross"
+                :x1="m.x - m.crossHalf"
+                :y1="m.y"
+                :x2="m.x + m.crossHalf"
+                :y2="m.y"
+                :stroke="m.color"
+              />
+              <circle
+                class="fb-now-ring"
+                :cx="m.x"
+                :cy="m.y"
+                :r="m.ringR"
+                :stroke="m.color"
+              />
+            </g>
           </g>
           <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
             <circle
@@ -78,7 +115,18 @@
             <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
               {{ toneDotSymbol(d) }}
             </text>
+            <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
+              {{ toneDotPitchLabel(d) }}
+            </text>
           </g>
+
+          <circle
+            v-if="nextNotePreviewDot"
+            class="fb-next-note-preview"
+            :cx="toneDotX(nextNotePreviewDot)"
+            :cy="toneDotY(nextNotePreviewDot)"
+            :r="toneDotR(nextNotePreviewDot) + 7"
+          />
 
           <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
           <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
@@ -89,9 +137,44 @@
 
     <div class="fb-fret-numbers" aria-hidden="true">
       <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+        :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
         :style="{ left: `${l.xPct}%` }">
         {{ l.fret }}
       </span>
+    </div>
+    <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
+      <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
+      <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
+    </div>
+    <div class="fb-chord-shape-panel">
+      <span class="fb-chord-detected">Chord: {{ detectedChordLabel }}</span>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
+        +1 Bund
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
+        -1 Bund
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
+        Saite ↑
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
+        Saite ↓
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
+        Shape speichern
+      </button>
+      <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
+        <option value="">Shape wählen</option>
+        <option v-for="s in savedShapes" :key="s.id" :value="s.id">
+          {{ s.name }}
+        </option>
+      </select>
+      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
+        Shape laden
+      </button>
+      <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
+        Löschen
+      </button>
     </div>
 
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
@@ -166,6 +249,9 @@ const dragState = ref({
 
 let longPressTimer = null
 let suppressClicksUntilMs = 0
+const CHORD_SHAPES_STORAGE_KEY = 'guitarjemp.fretboard.chordShapes.v1'
+const savedShapes = ref([])
+const selectedShapeId = ref('')
 
 function posKeyForNote(note) {
   const string = Number(note?.string)
@@ -236,12 +322,7 @@ function stringLabelFor(stringNumber) {
   return stringLabelByNumber.value.get(s) ?? String(stringNumber)
 }
 
-// Per string/fret DotQueue of note keys.
-// DotQueue front is the centered ToneDot: order[0] is centered,
-// order[1] shifts left by one offset, etc.
-const dotQueueByPosKey = ref(new Map())
-
-const defaultDotQueueByPosKey = computed(() => {
+const notesByPosKey = computed(() => {
   const m = new Map()
   for (const note of store.activeNotes) {
     const string = Number(note?.string)
@@ -254,8 +335,6 @@ const defaultDotQueueByPosKey = computed(() => {
     arr.push(note)
     m.set(posKey, arr)
   }
-
-  const out = new Map()
   for (const [posKey, notes] of m.entries()) {
     const items = [...notes]
     items.sort((a, b) => {
@@ -264,10 +343,23 @@ const defaultDotQueueByPosKey = computed(() => {
       if (ta !== tb) return ta - tb
       return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
     })
+    m.set(posKey, items)
+  }
+  return m
+})
+
+// Per string/fret DotQueue of note keys.
+// DotQueue front is the centered ToneDot: order[0] is centered,
+// order[1] shifts left by one offset, etc.
+const dotQueueByPosKey = ref(new Map())
+
+const defaultDotQueueByPosKey = computed(() => {
+  const out = new Map()
+  for (const [posKey, notes] of notesByPosKey.value.entries()) {
     // Default DotQueue: newest at front (center).
     out.set(
       posKey,
-      items
+      notes
         .map((n) => String(n?.key ?? ''))
         .filter(Boolean)
         .reverse(),
@@ -321,7 +413,7 @@ watch(
     if (pulseId === lastPulseId.value) return
     lastPulseId.value = pulseId
 
-    const note = store.activeNotes.find((n) => String(n?.key ?? '') === k)
+    const note = noteByKey.value.get(k)
     const posKey = posKeyForNote(note)
     if (!posKey) return
 
@@ -364,7 +456,7 @@ watch(
     const nextQueue = new Map(dotQueueByPosKey.value)
 
     for (const k of ended) {
-      const note = store.activeNotes.find((n) => String(n?.key ?? '') === k)
+      const note = noteByKey.value.get(k)
       const posKey = posKeyForNote(note)
       if (!posKey) continue
 
@@ -390,20 +482,7 @@ const toneDotsForRender = computed(() => {
 
   // Render order per position is driven by a DotQueue (see dotQueueByPosKey).
   // This allows rotating the visual stack when notes are played.
-  const notesByPos = new Map()
-  for (const note of store.activeNotes) {
-    const string = Number(note?.string)
-    const fret = Number(note?.fret)
-    const key = String(note?.key ?? '')
-    if (!key) continue
-    if (!Number.isFinite(string) || !Number.isFinite(fret)) continue
-    const posKey = `${string}-${fret}`
-    const arr = notesByPos.get(posKey) ?? []
-    arr.push(note)
-    notesByPos.set(posKey, arr)
-  }
-
-  for (const [posKey, notes] of notesByPos.entries()) {
+  for (const [posKey, notes] of notesByPosKey.value.entries()) {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
     const order = dotQueueByPosKey.value.get(posKey) ?? []
@@ -446,6 +525,247 @@ const noteByKey = computed(() => {
   return m
 })
 
+const notesAtPlayhead = computed(() => {
+  const t = Number(playheadMs.value)
+  if (!Number.isFinite(t)) return []
+  const entries = timelineNoteEntries.value
+  if (!entries.length) return []
+
+  // Binary-search first event that starts after current playhead, then scan around it.
+  let lo = 0
+  let hi = entries.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (entries[mid].startMs <= t) lo = mid + 1
+    else hi = mid
+  }
+  const out = []
+  for (let i = Math.max(0, lo - 8); i < Math.min(entries.length, lo + 8); i += 1) {
+    const entry = entries[i]
+    if (t >= entry.startMs && t < entry.endMs) out.push(entry.note)
+  }
+  return out
+})
+
+const currentChordSourceNotes = computed(() => {
+  const selected = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  if (selected.length >= 2) {
+    return selected
+      .map((k) => noteByKey.value.get(String(k)))
+      .filter(Boolean)
+  }
+  return notesAtPlayhead.value
+})
+
+function normalizePitchClassName(pc) {
+  const names = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+  return names[((pc % 12) + 12) % 12]
+}
+
+function detectChordNameFromPitchClasses(pitchClasses) {
+  if (!(pitchClasses instanceof Set) || pitchClasses.size < 2) return ''
+  const pcs = Array.from(pitchClasses).map((n) => ((Number(n) % 12) + 12) % 12)
+  const pcSet = new Set(pcs)
+  const patterns = [
+    { suffix: '', intervals: [0, 4, 7] },
+    { suffix: 'm', intervals: [0, 3, 7] },
+    { suffix: 'dim', intervals: [0, 3, 6] },
+    { suffix: 'aug', intervals: [0, 4, 8] },
+    { suffix: 'sus2', intervals: [0, 2, 7] },
+    { suffix: 'sus4', intervals: [0, 5, 7] },
+    { suffix: '7', intervals: [0, 4, 7, 10] },
+    { suffix: 'maj7', intervals: [0, 4, 7, 11] },
+    { suffix: 'm7', intervals: [0, 3, 7, 10] },
+  ]
+
+  for (const root of pcs) {
+    for (const p of patterns) {
+      if (p.intervals.length > pcSet.size) continue
+      const ok = p.intervals.every((iv) => pcSet.has((root + iv) % 12))
+      if (!ok) continue
+      return `${normalizePitchClassName(root)}${p.suffix}`
+    }
+  }
+
+  return pcs.map(normalizePitchClassName).join('-')
+}
+
+const detectedChordLabel = computed(() => {
+  const notes = currentChordSourceNotes.value
+  if (!Array.isArray(notes) || notes.length < 2) return '—'
+  const pcs = new Set()
+  for (const n of notes) {
+    const midi = midiForFretString({ fret: Number(n?.fret), string: Number(n?.string) }, tuning.value)
+    if (!Number.isFinite(Number(midi))) continue
+    pcs.add(Number(midi) % 12)
+  }
+  const name = detectChordNameFromPitchClasses(pcs)
+  return name || '—'
+})
+
+function shapePositionsFromNotes(notes) {
+  const seen = new Set()
+  const out = []
+  for (const n of notes) {
+    const string = Number(n?.string)
+    const fret = Number(n?.fret)
+    if (!Number.isFinite(string) || !Number.isFinite(fret)) continue
+    const key = `${string}-${fret}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ string, fret })
+  }
+  out.sort((a, b) => a.string - b.string)
+  return out
+}
+
+const currentShapePositions = computed(() => shapePositionsFromNotes(currentChordSourceNotes.value))
+const canSaveCurrentShape = computed(() => currentShapePositions.value.length >= 2)
+const selectedShape = computed(() =>
+  savedShapes.value.find((s) => String(s?.id) === String(selectedShapeId.value)) ?? null,
+)
+
+function persistChordShapes() {
+  try {
+    localStorage.setItem(CHORD_SHAPES_STORAGE_KEY, JSON.stringify(savedShapes.value))
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+function loadChordShapes() {
+  try {
+    const raw = localStorage.getItem(CHORD_SHAPES_STORAGE_KEY)
+    const parsed = JSON.parse(String(raw || '[]'))
+    savedShapes.value = Array.isArray(parsed) ? parsed : []
+  } catch {
+    savedShapes.value = []
+  }
+}
+
+function saveCurrentShape() {
+  if (!canSaveCurrentShape.value) return
+  const chord = detectedChordLabel.value && detectedChordLabel.value !== '—' ? detectedChordLabel.value : 'Shape'
+  const stamp = new Date().toISOString().slice(11, 19)
+  const id = `shape_${Date.now()}`
+  const name = `${chord} ${stamp}`
+  const shape = {
+    id,
+    name,
+    chord,
+    positions: currentShapePositions.value,
+    createdAt: Date.now(),
+  }
+  savedShapes.value = [shape, ...savedShapes.value].slice(0, 64)
+  selectedShapeId.value = id
+  persistChordShapes()
+}
+
+function applySelectedShape() {
+  if (!props.editable) return
+  const shape = selectedShape.value
+  if (!shape?.positions?.length) return
+  let firstKey = null
+  for (const pos of shape.positions) {
+    const added = store.addNote(`${Number(pos.fret)}-${Number(pos.string)}`)
+    if (!firstKey && added?.key) firstKey = String(added.key)
+  }
+  if (firstKey) selection.selectNote(firstKey)
+}
+
+function deleteSelectedShape() {
+  const id = String(selectedShapeId.value || '')
+  if (!id) return
+  savedShapes.value = savedShapes.value.filter((s) => String(s?.id) !== id)
+  selectedShapeId.value = savedShapes.value[0]?.id ? String(savedShapes.value[0].id) : ''
+  persistChordShapes()
+}
+
+function selectedMovableNotes({ includeKey = '' } = {}) {
+  const keysRaw = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  const keys = keysRaw.map((k) => String(k)).filter(Boolean)
+  const include = String(includeKey || '')
+  const hasInclude = include ? keys.includes(include) : false
+  const baseKeys = hasInclude ? keys : include ? [include] : keys
+  const out = []
+  const seen = new Set()
+  for (const key of baseKeys) {
+    if (seen.has(key)) continue
+    seen.add(key)
+    const n = noteByKey.value.get(key)
+    if (n) out.push({ key, note: n })
+  }
+  return out
+}
+
+const canNudgeSelection = computed(() => props.editable && selectedMovableNotes().length > 0)
+
+function nudgeSelection(deltaFret, deltaString) {
+  if (!props.editable) return
+  const items = selectedMovableNotes()
+  if (!items.length) return
+  const maxFret = Math.max(0, Number(props.numFrets) || 12)
+  const maxString = Math.max(1, Number(instrument.numStrings) || 6)
+  const updates = items.map(({ key, note }) => {
+    const fret = clamp((Number(note?.fret) || 0) + Number(deltaFret || 0), 0, maxFret)
+    const string = clamp((Number(note?.string) || 1) + Number(deltaString || 0), 1, maxString)
+    return { key, fret, string }
+  })
+  store.setManyPositions(updates)
+}
+
+function clamp01(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(1, n))
+}
+
+function almostInteger(v, eps = 1e-6) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return false
+  return Math.abs(n - Math.round(n)) <= eps
+}
+
+function inferredAccentFromGrid(note) {
+  const gi = Number(note?.gridIndex)
+  if (!Number.isFinite(gi) || gi <= 0) return 0.6
+
+  const beatBottom = Number(settings.beatBottom) || 4
+  const beatTop = Number(settings.beatTop) || 4
+  const blocksPerBeat = 4 / ([1, 2, 4, 8].includes(beatBottom) ? beatBottom : 4)
+  const blocksPerBar = Math.max(1, beatTop * blocksPerBeat)
+  const block0 = gi - 1
+  const withinBar = ((block0 % blocksPerBar) + blocksPerBar) % blocksPerBar
+
+  if (almostInteger(withinBar)) {
+    if (Math.round(withinBar) === 0) return 1
+    if (almostInteger(withinBar / blocksPerBeat)) return 0.78
+  }
+  return 0.58
+}
+
+const dynamicByNoteKey = computed(() => {
+  const out = new Map()
+  for (const note of store.activeNotes) {
+    const key = String(note?.key ?? '')
+    if (!key) continue
+
+    const rawVelocity = Number(note?.velocity)
+    let dyn = 0
+    if (Number.isFinite(rawVelocity)) {
+      // Accept either MIDI velocity 1..127 or normalized 0..1.
+      dyn = rawVelocity > 1 ? rawVelocity / 127 : rawVelocity
+      dyn = clamp01(dyn)
+    } else {
+      // Fallback if no explicit velocity exists: derive simple accent from bar/beat position.
+      dyn = inferredAccentFromGrid(note)
+    }
+
+    out.set(key, dyn)
+  }
+  return out
+})
+
 const renderedToneDotByNoteKey = computed(() => {
   const m = new Map()
   for (const d of toneDotsForRender.value) {
@@ -454,6 +774,55 @@ const renderedToneDotByNoteKey = computed(() => {
     if (!m.has(k)) m.set(k, d)
   }
   return m
+})
+
+function pulseAmountForNoteKey(noteKey) {
+  const key = String(noteKey || '')
+  if (!key) return 0
+  const startedAt = Number(pulseStartedAtByNoteKey.value.get(key))
+  if (!Number.isFinite(startedAt)) return 0
+  const dt = animNowMs.value - startedAt
+  const PULSE_MS = FRETBOARD_SHOW_DOT_PULSE_MS
+  if (!(dt >= 0 && dt <= PULSE_MS)) return 0
+  const p = dt / PULSE_MS
+  return Math.sin(Math.PI * p)
+}
+
+const nowMarkers = computed(() => {
+  const keys = Array.from(highlightedNoteKeySet.value || [])
+  if (!keys.length) return []
+
+  const byString = new Map()
+  for (const key of keys) {
+    const dot = renderedToneDotByNoteKey.value.get(String(key))
+    if (!dot) continue
+    const s = Number(dot?.string)
+    if (!Number.isFinite(s)) continue
+    const prev = byString.get(s)
+    const idx = Number(dot?._stackIndex)
+    const prevIdx = Number(prev?.dot?._stackIndex)
+    if (!prev || (Number.isFinite(idx) && Number.isFinite(prevIdx) && idx < prevIdx)) {
+      byString.set(s, { key: String(key), dot })
+    }
+  }
+
+  const out = []
+  for (const { key, dot } of byString.values()) {
+    const pulse = pulseAmountForNoteKey(key)
+    const x = toneDotX(dot)
+    const y = toneDotY(dot)
+    const color = toneDotFill(dot)
+    out.push({
+      noteKey: key,
+      x,
+      y,
+      color,
+      crossHalf: 17 + pulse * 4,
+      ringR: toneDotR(dot) + 6 + pulse * 3,
+      lineOpacity: 0.2 + pulse * 0.22,
+    })
+  }
+  return out
 })
 
 const sortedNotesByStart = computed(() => {
@@ -545,9 +914,21 @@ const playbackTravelLine = computed(() => {
   const yTarget = toneDotY(toDot)
   const x2 = x1 + (xTarget - x1) * progress
   const y2 = y1 + (yTarget - y1) * progress
-  const color = toneDotFill(toDot)
+  const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
+  const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
+  const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
+  const color =
+    deltaFret > 0
+      ? 'rgba(67, 197, 255, 0.95)'
+      : deltaFret < 0
+        ? 'rgba(255, 177, 77, 0.95)'
+        : 'rgba(187, 247, 208, 0.95)'
+  const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
+  const filter = absJump >= 4
+    ? 'drop-shadow(0 0 6px rgba(255, 215, 88, 0.85))'
+    : 'drop-shadow(0 0 3px rgba(255, 210, 50, 0.7))'
 
-  return { x1, y1, x2, y2, color }
+  return { x1, y1, x2, y2, color, strokeWidth, filter }
 })
 
 const playbackSelfLoop = computed(() => {
@@ -600,6 +981,16 @@ const playbackSelfLoop = computed(() => {
   const y2 = y1 + (y - 2 - y1) * progress
 
   return { cx, cy, r, x1, y1, x2, y2, color, dasharray, dashoffset, headX, headY }
+})
+
+const nextNotePreviewDot = computed(() => {
+  if (!isPlaying.value) return null
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  if (!fromKey) return null
+  const toKey = nextNoteKeyByKey.value.get(fromKey)
+  if (!toKey) return null
+  return renderedToneDotByNoteKey.value.get(toKey) ?? null
 })
 
 const toneDotByPosKey = computed(() => {
@@ -741,6 +1132,70 @@ const activeHandPosition = computed(() => {
   return best
 })
 
+function clamp(v, min, max) {
+  return Math.min(max, Math.max(min, v))
+}
+
+const timelineNoteEntries = computed(() => {
+  const out = []
+  for (const n of sortedNotesByStart.value) {
+    const key = String(n?.key ?? '')
+    if (!key) continue
+    const startMs = Number(noteStartMsByKey.value.get(key))
+    if (!Number.isFinite(startMs)) continue
+    const lenRaw = Number(n?.lengthBlocks)
+    const len = Number.isFinite(lenRaw) && lenRaw > 0 ? lenRaw : 1
+    const endMs = startMs + lengthBlocksToDurationMs(len, DEFAULT_TIME_PER_BLOCK_MS)
+    out.push({ key, note: n, startMs, endMs })
+  }
+  return out
+})
+
+const playbackTimelineIndex = computed(() => {
+  const t = Number(playheadMs.value)
+  if (!Number.isFinite(t)) return -1
+  const entries = timelineNoteEntries.value
+  if (!entries.length) return -1
+  let idx = -1
+  for (let i = 0; i < entries.length; i += 1) {
+    if (t >= entries[i].startMs) idx = i
+    else break
+  }
+  return idx
+})
+
+const focusNoteForHandMode = computed(() => {
+  const selected = String(selection.selectedNoteKey || '')
+  if (selected) {
+    const n = noteByKey.value.get(selected)
+    if (n) return n
+  }
+
+  const highlighted = Array.isArray(highlightedNoteKeys.value) ? highlightedNoteKeys.value : []
+  for (const k of highlighted) {
+    const n = noteByKey.value.get(String(k))
+    if (n) return n
+  }
+
+  const idx = playbackTimelineIndex.value
+  if (idx >= 0) return timelineNoteEntries.value[idx]?.note ?? null
+  return null
+})
+
+const suggestedHandPositionRange = computed(() => {
+  if (activeHandPosition.value) return null
+  const note = focusNoteForHandMode.value
+  const fretRaw = Number(note?.fret)
+  if (!Number.isFinite(fretRaw)) return null
+
+  const maxFret = Math.max(1, Number(props.numFrets) || 12)
+  const toSpan = 3
+  const startMax = Math.max(1, maxFret - toSpan)
+  const fromFret = clamp(Math.round(fretRaw) - 1, 1, startMax)
+  const toFret = clamp(fromFret + toSpan, fromFret, maxFret)
+  return { fromFret, toFret }
+})
+
 const handPositionOverlayRect = computed(() => {
   const hp = activeHandPosition.value
   if (!hp) return null
@@ -763,6 +1218,48 @@ const handPositionOverlayRect = computed(() => {
   const y = topY - padY
   const height = bottomY - topY + padY * 2
   return { x: xLeft, y, width: xRight - xLeft, height, rx: 10 }
+})
+
+const suggestedHandPositionOverlayRect = computed(() => {
+  const range = suggestedHandPositionRange.value
+  if (!range) return null
+  const { fromFret, toFret } = range
+
+  const topY = Number(strings.value[0]?.y)
+  const bottomY = Number(strings.value[strings.value.length - 1]?.y)
+  if (!Number.isFinite(topY) || !Number.isFinite(bottomY)) return null
+
+  const lines = fretLinesPx.value
+  const xLeft = fromFret <= 1 ? NUT_WIDTH : Number(lines[fromFret - 1] ?? NUT_WIDTH)
+  const xRight = Number(lines[toFret] ?? FB_WIDTH)
+  if (!(xRight > xLeft)) return null
+
+  const padY = 10
+  const y = topY - padY
+  const height = bottomY - topY + padY * 2
+  return { x: xLeft, y, width: xRight - xLeft, height, rx: 9, fromFret, toFret }
+})
+
+const handModeInfoText = computed(() => {
+  const range = suggestedHandPositionRange.value
+  if (range) return `Handlage Vorschlag: ${range.fromFret}-${range.toFret}`
+  const hp = activeHandPosition.value
+  if (!hp) return ''
+  return `Aktive Handlage: ${String(hp?.fret ?? '')}`
+})
+
+const handModeWarningText = computed(() => {
+  const idx = playbackTimelineIndex.value
+  if (idx <= 0) return ''
+  const entries = timelineNoteEntries.value
+  const cur = entries[idx]?.note
+  const prev = entries[idx - 1]?.note
+  if (!cur || !prev) return ''
+  const df = Math.abs((Number(cur?.fret) || 0) - (Number(prev?.fret) || 0))
+  const ds = Math.abs((Number(cur?.string) || 0) - (Number(prev?.string) || 0))
+  const hardJump = df >= 6 || (df >= 4 && ds >= 2)
+  if (!hardJump) return ''
+  return `Warnung: großer Lagensprung (${df} Bünde${ds ? `, ${ds} Saiten` : ''})`
 })
 
 const fretLabels = computed(() => {
@@ -1070,7 +1567,30 @@ function onToneDotPointerUp(event) {
   if (s.active) {
     const target = s.target ?? hoveredPosFromEvent(event)
     if (target) {
-      store.setNotePosition(s.noteKey, { fret: target.fret, string: target.string })
+      const src = noteByKey.value.get(String(s.noteKey))
+      const srcFret = Number(src?.fret)
+      const srcString = Number(src?.string)
+      const maxFret = Math.max(0, Number(props.numFrets) || 12)
+      const maxString = Math.max(1, Number(instrument.numStrings) || 6)
+
+      const selectedItems = selectedMovableNotes({ includeKey: s.noteKey })
+      const useGroup = selectedItems.length > 1
+        && selectedItems.some((x) => String(x.key) === String(s.noteKey))
+        && Number.isFinite(srcFret)
+        && Number.isFinite(srcString)
+
+      if (useGroup) {
+        const deltaFret = Number(target.fret) - srcFret
+        const deltaString = Number(target.string) - srcString
+        const updates = selectedItems.map(({ key, note }) => ({
+          key,
+          fret: clamp((Number(note?.fret) || 0) + deltaFret, 0, maxFret),
+          string: clamp((Number(note?.string) || 1) + deltaString, 1, maxString),
+        }))
+        store.setManyPositions(updates)
+      } else {
+        store.setNotePosition(s.noteKey, { fret: target.fret, string: target.string })
+      }
       selection.selectNote(s.noteKey)
     }
 
@@ -1161,13 +1681,35 @@ function toneDotSymbol(d) {
   return item?.dotSymbol || item?.label || value
 }
 
-function toneDotOpacity(d) {
-  if (!isPlaying.value) return 1
+function toneDotPitchLabel(d) {
+  const fret = Number(d?.fret)
+  const string = Number(d?.string)
+  const midi = midiForFretString({ fret, string }, tuning.value)
+  if (!Number.isFinite(Number(midi))) return ''
+  return midiToNoteName(midi, { includeOctave: false })
+}
+
+function showPitchLabel(d) {
   const nk = noteKeyForToneDot(d)
+  return Boolean(nk && (highlightedNoteKeySet.value.has(nk) || isToneDotHovered(d)))
+}
+
+function isMarkerFret(fret) {
+  const f = Number(fret)
+  if (!Number.isFinite(f) || f <= 0) return false
+  return f % 12 === 0 || [3, 5, 7, 9].includes(f % 12)
+}
+
+function toneDotOpacity(d) {
+  const nk = noteKeyForToneDot(d)
+  const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
+  const dynOpacity = Number.isFinite(dyn) ? 0.48 + dyn * 0.52 : 1
+
+  if (!isPlaying.value) return dynOpacity
   if (!nk) return FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
   return highlightedNoteKeySet.value.has(nk) || playedNoteKeys.value.has(nk)
     ? 1
-    : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
+    : Math.max(FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING, dynOpacity * 0.72)
 }
 
 function toneDotStroke(d) {
@@ -1189,6 +1731,8 @@ function toneDotStrokeWidth(d) {
 
   const nk = noteKeyForToneDot(d)
   if (nk && String(selection.selectedNoteKey || '') === nk) w = 4
+  const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
+  if (Number.isFinite(dyn)) w += dyn * 1.25
 
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
   if (!Number.isFinite(startedAt)) return w
@@ -1203,8 +1747,10 @@ function toneDotStrokeWidth(d) {
 
 function toneDotR(d) {
   const hk = hoverKeyForToneDot(d)
-  const baseR = DOT_BASE_R * (hoveredToneDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
   const nk = noteKeyForToneDot(d)
+  const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
+  const dynScale = Number.isFinite(dyn) ? 0.82 + dyn * 0.42 : 1
+  const baseR = DOT_BASE_R * dynScale * (hoveredToneDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
   if (!Number.isFinite(startedAt)) return baseR
 
@@ -1223,6 +1769,7 @@ function previewR() {
 
 onMounted(() => {
   animNowMs.value = performance.now()
+  loadChordShapes()
 })
 
 onBeforeUnmount(() => {
@@ -1250,22 +1797,6 @@ watch(
   { immediate: true },
 )
 
-watch(
-  [
-    () => props.numFrets,
-    () => instrument.numStrings,
-    () => instrument.tuningId,
-    () => toneDotsForRender.value,
-    () => selection.selectedNoteKey,
-    () => playState.value,
-    () => highlightedNoteKeys.value,
-  ],
-  () => {
-    // No-op: keeping this watcher keeps reactive deps warm (tuning/notes/selection)
-    // and mirrors the previous behavior where the canvas re-rendered on these changes.
-  },
-  { deep: true },
-)
 </script>
 
 <style scoped>
@@ -1301,9 +1832,26 @@ watch(
 }
 
 .fb-playback-travel-line line {
-  stroke-width: 3.5;
   stroke-linecap: round;
   filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+}
+
+.fb-now-string-line {
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.fb-now-cross {
+  stroke-width: 4.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(255, 245, 195, 0.75));
+}
+
+.fb-now-ring {
+  fill: none;
+  stroke-width: 2.8;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 4px rgba(255, 226, 120, 0.72));
 }
 
 .fb-playback-self-loop circle,
@@ -1338,11 +1886,49 @@ watch(
   user-select: none;
 }
 
+.fb-tone-dot-pitch {
+  fill: rgba(255, 255, 255, 0.95);
+  stroke: rgba(20, 20, 20, 0.72);
+  stroke-width: 1.1;
+  paint-order: stroke;
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: hanging;
+  font-size: 9px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.fb-next-note-preview {
+  fill: none;
+  stroke: rgba(255, 243, 186, 0.9);
+  stroke-width: 2.4;
+  stroke-dasharray: 5 3;
+  filter: drop-shadow(0 0 4px rgba(255, 230, 120, 0.75));
+  pointer-events: none;
+}
+
 .fb-hand-position-overlay rect {
   fill: rgba(165, 118, 55, 0.3);
   stroke: rgba(112, 78, 34, 0.65);
   stroke-width: 2.2;
   filter: drop-shadow(0 0 5px rgba(133, 91, 39, 0.45));
+}
+
+.fb-hand-position-suggested rect {
+  fill: rgba(89, 148, 211, 0.17);
+  stroke: rgba(146, 197, 255, 0.9);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 4;
+}
+
+.fb-hand-position-suggested text {
+  fill: rgba(219, 238, 255, 0.96);
+  stroke: rgba(15, 20, 26, 0.5);
+  stroke-width: 1;
+  paint-order: stroke;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .fb-tooltip {
@@ -1388,5 +1974,80 @@ watch(
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   user-select: none;
+}
+
+.fb-fret-number.is-marker-fret {
+  color: rgba(255, 244, 198, 0.98);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.72),
+    0 0 8px rgba(255, 222, 126, 0.5);
+  font-size: 14px;
+}
+
+.fb-hand-mode-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: -2px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(225, 233, 242, 0.9);
+}
+
+.fb-hand-mode-info .is-warning {
+  color: rgba(255, 210, 138, 0.96);
+}
+
+.fb-chord-shape-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 10px;
+  flex-wrap: wrap;
+}
+
+.fb-chord-detected {
+  min-width: 86px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff7cf;
+  background: rgba(14, 22, 31, 0.86);
+  border: 1px solid rgba(255, 230, 153, 0.5);
+  border-radius: 6px;
+  padding: 3px 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+
+.fb-shape-btn,
+.fb-shape-select {
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(180, 198, 217, 0.35);
+  background: rgba(18, 25, 34, 0.55);
+  color: rgba(238, 245, 251, 0.95);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fb-shape-btn {
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.fb-shape-btn:disabled,
+.fb-shape-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fb-shape-btn.is-danger {
+  border-color: rgba(255, 160, 160, 0.45);
+  color: rgba(255, 196, 196, 0.95);
+}
+
+.fb-shape-select {
+  min-width: 170px;
+  padding: 0 8px;
 }
 </style>
