@@ -21,7 +21,7 @@ export function useGrid({
     return percent * trackWidth
   }
 
-  function pxToGridIndex(px, trackWidth) {
+  function pxToGridIndex(px) {
     const blockPx = grid.value.gridSize
     // return fractional index (e.g., 0.5 means half a block)
     return px / blockPx

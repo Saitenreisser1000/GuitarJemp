@@ -9,7 +9,7 @@ const ok =
 if (!ok) {
   console.error(
     `\nNode.js ${process.versions.node} detected. This project requires Node 20.19+ (or 22.12+).\n` +
-      `Tip: run \"nvm use\" (see .nvmrc) and try again.\n`,
+      `Tip: run "nvm use" (see .nvmrc) and try again.\n`,
   )
   process.exit(1)
 }

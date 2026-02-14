@@ -1,4 +1,5 @@
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
+import { normalizeNoteValue } from '@/config/noteValues'
 
 function safePositiveNumber(v, fallback) {
   const n = Number(v)
@@ -73,12 +74,14 @@ export function buildPastedNotes(
     const offset = safePositiveNumber(src?.gridIndex, minGrid) - minGrid
     const safeLen = safePositiveNumber(src?.lengthBlocks, 1)
     const subdivision = Number(src?.subdivision) === 3 ? 3 : 2
+    const noteValue = normalizeNoteValue(src?.noteValue)
     const nextStart = base + offset
     return {
       key: makeKey(),
       fret: Number(src?.fret),
       string: Number(src?.string),
       ...(typeof src?.color === 'string' && src.color ? { color: src.color } : {}),
+      ...(noteValue ? { noteValue } : {}),
       gridIndex: Number(nextStart.toFixed(2)),
       lengthBlocks: Number(safeLen.toFixed(2)),
       subdivision,

@@ -5,7 +5,7 @@ describe('infra/storage/jsonStorage', () => {
   it('returns null when localStorage is unavailable', () => {
     const original = globalThis.localStorage
     // ensure "unavailable"
-    // eslint-disable-next-line no-undef
+     
     delete globalThis.localStorage
 
     expect(readJson('k')).toBeNull()

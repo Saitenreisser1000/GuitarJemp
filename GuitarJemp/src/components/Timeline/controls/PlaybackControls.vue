@@ -1,5 +1,5 @@
 <template>
-  <v-card class="pa-3" variant="flat" border>
+  <v-card class="transport-controls ui-panel pa-3" variant="flat">
     <div class="d-flex align-center ga-4 flex-wrap">
       <div class="d-flex align-center ga-2">
         <v-btn color="primary" variant="flat" icon :title="isPlaying ? 'Pause' : 'Play'"
@@ -11,7 +11,7 @@
           <v-icon icon="mdi-skip-backward" />
         </v-btn>
 
-        <v-switch density="compact" hide-details inset label="Loop" :model-value="loopEnabled"
+        <v-switch class="loop-switch" density="compact" hide-details inset label="Loop" :model-value="loopEnabled"
           @update:model-value="(v) => emit('update-loop', Boolean(v))" />
       </div>
 
@@ -94,5 +94,39 @@ function seekStart() {
 
 .transport-slider {
   min-width: 420px;
+}
+
+.transport-controls {
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  border: 1px solid var(--color-border);
+}
+
+.loop-switch {
+  color: var(--color-text-muted);
+}
+
+.transport-controls :deep(.v-slider-track__background) {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface-2));
+}
+
+.transport-controls :deep(.v-slider-track__fill) {
+  background: var(--color-primary);
+}
+
+.transport-controls :deep(.v-slider-thumb__surface) {
+  border: 2px solid color-mix(in srgb, var(--color-primary) 72%, var(--color-surface));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+}
+
+.transport-controls :deep(.v-field) {
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%);
+}
+
+@media (max-width: 860px) {
+  .transport-slider {
+    min-width: 220px;
+    width: 100%;
+  }
 }
 </style>

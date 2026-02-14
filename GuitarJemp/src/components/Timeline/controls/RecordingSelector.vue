@@ -71,6 +71,7 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
+import { useHandPositionsStore } from '@/store/useHandPositions'
 import { isSupabaseConfigured } from '@/infra/supabase/client'
 
 defineOptions({ name: 'RecordingSelector' })
@@ -82,6 +83,7 @@ const notes = useNotesStore()
 const instrument = useInstrumentStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const handPositions = useHandPositionsStore()
 
 const search = ref('')
 const kindFilter = ref('all')
@@ -210,6 +212,10 @@ function applySnapshot(item) {
     }
 
     if (Array.isArray(snap?.notes)) notes.setNotes(snap.notes)
+    else notes.setNotes([])
+
+    if (Array.isArray(snap?.handPositions)) handPositions.setHandPositions(snap.handPositions)
+    else handPositions.setHandPositions([])
 }
 
 function loadHighlighted() {

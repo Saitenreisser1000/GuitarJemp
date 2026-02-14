@@ -1,3 +1,5 @@
+import { normalizeNoteValue } from '@/config/noteValues'
+
 export function fretStringKeyFor(fret, string) {
   return `${Number(fret)}-${Number(string)}`
 }
@@ -42,6 +44,7 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
     const color = typeof input.color === 'string' ? input.color : null
     const rawKey = input.key
     const key = typeof rawKey === 'string' ? rawKey : createNoteKey()
+    const noteValue = normalizeNoteValue(input.noteValue)
 
     let parsed = null
     if (input.fret != null && input.string != null) parsed = input
@@ -65,6 +68,7 @@ export function normalizeNote(input, { fallbackGridIndex = 1 } = {}) {
       fret: Number(parsed.fret),
       string: Number(parsed.string),
       ...(color ? { color } : {}),
+      ...(noteValue ? { noteValue } : {}),
       gridIndex,
       lengthBlocks,
       subdivision,

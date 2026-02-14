@@ -15,6 +15,13 @@ import { useLibraryStore } from '@/store/useLibrary'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { isSupabaseConfigured } from '@/infra/supabase/client'
 import { useTheme } from 'vuetify'
+import { buildExchangeClip } from '@/domain/exchange/clipExchange'
+import { toMusicXml } from '@/domain/exchange/musicxml'
+import { toMidiBytes } from '@/domain/exchange/midi'
+import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
+import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
+import { parseMidiToClip } from '@/domain/exchange/importMidi'
+import { getTuning } from '@/domain/music/tunings'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -38,6 +45,11 @@ const saveAsNewOpen = ref(false)
 const saveAsNewTitle = ref('')
 const saveAsNewVisibility = ref('private')
 const saveAsNewBusy = ref(false)
+const importFileInput = ref(null)
+const importMode = ref('replace')
+const importErrorOpen = ref(false)
+const importErrorTitle = ref('')
+const importErrorDetails = ref('')
 
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
 const theme = useTheme()
@@ -214,6 +226,126 @@ async function onSaveCloud() {
     saveBusy.value = false
   }
 }
+
+function exportBaseFileName() {
+  const title = String(library.currentItem?.title ?? 'guitarjemp_export').trim()
+  const safe = title.replaceAll(/[^a-zA-Z0-9_-]+/g, '_').replaceAll(/^_+|_+$/g, '')
+  return safe || 'guitarjemp_export'
+}
+
+function buildClipForExchange() {
+  return buildExchangeClip({
+    notes: notes.activeNotes,
+    instrument,
+    transport,
+    settings: timelineSettings,
+  })
+}
+
+function onExportMusicXml() {
+  const clip = buildClipForExchange()
+  const xml = toMusicXml(clip, { title: library.currentItem?.title || 'GuitarJemp Export' })
+  downloadTextFile(`${exportBaseFileName()}.musicxml`, xml, 'application/vnd.recordare.musicxml+xml')
+}
+
+function onExportMidi() {
+  const clip = buildClipForExchange()
+  const midi = toMidiBytes(clip)
+  downloadBinaryFile(`${exportBaseFileName()}.mid`, midi, 'audio/midi')
+}
+
+function openImportPicker(mode = 'replace') {
+  importMode.value = mode === 'append' ? 'append' : 'replace'
+  importFileInput.value?.click?.()
+}
+
+function maxNoteEndBlock(noteList) {
+  let maxEnd = 1
+  for (const note of noteList ?? []) {
+    const start = Number(note?.gridIndex)
+    const length = Number(note?.lengthBlocks)
+    const safeStart = Number.isFinite(start) && start > 0 ? start : 1
+    const safeLength = Number.isFinite(length) && length > 0 ? length : 1
+    const end = safeStart + safeLength
+    if (end > maxEnd) maxEnd = end
+  }
+  return maxEnd
+}
+
+function applyImportedClip(clip, mode = 'replace') {
+  if (!clip || !Array.isArray(clip.notes)) throw new Error('Import enthält keine Noten.')
+  const importNotes = clip.notes
+  const appendMode = mode === 'append'
+
+  if (!appendMode || (notes.activeNotes?.length ?? 0) === 0) {
+    transport.setTempo(clip.tempo)
+    timelineSettings.setBeatTop(clip.beatTop)
+    timelineSettings.setBeatBottom(clip.beatBottom)
+  }
+
+  if (!appendMode) {
+    notes.setNotes(importNotes)
+    return
+  }
+
+  const existing = notes.activeNotes ?? []
+  if (!existing.length) {
+    notes.setNotes(importNotes)
+    return
+  }
+
+  let minStart = Number.POSITIVE_INFINITY
+  for (const note of importNotes) {
+    const start = Number(note?.gridIndex)
+    if (Number.isFinite(start) && start > 0 && start < minStart) minStart = start
+  }
+  if (!Number.isFinite(minStart)) minStart = 1
+
+  const targetStart = maxNoteEndBlock(existing)
+  const delta = targetStart - minStart
+  const shifted = importNotes.map((note) => ({
+    ...note,
+    gridIndex: Number((Number(note?.gridIndex ?? 1) + delta).toFixed(4)),
+  }))
+  notes.addNotes(shifted, { tag: 'importAppend' })
+}
+
+function showImportError(err, fileName = '') {
+  const message = String(err?.message || err || 'Import fehlgeschlagen.')
+  const details = String(err?.stack || err?.cause || '')
+  importErrorTitle.value = fileName ? `${message}\nDatei: ${fileName}` : message
+  importErrorDetails.value = details
+  importErrorOpen.value = true
+}
+
+async function onImportFileChange(e) {
+  const inputEl = e?.target
+  const file = inputEl?.files?.[0]
+  if (!file) return
+
+  try {
+    saveError.value = ''
+    const lower = String(file.name || '').toLowerCase()
+    const tuning = getTuning(instrument.tuningId)
+    const openMidi = tuning?.openMidi || []
+    const maxFret = Math.max(1, Number(numFrets.value) || 12)
+
+    if (lower.endsWith('.mid') || lower.endsWith('.midi')) {
+      const ab = await file.arrayBuffer()
+      const clip = parseMidiToClip(ab, { openMidi, maxFret })
+      applyImportedClip(clip, importMode.value)
+      return
+    }
+
+    const text = await file.text()
+    const clip = parseMusicXmlToClip(text, { openMidi, maxFret })
+    applyImportedClip(clip, importMode.value)
+  } catch (err) {
+    showImportError(err, file?.name)
+  } finally {
+    if (inputEl) inputEl.value = ''
+  }
+}
 </script>
 
 <template>
@@ -231,7 +363,7 @@ async function onSaveCloud() {
           <v-menu location="bottom end">
             <template #activator="{ props: menuProps }">
               <v-btn v-bind="menuProps" size="small" color="secondary" variant="flat" prepend-icon="mdi-content-save">
-                Save
+                Save/Load
               </v-btn>
             </template>
 
@@ -241,8 +373,20 @@ async function onSaveCloud() {
               <v-list-item prepend-icon="mdi-content-save-plus" title="Save as new" :disabled="!canSaveAsNew"
                 @click="openSaveAsNew" />
               <v-list-item prepend-icon="mdi-restore" title="Reset" :disabled="!canReset" @click="onResetChanges" />
+              <v-divider class="my-1" />
+              <v-list-item prepend-icon="mdi-file-music-outline" title="Export MusicXML" :disabled="!hasNotes"
+                @click="onExportMusicXml" />
+              <v-list-item prepend-icon="mdi-file-music" title="Export MIDI" :disabled="!hasNotes"
+                @click="onExportMidi" />
+              <v-divider class="my-1" />
+              <v-list-item prepend-icon="mdi-file-replace-outline" title="Import (ersetzen)"
+                @click="openImportPicker('replace')" />
+              <v-list-item prepend-icon="mdi-file-plus-outline" title="Import (anhängen)"
+                @click="openImportPicker('append')" />
             </v-list>
           </v-menu>
+          <input ref="importFileInput" type="file" accept=".musicxml,.xml,.mid,.midi"
+            style="display: none" @change="onImportFileChange" />
 
           <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
             Cloud: nicht konfiguriert
@@ -313,6 +457,24 @@ async function onSaveCloud() {
                       " @click="onSaveAsNewConfirm">
                       Speichern
                     </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-dialog>
+
+              <v-dialog v-model="importErrorOpen" max-width="700">
+                <v-card rounded="lg">
+                  <v-card-title class="d-flex align-center justify-space-between">
+                    <span>Import fehlgeschlagen</span>
+                    <v-btn icon="mdi-close" variant="text" @click="importErrorOpen = false" />
+                  </v-card-title>
+                  <v-card-text>
+                    <p class="mb-2">{{ importErrorTitle }}</p>
+                    <v-sheet v-if="importErrorDetails" rounded="md" class="import-error-sheet pa-3">
+                      <pre class="import-error-details">{{ importErrorDetails }}</pre>
+                    </v-sheet>
+                  </v-card-text>
+                  <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="importErrorOpen = false">Schließen</v-btn>
                   </v-card-actions>
                 </v-card>
               </v-dialog>
@@ -400,6 +562,19 @@ async function onSaveCloud() {
   width: 100%;
   max-width: none;
   height: 100%;
+}
+
+.import-error-sheet {
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-2) 70%, transparent);
+}
+
+.import-error-details {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 @media (max-width: 860px) {

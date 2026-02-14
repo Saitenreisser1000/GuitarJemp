@@ -1,6 +1,6 @@
 <template>
   <div class="note-event" :class="{ 'is-selected': isSelected }" :data-note-key="note?.key"
-    :style="{ left: leftPercent + '%', width: widthPercent + '%', backgroundColor: color }" :title="title"
+    :style="noteStyle" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
     <div class="note-label" :class="{ 'is-hand-position-label': isHandPositionNote }">
       <span class="fret-number" :class="{ 'is-editable': isHandPositionNote }" @pointerdown.stop
@@ -20,7 +20,6 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
-import { useHandPositionsStore } from '@/store/useHandPositions'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -44,7 +43,6 @@ const notesStore = useNotesStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
-const handPositions = useHandPositionsStore()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
@@ -151,6 +149,65 @@ const widthPercent = computed(() => {
       : baseLen
   const safeLen = Number.isFinite(len) && len > 0 ? len : 1
   return (safeLen / total) * 100
+})
+
+function parseColorToRgb(input) {
+  const raw = String(input ?? '').trim()
+  if (!raw) return null
+
+  const hex = raw.replace('#', '')
+  if (/^[\da-f]{3}$/i.test(hex)) {
+    const r = Number.parseInt(hex[0] + hex[0], 16)
+    const g = Number.parseInt(hex[1] + hex[1], 16)
+    const b = Number.parseInt(hex[2] + hex[2], 16)
+    return { r, g, b }
+  }
+  if (/^[\da-f]{6}$/i.test(hex)) {
+    const r = Number.parseInt(hex.slice(0, 2), 16)
+    const g = Number.parseInt(hex.slice(2, 4), 16)
+    const b = Number.parseInt(hex.slice(4, 6), 16)
+    return { r, g, b }
+  }
+
+  const rgb = raw.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgb) {
+    const parts = rgb[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    if (parts.length >= 3 && parts.slice(0, 3).every((v) => Number.isFinite(v))) {
+      return {
+        r: Math.max(0, Math.min(255, parts[0])),
+        g: Math.max(0, Math.min(255, parts[1])),
+        b: Math.max(0, Math.min(255, parts[2])),
+      }
+    }
+  }
+  return null
+}
+
+function srgbToLinear(v) {
+  const c = v / 255
+  if (c <= 0.04045) return c / 12.92
+  return ((c + 0.055) / 1.055) ** 2.4
+}
+
+function relativeLuminance({ r, g, b }) {
+  return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b)
+}
+
+const noteTextColor = computed(() => {
+  const rgb = parseColorToRgb(props.color)
+  if (!rgb) return '#F5F7FA'
+  return relativeLuminance(rgb) > 0.5 ? '#15212D' : '#F5F7FA'
+})
+
+const noteStyle = computed(() => {
+  const base = String(props.color || '#4f6f8f')
+  return {
+    left: `${leftPercent.value}%`,
+    width: `${widthPercent.value}%`,
+    backgroundColor: base,
+    color: noteTextColor.value,
+    '--note-base-color': base,
+  }
 })
 
 const title = computed(() => {
@@ -340,10 +397,7 @@ function onEditLabel() {
   if (next == null) return
   const value = String(next).trim()
   if (!value) return
-  if (props.note?.key) {
-    handPositions.setHandPositionLabel(props.note.key, value)
-    emit('update-label', props.note.key, value)
-  }
+  if (props.note?.key) emit('update-label', props.note.key, value)
 }
 </script>
 
@@ -352,16 +406,23 @@ function onEditLabel() {
   position: absolute;
   height: 100%;
   top: 0;
-  border-radius: 4px;
-  border: 2px solid transparent;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--note-base-color) 78%, var(--color-surface) 22%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: bold;
+  color: #f5f7fa;
+  font-weight: 700;
   cursor: grab;
   user-select: none;
   touch-action: none;
+  box-shadow: 0 1px 8px rgb(0 0 0 / 18%), inset 0 1px 0 rgb(255 255 255 / 16%);
+  transition: box-shadow var(--ui-fast), border-color var(--ui-fast), transform var(--ui-fast), filter var(--ui-fast);
+}
+
+.note-event:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
 }
 
 .note-label {
@@ -378,12 +439,15 @@ function onEditLabel() {
 .fret-number.is-editable {
   pointer-events: auto;
   cursor: text;
-  text-decoration: underline dotted rgba(255, 255, 255, 0.8);
+  text-decoration: underline dotted color-mix(in srgb, currentColor 80%, transparent);
 }
 
 .note-event.is-selected {
-  border-color: rgba(20, 20, 20, 0.95);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65);
+  border-color: color-mix(in srgb, var(--color-primary) 76%, var(--color-surface) 24%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 68%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--color-primary) 42%, transparent),
+    0 8px 18px rgb(0 0 0 / 24%);
   z-index: 6;
 }
 
@@ -393,7 +457,7 @@ function onEditLabel() {
 
 .pitch-label {
   font-size: 11px;
-  opacity: 0.9;
+  opacity: 0.92;
   font-variant-numeric: tabular-nums;
 }
 
@@ -404,8 +468,14 @@ function onEditLabel() {
   width: 10px;
   height: 100%;
   cursor: ew-resize;
-  background: rgba(255, 255, 255, 0.18);
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
+  background: linear-gradient(to left, rgb(255 255 255 / 28%), rgb(255 255 255 / 5%));
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+@media (max-width: 860px) {
+  .pitch-label {
+    display: none;
+  }
 }
 </style>

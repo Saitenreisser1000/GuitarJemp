@@ -35,12 +35,16 @@
           <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
             fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
 
-          <circle v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`" :cx="toneDotX(d)"
-            :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)"
-            :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
-            @click="onToneDotClick(d, $event)" @pointerdown="onToneDotPointerDown(d, $event)"
-            @pointermove="onToneDotPointerMove($event)" @pointerup="onToneDotPointerUp($event)"
-            @pointercancel="onToneDotPointerUp($event)" />
+          <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
+            <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)"
+              :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)"
+              @mouseleave="onToneDotLeave(d)" @click="onToneDotClick(d, $event)"
+              @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
+              @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
+            <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
+              {{ toneDotSymbol(d) }}
+            </text>
+          </g>
 
           <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
           <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
@@ -79,11 +83,13 @@ import {
   FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR,
   FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD,
 } from '@/config/fretboardShow'
+import { NOTE_VALUE_ITEMS, normalizeNoteValue, noteValueItem } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForFretString } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
+import { gridIndexToStartMs, lengthBlocksToDurationMs } from '@/domain/timelineTime'
 
 defineOptions({ name: 'FretboardShow' })
 
@@ -111,6 +117,7 @@ const { handPositions } = storeToRefs(handPositionsStore)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
+const playedNoteKeys = ref(new Set())
 
 const LONG_PRESS_MS = 180
 const CLICK_SUPPRESS_MS = 250
@@ -272,6 +279,10 @@ watch(
     const startedAtMs = Number(p?.startedAtMs)
     if (!k || !Number.isFinite(startedAtMs)) return
 
+    const played = new Set(playedNoteKeys.value)
+    played.add(k)
+    playedNoteKeys.value = played
+
     const pulseId = `${k}:${startedAtMs}`
     if (pulseId === lastPulseId.value) return
     lastPulseId.value = pulseId
@@ -391,6 +402,16 @@ const toneDotsForRender = computed(() => {
   return out
 })
 
+const noteByKey = computed(() => {
+  const m = new Map()
+  for (const n of store.activeNotes) {
+    const k = String(n?.key ?? '')
+    if (!k) continue
+    m.set(k, n)
+  }
+  return m
+})
+
 const renderedToneDotByNoteKey = computed(() => {
   const m = new Map()
   for (const d of toneDotsForRender.value) {
@@ -422,7 +443,7 @@ const noteStartMsByKey = computed(() => {
     if (!key) continue
     const gridIndex = Number(n?.gridIndex)
     if (!Number.isFinite(gridIndex)) continue
-    m.set(key, (gridIndex - 1) * DEFAULT_TIME_PER_BLOCK_MS)
+    m.set(key, gridIndexToStartMs(gridIndex, DEFAULT_TIME_PER_BLOCK_MS))
   }
   return m
 })
@@ -616,8 +637,8 @@ const activeHandPosition = computed(() => {
     if (!Number.isFinite(gridIndex) || !Number.isFinite(lengthBlocks)) continue
     if (!(gridIndex > 0) || !(lengthBlocks > 0)) continue
 
-    const startMs = (gridIndex - 1) * DEFAULT_TIME_PER_BLOCK_MS
-    const endMs = startMs + lengthBlocks * DEFAULT_TIME_PER_BLOCK_MS
+    const startMs = gridIndexToStartMs(gridIndex, DEFAULT_TIME_PER_BLOCK_MS)
+    const endMs = startMs + lengthBlocksToDurationMs(lengthBlocks, DEFAULT_TIME_PER_BLOCK_MS)
     if (!(t >= startMs && t < endMs)) continue
 
     if (startMs >= bestStart) {
@@ -1009,11 +1030,52 @@ function toneDotFill(d) {
   return d?.color ?? 'white'
 }
 
+function deriveNoteValueFromLength(note) {
+  const len = Number(note?.lengthBlocks)
+  if (!Number.isFinite(len) || len <= 0) return '1/4'
+
+  const subdivision = Number(note?.subdivision) === 3 ? 3 : 2
+  const candidates = []
+  for (const item of NOTE_VALUE_ITEMS) {
+    const base = Number(item?.baseBlocks)
+    if (!Number.isFinite(base) || base <= 0) continue
+    candidates.push({ value: item.value, length: base })
+    if (base > 0.25) candidates.push({ value: item.value, length: base * 1.5 })
+    if (subdivision === 3) candidates.push({ value: item.value, length: base * (2 / 3) })
+  }
+
+  let best = { value: '1/4', delta: Infinity }
+  for (const c of candidates) {
+    const delta = Math.abs(len - c.length)
+    if (delta < best.delta) best = { value: c.value, delta }
+  }
+  return best.value
+}
+
+function noteValueForToneDot(d) {
+  const nk = noteKeyForToneDot(d)
+  if (!nk) return ''
+
+  const note = noteByKey.value.get(nk)
+  const direct = normalizeNoteValue(note?.noteValue)
+  if (direct) return direct
+  return deriveNoteValueFromLength(note)
+}
+
+function toneDotSymbol(d) {
+  const value = noteValueForToneDot(d)
+  if (!value) return ''
+  const item = noteValueItem(value)
+  return item?.dotSymbol || item?.label || value
+}
+
 function toneDotOpacity(d) {
   if (!isPlaying.value) return 1
   const nk = noteKeyForToneDot(d)
   if (!nk) return FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
-  return highlightedNoteKeySet.value.has(nk) ? 1 : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
+  return highlightedNoteKeySet.value.has(nk) || playedNoteKeys.value.has(nk)
+    ? 1
+    : FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
 }
 
 function toneDotStroke(d) {
@@ -1079,6 +1141,7 @@ watch(
   () => isPlaying.value,
   (playing) => {
     if (playing) {
+      playedNoteKeys.value = new Set()
       // Clear hover/tooltip markings when playback starts.
       hoveredFret.value = null
       hoveredPosKey.value = null
@@ -1087,6 +1150,7 @@ watch(
       startAnim()
       return
     } else {
+      playedNoteKeys.value = new Set()
       stopAnim()
       animNowMs.value = performance.now()
     }
@@ -1148,6 +1212,19 @@ watch(
   stroke-width: 3.5;
   stroke-linecap: round;
   filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+}
+
+.fb-tone-dot-symbol {
+  fill: rgba(255, 255, 255, 0.98);
+  stroke: rgba(20, 20, 20, 0.75);
+  stroke-width: 1.4;
+  paint-order: stroke;
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-size: 14px;
+  font-weight: 800;
+  user-select: none;
 }
 
 .fb-hand-position-overlay rect {

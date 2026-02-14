@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createNoteKey, parseFretStringKey, normalizeNote } from '@/domain/note'
+import { normalizeNoteValue } from '@/config/noteValues'
 import { defaultLengthBlocksForMode, nextGridIndexFromNotes } from '@/domain/timelinePlacement'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
@@ -123,6 +124,7 @@ export const useNotesStore = defineStore('notes', () => {
       fret,
       string,
       color: settings.selectedColor,
+      noteValue: normalizeNoteValue(lengthMode) || '1/4',
       gridIndex,
       lengthBlocks,
       subdivision,
