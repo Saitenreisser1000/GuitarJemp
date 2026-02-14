@@ -190,6 +190,7 @@ function clearAll() {
 .tone-label {
   color: var(--color-text);
   font-weight: 500;
+  font-size: 0.5em;
 }
 
 .remove-btn {
@@ -199,7 +200,7 @@ function clearAll() {
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.5em;
   font-weight: bold;
   transition: background-color 0.2s ease;
 }
@@ -223,5 +224,6 @@ function clearAll() {
   margin-left: 8px;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+  font-size: 1em;
 }
 </style>
