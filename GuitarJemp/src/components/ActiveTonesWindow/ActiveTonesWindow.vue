@@ -47,7 +47,6 @@ const store = useNotesStore()
 const selection = useSelectionStore()
 const instrument = useInstrumentStore()
 const activeNotes = computed(() => store.activeNotes)
-const selectedNoteKey = computed(() => selection.selectedNoteKey)
 
 function isSelected(noteKey) {
   return selection.isSelected(noteKey)
@@ -93,12 +92,11 @@ function clearAll() {
 
 <style scoped>
 .active-tones-window {
-  padding: 20px;
-  border: 2px solid #333;
-  border-radius: 4px;
-  background-color: #f9f9f9;
-  max-width: 400px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 14px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  box-shadow: var(--elev-1);
 }
 
 .header-row {
@@ -112,21 +110,22 @@ function clearAll() {
 .header-row h2 {
   margin-top: 0;
   margin-bottom: 0;
-  color: #333;
+  color: var(--color-text);
   font-size: 18px;
 }
 
 .clear-btn {
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   padding: 6px 10px;
   cursor: pointer;
   font-weight: 700;
+  color: var(--color-text);
 }
 
 .clear-btn:hover:enabled {
-  background: #e2e2e2;
+  background: color-mix(in srgb, var(--color-surface) 82%, var(--color-primary) 18%);
 }
 
 .clear-btn:disabled {
@@ -138,21 +137,21 @@ function clearAll() {
   margin-bottom: 15px;
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  background-color: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface) 97%, var(--color-surface-2) 3%);
 }
 
 .empty-message {
   padding: 15px;
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
 .tone-item {
   padding: 10px 15px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -175,8 +174,8 @@ function clearAll() {
 }
 
 .tone-item.is-selected {
-  background-color: rgba(102, 126, 234, 0.15);
-  outline: 2px solid rgba(102, 126, 234, 0.75);
+  background-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 72%, transparent);
   outline-offset: -2px;
 }
 
@@ -185,19 +184,19 @@ function clearAll() {
 }
 
 .tone-item:hover {
-  background-color: #f5f5f5;
+  background-color: color-mix(in srgb, var(--color-surface) 84%, var(--color-primary) 16%);
 }
 
 .tone-label {
-  color: #333;
+  color: var(--color-text);
   font-weight: 500;
 }
 
 .remove-btn {
-  background-color: #d32f2f;
-  color: white;
-  border: none;
-  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-danger, #c62828) 88%, transparent);
+  color: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-danger, #c62828) 72%, transparent);
+  border-radius: var(--radius-sm);
   padding: 4px 8px;
   cursor: pointer;
   font-size: 14px;
@@ -206,18 +205,18 @@ function clearAll() {
 }
 
 .remove-btn:hover {
-  background-color: #b71c1c;
+  background: color-mix(in srgb, var(--color-danger, #c62828) 100%, black 6%);
 }
 
 .info {
   padding-top: 10px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--color-border);
   text-align: center;
 }
 
 .info p {
   margin: 0;
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 .tone-pitch {

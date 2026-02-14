@@ -317,7 +317,7 @@ async function onSaveCloud() {
                 </v-card>
               </v-dialog>
 
-              <v-col cols="12">
+              <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
                 <Timeline class="timeline" :compact="false" :num-frets="numFrets"
                   :library-enabled="auth.isSignedIn"
                   :active-notes-visible="activeNotesVisible"
@@ -328,8 +328,8 @@ async function onSaveCloud() {
                   @update-frets="(n) => (numFrets = n)" />
               </v-col>
 
-              <v-col v-if="activeNotesVisible" cols="12">
-                <ActiveTonesWindow class="active-tones" />
+              <v-col v-if="activeNotesVisible" cols="12" md="3" class="active-tones-col">
+                <ActiveTonesWindow class="active-tones integrated-active-tones" />
               </v-col>
             </v-row>
           </v-container>
@@ -390,6 +390,16 @@ async function onSaveCloud() {
 .active-tones {
   border-radius: var(--radius-lg);
   overflow: clip;
+}
+
+.active-tones-col {
+  display: flex;
+}
+
+.integrated-active-tones {
+  width: 100%;
+  max-width: none;
+  height: 100%;
 }
 
 @media (max-width: 860px) {
