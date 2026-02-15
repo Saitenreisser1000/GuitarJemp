@@ -32,39 +32,14 @@
           variant="outlined"
           class="position-select"
         />
-      </div>
-    </div>
-    <div class="scale-menu-title">Scale Menu</div>
-    <div class="scale-menu-bar">
-      <div class="scale-menu-controls">
-        <v-select
-          v-model="selectedScaleRoot"
-          :items="chordOptions"
-          item-title="title"
-          item-value="value"
-          label="Root"
+        <v-switch
+          v-model="showChordSelection"
+          label="Show"
           density="compact"
           hide-details
-          variant="outlined"
-          class="scale-root-select"
-        />
-        <v-select
-          v-model="selectedScaleType"
-          :items="scaleOptions"
-          label="Scales"
-          density="compact"
-          hide-details
-          variant="outlined"
-          class="scale-type-select"
-        />
-        <v-select
-          v-model="selectedPattern"
-          :items="patternOptions"
-          label="Pattern"
-          density="compact"
-          hide-details
-          variant="outlined"
-          class="scale-pattern-select"
+          inset
+          color="primary"
+          class="show-toggle"
         />
       </div>
     </div>
@@ -79,10 +54,8 @@ const harmony = useHarmonyMenuStore()
 const {
   chordRoot: selectedChord,
   chordType: selectedChordType,
-  scaleRoot: selectedScaleRoot,
-  scaleType: selectedScaleType,
   position: selectedPosition,
-  pattern: selectedPattern,
+  showChord: showChordSelection,
 } = storeToRefs(harmony)
 
 const chordOptions = [
@@ -115,23 +88,6 @@ const chordTypeOptions = [
   'major 6',
   'minor 6',
 ]
-const scaleOptions = [
-  'major (ionian)',
-  'natural minor (aeolian)',
-  'harmonic minor',
-  'melodic minor',
-  'dorian',
-  'phrygian',
-  'lydian',
-  'mixolydian',
-  'locrian',
-  'major pentatonic',
-  'minor pentatonic',
-  'blues',
-  'chromatic',
-  'whole tone',
-  'diminished (whole-half)',
-]
 const positionOptions = [
   'Open',
   '1st Position',
@@ -142,17 +98,6 @@ const positionOptions = [
   '7th Position',
   '9th Position',
   '12th Position',
-]
-const patternOptions = [
-  'CAGED 1',
-  'CAGED 2',
-  'CAGED 3',
-  'CAGED 4',
-  'CAGED 5',
-  '3 Notes Per String',
-  'Box Pattern 1',
-  'Box Pattern 2',
-  'Box Pattern 3',
 ]
 </script>
 
@@ -186,38 +131,15 @@ const patternOptions = [
   max-width: 180px;
 }
 
+.show-toggle {
+  min-width: 96px;
+  padding-top: 2px;
+}
+
 .chord-menu-title {
   padding: 10px 12px;
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--color-text-muted);
-}
-
-.scale-menu-title {
-  padding: 8px 12px 10px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
-}
-
-.scale-menu-bar {
-  padding: 0 10px 10px;
-}
-
-.scale-menu-controls {
-  display: flex;
-  gap: 8px;
-}
-
-.scale-root-select {
-  max-width: 180px;
-}
-
-.scale-type-select {
-  max-width: 220px;
-}
-
-.scale-pattern-select {
-  max-width: 190px;
 }
 </style>

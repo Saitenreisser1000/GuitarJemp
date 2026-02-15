@@ -144,6 +144,10 @@
           <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
             fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4" style="pointer-events: none" />
         </g>
+        <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
+          <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
+          <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
+        </g>
       </svg>
     </div>
 
@@ -158,7 +162,7 @@
       <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
       <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
     </div>
-    <div class="fb-chord-shape-panel">
+    <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
       <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
         {{ t('fretboardShow.plusFret') }}
@@ -191,6 +195,105 @@
 
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
+    </div>
+
+    <div class="fb-options-menu">
+      <v-menu location="bottom end" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="menuProps"
+            icon="mdi-cog-outline"
+            size="x-small"
+            variant="tonal"
+            :title="t('modeSelector.options')"
+          />
+        </template>
+
+        <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
+          <v-select
+            v-model="fretViewMode"
+            density="compact"
+            hide-details
+            :items="fretViewModeItems"
+            item-title="title"
+            item-value="value"
+            label="Fret View"
+            variant="outlined"
+          />
+          <div v-if="fretViewMode === 'range'" class="d-flex ga-2">
+            <v-text-field
+              v-model="fretViewFromLocal"
+              density="compact"
+              hide-details
+              type="number"
+              min="0"
+              :max="numFretsLocal"
+              step="1"
+              style="width: 92px"
+              label="From"
+            />
+            <v-text-field
+              v-model="fretViewToLocal"
+              density="compact"
+              hide-details
+              type="number"
+              min="0"
+              :max="numFretsLocal"
+              step="1"
+              style="width: 92px"
+              label="To"
+            />
+          </div>
+          <div class="d-flex ga-2">
+            <v-text-field
+              v-model="numStringsLocal"
+              density="compact"
+              hide-details
+              type="number"
+              min="1"
+              max="12"
+              step="1"
+              style="width: 92px"
+              :label="t('modeSelector.strings')"
+            />
+            <v-text-field
+              v-model="numFretsLocal"
+              density="compact"
+              hide-details
+              type="number"
+              min="1"
+              max="24"
+              step="1"
+              style="width: 92px"
+              :label="t('modeSelector.frets')"
+            />
+          </div>
+          <v-switch
+            density="compact"
+            hide-details
+            inset
+            :label="t('modeSelector.chordShapePanel')"
+            :model-value="settings.showChordShapePanel"
+            @update:model-value="(v) => settings.setShowChordShapePanel(Boolean(v))"
+          />
+          <v-switch
+            density="compact"
+            hide-details
+            inset
+            label="Show Chords"
+            :model-value="harmonyMenu.showChord"
+            @update:model-value="(v) => (harmonyMenu.showChord = Boolean(v))"
+          />
+          <v-switch
+            density="compact"
+            hide-details
+            inset
+            label="Show Scales"
+            :model-value="harmonyMenu.showScale"
+            @update:model-value="(v) => (harmonyMenu.showScale = Boolean(v))"
+          />
+        </v-card>
+      </v-menu>
     </div>
   </div>
 </template>
@@ -228,6 +331,7 @@ const props = defineProps({
   numFrets: { type: Number, required: true },
   editable: { type: Boolean, default: false },
 })
+const emit = defineEmits(['update-frets'])
 
 const FB_WIDTH = 1100
 const FB_HEIGHT = 180
@@ -247,8 +351,75 @@ const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
-const { chordPitchClasses, scalePitchClasses, patternFretRange } = storeToRefs(harmonyMenu)
+const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } = storeToRefs(harmonyMenu)
 const isPlaying = computed(() => playState.value === 'playing')
+const numStringsLocal = computed({
+  get: () => Number(instrument.numStrings) || 6,
+  set: (v) => instrument.setNumStrings(Number(v)),
+})
+const numFretsLocal = computed({
+  get: () => Number(props.numFrets) || 12,
+  set: (v) => emit('update-frets', Number(v)),
+})
+const fretViewMode = ref('full')
+const fretViewFrom = ref(0)
+const fretViewTo = ref(Math.max(0, Number(props.numFrets) || 12))
+const fretViewModeItems = [
+  { title: 'Full', value: 'full' },
+  { title: 'From-To', value: 'range' },
+]
+const fretViewFromLocal = computed({
+  get: () => Number(fretViewFrom.value),
+  set: (v) => {
+    const max = Math.max(0, Number(props.numFrets) || 12)
+    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
+    fretViewFrom.value = next
+    if (next > Number(fretViewTo.value)) fretViewTo.value = next
+  },
+})
+const fretViewToLocal = computed({
+  get: () => Number(fretViewTo.value),
+  set: (v) => {
+    const max = Math.max(0, Number(props.numFrets) || 12)
+    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
+    fretViewTo.value = next
+    if (next < Number(fretViewFrom.value)) fretViewFrom.value = next
+  },
+})
+const fretViewRange = computed(() => {
+  const max = Math.max(0, Number(props.numFrets) || 12)
+  if (fretViewMode.value !== 'range') return { from: 0, to: max }
+  const from = Math.max(0, Math.min(max, Number(fretViewFrom.value) || 0))
+  const to = Math.max(from, Math.min(max, Number(fretViewTo.value) || max))
+  return { from, to }
+})
+const fretViewMask = computed(() => {
+  if (fretViewMode.value !== 'range') return null
+  const { from, to } = fretViewRange.value
+  const lines = fretLinesPx.value
+  const left = from <= 1 ? NUT_WIDTH : Number(lines[from - 1] ?? NUT_WIDTH)
+  const right = Number(lines[to] ?? FB_WIDTH)
+  if (!(right > left)) return null
+  return { left, right }
+})
+
+function isFretInView(fret) {
+  const n = Number(fret)
+  if (!Number.isFinite(n)) return false
+  const r = fretViewRange.value
+  return n >= r.from && n <= r.to
+}
+
+watch(
+  () => Number(props.numFrets) || 12,
+  (maxRaw) => {
+    const max = Math.max(0, Number(maxRaw) || 12)
+    if (Number(fretViewFrom.value) > max) fretViewFrom.value = max
+    if (Number(fretViewTo.value) > max) fretViewTo.value = max
+    if (Number(fretViewTo.value) < Number(fretViewFrom.value)) fretViewTo.value = Number(fretViewFrom.value)
+  },
+  { immediate: true },
+)
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
 const playedNoteKeys = ref(new Set())
@@ -509,6 +680,7 @@ const toneDotsForRender = computed(() => {
     const [stringRaw, fretRaw] = String(posKey).split('-')
     const string = Number(stringRaw)
     const fret = Number(fretRaw)
+    if (!isFretInView(fret)) continue
 
     const count = keys.length
     // Draw order: back-to-front so queue front (index 0) is rendered on top.
@@ -1115,13 +1287,18 @@ const strings = computed(() => {
 })
 
 const harmonyGuideDots = computed(() => {
-  const chordSet = chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
-  const scaleSet = scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
+  const useChord = Boolean(showChord.value)
+  const useScale = Boolean(showScale.value)
+  if (!useChord && !useScale) return []
+
+  const chordSet = useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
+  const scaleSet = useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
   if (!chordSet.size && !scaleSet.size) return []
 
-  const fromFret = Math.max(0, Number(patternFretRange.value?.fromFret) || 0)
+  const fromFret = Math.max(0, Number(patternFretRange.value?.fromFret) || 0, fretViewRange.value.from)
   const toFretRaw = Number(patternFretRange.value?.toFret)
-  const toFret = Number.isFinite(toFretRaw) ? Math.max(fromFret, toFretRaw) : Infinity
+  const toFretByPattern = Number.isFinite(toFretRaw) ? Math.max(fromFret, toFretRaw) : Infinity
+  const toFret = Math.min(toFretByPattern, fretViewRange.value.to)
 
   const maxFret = Math.max(0, Number(props.numFrets) || 12)
   const out = []
@@ -1134,8 +1311,8 @@ const harmonyGuideDots = computed(() => {
       const midi = midiForFretString({ fret, string }, tuning.value)
       if (!Number.isFinite(Number(midi))) continue
       const pc = ((Number(midi) % 12) + 12) % 12
-      const inChord = chordSet.has(pc)
-      const inScale = scaleSet.has(pc)
+      const inChord = useChord && chordSet.has(pc)
+      const inScale = useScale && scaleSet.has(pc)
       if (!inChord && !inScale) continue
       out.push({ string, fret, inChord, inScale, pc })
     }
@@ -1315,10 +1492,11 @@ const fretLabels = computed(() => {
   const max = Math.max(0, Number(props.numFrets) || 0)
   const lines = fretLinesPx.value
   const out = []
+  const view = fretViewRange.value
 
   // Labels should be centered under the fret fields (1..n).
   // Fret 1 is between nut and the first fret line.
-  for (let fret = 1; fret <= max; fret++) {
+  for (let fret = Math.max(1, view.from); fret <= Math.min(max, view.to); fret++) {
     const left = fret === 1 ? NUT_WIDTH : Number(lines[fret - 1] ?? 0)
     const right = Number(lines[fret] ?? FB_WIDTH)
     const x = (left + right) / 2
@@ -1374,6 +1552,7 @@ function hoveredPosFromEvent(event) {
   const p = clientToSvgPoint(event)
   if (!p) return null
   const fret = xToFret(p.x)
+  if (!isFretInView(fret)) return null
   const string = yToString(p.y)
   return { fret, string }
 }
@@ -1877,6 +2056,17 @@ watch(
   width: 100%;
   position: relative;
   overflow: visible;
+}
+
+.fb-options-menu {
+  position: absolute;
+  top: -16px;
+  right: -34px;
+  z-index: 25;
+}
+
+.fb-view-mask rect {
+  fill: var(--color-surface);
 }
 
 .fb-stack {

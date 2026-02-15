@@ -7,30 +7,79 @@
     <div class="timeline-layout">
       <aside class="main-menu-rail" :aria-label="t('timelineView.mainMenu')">
         <ModeSelector :selected-mode="selectedMode" :snap-enabled="snapEnabled"
-          :sound-preview-enabled="soundPreviewEnabled"
-          :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
+          :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop"
           :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
           :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
-          :sim-group-mode="simGroupMode" :timeline-visible="timelineVisible" :active-notes-visible="activeNotesVisible"
-          :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
+          :fretboard-visible="fretboardVisible" :chord-menu-visible="chordMenuVisible"
+          :timeline-visible="timelineVisible" :transport-visible="transportVisible"
+          :library-panel-visible="libraryPanelVisible"
+          :show-chord-shape-panel="showChordShapePanel"
+          :sim-group-mode="simGroupMode"
+          :active-notes-visible="activeNotesVisible"
+          :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme" :is-playing="isPlaying"
           @update-sim-group-mode="(v) => emit('update-sim-group-mode', v)"
-          @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
+          @update-timeline-visible="(v) => emit('update-timeline-visible', Boolean(v))"
+          @update-transport-visible="(v) => emit('update-transport-visible', Boolean(v))"
+          @update-library-panel-visible="(v) => emit('update-library-panel-visible', Boolean(v))"
+          @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
+          @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
           @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
           @open-library="emit('open-library')"
           @toggle-theme="emit('toggle-theme')"
-          @undo="emit('undo')"
-          @redo="emit('redo')"
+          @toggle-play="emit('toggle-play')"
+          @seek-start="emit('seek-start')"
           @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
           @update-sound-preview="(v) => emit('update-sound-preview', v)"
-          @update-sound-duration-scale="(v) => emit('update-sound-duration-scale', v)"
           @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
           @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
           @update-pickup-beats="(v) => emit('update-pickup-beats', v)"
           @update-num-strings="(v) => emit('update-num-strings', v)" @update-frets="(v) => emit('update-frets', v)"
-          @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" />
+          @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)"
+          @update-show-chord-shape-panel="(v) => emit('update-show-chord-shape-panel', v)" />
       </aside>
 
       <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
+        <div class="timeline-options-menu">
+          <v-menu location="bottom end" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                v-bind="menuProps"
+                icon="mdi-cog-outline"
+                size="x-small"
+                variant="tonal"
+                :title="t('modeSelector.options')"
+              />
+            </template>
+
+            <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
+              <v-switch
+                density="compact"
+                hide-details
+                inset
+                :label="t('modeSelector.timeline')"
+                :model-value="timelineVisible"
+                @update:model-value="(v) => emit('update-timeline-visible', Boolean(v))"
+              />
+              <v-switch
+                density="compact"
+                hide-details
+                inset
+                :label="t('timelineView.transport')"
+                :model-value="transportVisible"
+                @update:model-value="(v) => emit('update-transport-visible', Boolean(v))"
+              />
+              <v-switch
+                density="compact"
+                hide-details
+                inset
+                :label="t('modeSelector.activeNotes')"
+                :model-value="activeNotesVisible"
+                @update:model-value="(v) => emit('update-active-notes-visible', Boolean(v))"
+              />
+            </v-card>
+          </v-menu>
+        </div>
+
         <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
           <div class="timeline-columns">
             <div v-if="!stringsCollapsed" class="timeline-tools" :aria-label="t('timelineView.tools')">
@@ -55,35 +104,9 @@
                 <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.markerAtPlayhead')"
-                @click="() => emit('add-marker-at-playhead')">
-                M+
-              </button>
-
               <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
                 @click="() => emit('loop-to-selection')">
                 {{ t('timelineView.loopSel') }}
-              </button>
-
-              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.quantizeSelection')"
-                @click="() => emit('quantize-selection')">
-                Q
-              </button>
-
-              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.halveSelection')"
-                @click="() => emit('scale-selection-length', 0.5)">
-                1/2
-              </button>
-
-              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.doubleSelection')"
-                @click="() => emit('scale-selection-length', 2)">
-                2x
-              </button>
-
-              <button class="timeline-tool timeline-tool-text" type="button"
-                :title="ghostNotesEnabled ? t('timelineView.hideGhost') : t('timelineView.showGhost')"
-                @click="() => emit('update-ghost-notes', !ghostNotesEnabled)">
-                Ghost
               </button>
             </div>
 
@@ -124,7 +147,7 @@
                 </div>
 
                 <div class="strings-timeline">
-                  <TimelineTrack :string="0" :string-label="t('timelineView.handPosition')" :active-string="activeString"
+                  <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')" :active-string="activeString"
                     :notes="handPositionNotes"
                     :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                     :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
@@ -204,65 +227,59 @@
         </v-card>
       </section>
 
-      <aside class="secondary-menu-rail" :aria-label="t('timelineView.tools')">
+      <aside
+        v-if="libraryPanelVisible"
+        class="secondary-menu-rail"
+        :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
+        :aria-label="t('libraryDialog.title')"
+      >
         <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
-          <div class="secondary-menu-title">LibraryMenu</div>
+          <div class="secondary-menu-head">
+            <div class="secondary-menu-head-row">
+              <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
+              <v-btn
+                size="x-small"
+                variant="text"
+                class="secondary-menu-toggle"
+                icon="mdi-arrow-left-right"
+                :title="'Sidebar width'"
+                @click="cycleSecondaryMenuSize"
+              />
+            </div>
+            <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
+              {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
+            </div>
+          </div>
           <div class="secondary-menu">
             <v-btn
+              v-if="secondaryMenuSize !== 's'"
+              block
+              prepend-icon="mdi-book-open-page-variant"
+              size="default"
+              variant="tonal"
+              class="secondary-menu-btn secondary-menu-link"
+              :title="t('modeSelector.openLibrary')"
+              :disabled="!libraryEnabled"
+              @click="emit('open-library')"
+            >
+              {{ t('modeSelector.openLibrary') }}
+            </v-btn>
+            <v-btn
+              v-else
               icon="mdi-book-open-page-variant"
               size="small"
               variant="tonal"
               class="secondary-menu-btn"
               :title="t('modeSelector.openLibrary')"
+              :disabled="!libraryEnabled"
               @click="emit('open-library')"
-            />
-            <v-btn
-              :icon="activeNotesVisible ? 'mdi-waveform-off' : 'mdi-waveform'"
-              size="small"
-              variant="tonal"
-              class="secondary-menu-btn"
-              :title="activeNotesVisible ? t('modeSelector.hideActiveNotes') : t('modeSelector.showActiveNotes')"
-              @click="emit('update-active-notes-visible', !activeNotesVisible)"
-            />
-            <v-btn
-              :icon="timelineVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-              size="small"
-              variant="tonal"
-              class="secondary-menu-btn"
-              :title="timelineVisible ? t('modeSelector.hideTimeline') : t('modeSelector.showTimeline')"
-              @click="timelineVisible = !timelineVisible"
-            />
-            <v-btn
-              :icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
-              size="small"
-              variant="tonal"
-              class="secondary-menu-btn"
-              :title="isDarkTheme ? t('modeSelector.light') : t('modeSelector.dark')"
-              @click="emit('toggle-theme')"
-            />
-            <v-divider class="my-1" />
-            <v-btn
-              icon="mdi-undo"
-              size="small"
-              variant="text"
-              class="secondary-menu-btn"
-              :title="t('modeSelector.undo')"
-              @click="emit('undo')"
-            />
-            <v-btn
-              icon="mdi-redo"
-              size="small"
-              variant="text"
-              class="secondary-menu-btn"
-              :title="t('modeSelector.redo')"
-              @click="emit('redo')"
             />
           </div>
         </v-card>
       </aside>
     </div>
 
-    <div ref="transportEl" class="timeline-transport" :aria-label="t('timelineView.transport')">
+    <div v-if="transportVisible" ref="transportEl" class="timeline-transport" :aria-label="t('timelineView.transport')">
       <div class="timeline-transport-inner">
         <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
           :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
@@ -312,6 +329,13 @@ const props = defineProps({
   numFrets: { type: Number, default: 12 },
 
   stringsCollapsed: { type: Boolean, default: false },
+  fretboardVisible: { type: Boolean, default: true },
+  chordMenuVisible: { type: Boolean, default: true },
+  handPositionVisible: { type: Boolean, default: false },
+  timelineVisible: { type: Boolean, default: true },
+  transportVisible: { type: Boolean, default: true },
+  libraryPanelVisible: { type: Boolean, default: true },
+  showChordShapePanel: { type: Boolean, default: false },
 
   zoomPxPerBlock: { type: Number, default: 50 },
 
@@ -352,6 +376,9 @@ const emit = defineEmits([
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
+  'update-fretboard-visible',
+  'update-chord-menu-visible',
+  'update-show-chord-shape-panel',
   'update-zoom',
   'seek-playhead',
   'update-note-grid-index',
@@ -365,6 +392,9 @@ const emit = defineEmits([
   'undo',
   'redo',
   'update-sim-group-mode',
+  'update-timeline-visible',
+  'update-transport-visible',
+  'update-library-panel-visible',
   'update-active-notes-visible',
   'open-library',
   'toggle-theme',
@@ -395,13 +425,18 @@ const transportHeightPx = ref(0)
 let transportObserver = null
 
 const timelineMainStyle = computed(() => {
+  const widths = { s: 64, m: 224, l: 320 }
+  const secondaryMenuWidthPx = props.libraryPanelVisible
+    ? widths[secondaryMenuSize.value] || widths.m
+    : 0
   return {
     '--timeline-transport-h': `${Math.max(0, Number(transportHeightPx.value) || 0)}px`,
+    '--secondary-menu-w': `${secondaryMenuWidthPx}px`,
   }
 })
 
 const scrollEl = ref(null)
-const timelineVisible = ref(true)
+const secondaryMenuSize = ref('m')
 const marqueeActive = ref(false)
 const marqueeStart = ref({ x: 0, y: 0 })
 const marqueeEnd = ref({ x: 0, y: 0 })
@@ -418,6 +453,12 @@ const loopDrag = ref({
   kind: '',
   pointerId: null,
 })
+
+function cycleSecondaryMenuSize() {
+  const order = ['s', 'm', 'l']
+  const current = order.indexOf(String(secondaryMenuSize.value || 'm'))
+  secondaryMenuSize.value = order[(current + 1) % order.length]
+}
 
 function toContentCoords(clientX, clientY) {
   const el = scrollEl.value
@@ -850,6 +891,7 @@ const barBeatLabel = computed(() => {
 <style scoped>
 .timeline-main {
   --main-menu-w: 84px;
+  --secondary-menu-w: 224px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
@@ -911,7 +953,7 @@ const barBeatLabel = computed(() => {
   right: 0;
   top: var(--top-bars-h);
   bottom: 0;
-  width: var(--main-menu-w);
+  width: var(--secondary-menu-w);
   z-index: 25;
   padding: var(--main-menu-v-pad) var(--space-2);
 }
@@ -925,34 +967,81 @@ const barBeatLabel = computed(() => {
 .secondary-menu {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.secondary-menu-head {
+  margin-bottom: 8px;
+}
+
+.secondary-menu-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .secondary-menu-title {
-  margin-bottom: 6px;
-  font-size: 0.72rem;
+  font-size: 0.86rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  text-align: center;
+  text-align: left;
+  color: var(--color-text);
+}
+
+.secondary-menu-subtitle {
+  margin-top: 3px;
+  font-size: 0.74rem;
+  line-height: 1.3;
   color: var(--color-text-muted);
+}
+
+.secondary-menu-toggle {
+  flex: 0 0 auto;
 }
 
 .secondary-menu-btn {
   width: 100%;
 }
 
+.secondary-menu-link {
+  justify-content: flex-start;
+  text-transform: none;
+}
+
+.secondary-menu-rail.is-collapsed .secondary-menu-head {
+  margin-bottom: 6px;
+}
+
+.secondary-menu-rail.is-collapsed .secondary-menu-title {
+  display: none;
+}
+
+.secondary-menu-rail.is-collapsed .secondary-menu {
+  align-items: center;
+}
+
 .timeline-body {
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding-right: calc(var(--main-menu-w) + var(--space-4));
+  padding-right: calc(var(--secondary-menu-w) + var(--space-4));
+  overflow: visible;
+}
+
+.timeline-options-menu {
+  position: absolute;
+  top: -12px;
+  right: -34px;
+  z-index: 40;
 }
 
 .timeline-transport {
   position: fixed;
   left: calc(var(--main-menu-w) + var(--space-4));
-  right: calc(var(--main-menu-w) + var(--space-4));
+  right: calc(var(--secondary-menu-w) + var(--space-4));
   bottom: 0;
   z-index: 30;
   display: flex;

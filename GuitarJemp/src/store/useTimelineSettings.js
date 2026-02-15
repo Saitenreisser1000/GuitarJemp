@@ -75,6 +75,12 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const stringsCollapsed = ref(
     typeof stored.stringsCollapsed === 'boolean' ? stored.stringsCollapsed : false,
   )
+  const showChordShapePanel = ref(
+    typeof stored.showChordShapePanel === 'boolean' ? stored.showChordShapePanel : false,
+  )
+  const handPositionVisible = ref(
+    typeof stored.handPositionVisible === 'boolean' ? stored.handPositionVisible : false,
+  )
 
   function setSelectedMode(m) {
     const mode = String(m)
@@ -182,6 +188,14 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     stringsCollapsed.value = Boolean(v)
   }
 
+  function setShowChordShapePanel(v) {
+    showChordShapePanel.value = Boolean(v)
+  }
+
+  function setHandPositionVisible(v) {
+    handPositionVisible.value = Boolean(v)
+  }
+
   function setSimGroupMode(v) {
     const raw = String(v || '')
     const next = raw === 'dot' ? 'dotted' : raw
@@ -210,6 +224,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     activeString,
     activeTool,
     stringsCollapsed,
+    showChordShapePanel,
+    handPositionVisible,
     simGroupMode,
   })
 
@@ -235,6 +251,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     activeString,
     activeTool,
     stringsCollapsed,
+    showChordShapePanel,
+    handPositionVisible,
     simGroupMode,
     setSelectedMode,
     setSnapEnabled,
@@ -256,6 +274,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setActiveString,
     setActiveTool,
     setStringsCollapsed,
+    setShowChordShapePanel,
+    setHandPositionVisible,
     setSimGroupMode,
   }
 })

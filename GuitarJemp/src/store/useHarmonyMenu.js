@@ -84,9 +84,11 @@ function patternOffsets(patternLabel) {
 export const useHarmonyMenuStore = defineStore('harmonyMenu', () => {
   const chordRoot = ref('C')
   const chordType = ref('major')
+  const showChord = ref(false)
 
   const scaleRoot = ref('C')
   const scaleType = ref('major (ionian)')
+  const showScale = ref(false)
 
   const position = ref('Open')
   const pattern = ref('CAGED 1')
@@ -113,8 +115,10 @@ export const useHarmonyMenuStore = defineStore('harmonyMenu', () => {
   return {
     chordRoot,
     chordType,
+    showChord,
     scaleRoot,
     scaleType,
+    showScale,
     position,
     pattern,
     chordPitchClasses,

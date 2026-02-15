@@ -1,14 +1,6 @@
 <template>
   <v-card class="main-menu-shell ui-panel pa-2" variant="flat">
     <div class="main-menu">
-      <v-btn variant="tonal" class="control-btn undo-btn" :title="t('modeSelector.undo')" @click="emit('undo')">
-        <v-icon icon="mdi-undo" size="22" />
-      </v-btn>
-
-      <v-btn variant="tonal" class="control-btn redo-btn" :title="t('modeSelector.redo')" @click="emit('redo')">
-        <v-icon icon="mdi-redo" size="22" />
-      </v-btn>
-
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="tonal" class="control-btn mode-menu-btn" :title="t('modeSelector.noteValues')">
@@ -56,25 +48,6 @@
         CH
       </v-btn>
 
-      <v-btn variant="tonal" class="control-btn timeline-visibility-btn" :active="Boolean(timelineVisible)"
-        :color="timelineVisible ? 'primary' : undefined" :title="timelineVisible ? t('modeSelector.hideTimeline') : t('modeSelector.showTimeline')"
-        :aria-pressed="String(timelineVisible)" @click="emit('update-timeline-visible', !timelineVisible)">
-        <v-icon :icon="timelineVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" size="22" />
-      </v-btn>
-
-      <v-btn variant="tonal" class="control-btn active-notes-visibility-btn" :active="Boolean(activeNotesVisible)"
-        :color="activeNotesVisible ? 'primary' : undefined"
-        :title="activeNotesVisible ? t('modeSelector.hideActiveNotes') : t('modeSelector.showActiveNotes')"
-        :aria-pressed="String(activeNotesVisible)"
-        @click="emit('update-active-notes-visible', !activeNotesVisible)">
-        <v-icon :icon="activeNotesVisible ? 'mdi-music-note-outline' : 'mdi-music-note-off-outline'" size="22" />
-      </v-btn>
-
-      <v-btn variant="tonal" class="control-btn library-btn" :disabled="!libraryEnabled"
-        :title="libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn')" @click="emit('open-library')">
-        <v-icon icon="mdi-cloud-outline" size="22" />
-      </v-btn>
-
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="tonal" class="control-btn symbols-btn" :title="t('modeSelector.symbols', { color: selectedColor })">
@@ -110,12 +83,8 @@
 
             <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')" :model-value="stringsCollapsed"
               @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
-
-            <div class="d-flex align-center ga-2">
-              <div class="text-caption control-label">{{ t('modeSelector.toneDuration') }}</div>
-              <v-text-field v-model="soundDurationLocal" density="compact" hide-details type="number" min="0.1"
-                step="0.1" style="width: 92px" />
-            </div>
+            <v-switch density="compact" hide-details inset :label="t('modeSelector.chordShapePanel')" :model-value="showChordShapePanel"
+              @update:model-value="(v) => emit('update-show-chord-shape-panel', Boolean(v))" />
 
             <div class="d-flex flex-column ga-2">
               <div class="text-caption control-label">{{ t('modeSelector.beat') }}</div>
@@ -150,6 +119,36 @@
           </div>
         </v-card>
       </v-menu>
+
+      <div class="main-menu-spacer" />
+      <div class="main-menu-transport-controls">
+        <v-btn
+          variant="tonal"
+          class="control-btn"
+          :title="isPlaying ? t('playback.pause') : t('playback.play')"
+          @click="emit('toggle-play')"
+        >
+          <v-icon :icon="isPlaying ? 'mdi-pause' : 'mdi-play'" size="22" />
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          class="control-btn"
+          :title="t('playback.fromStart')"
+          @click="emit('seek-start')"
+        >
+          <v-icon icon="mdi-skip-backward" size="22" />
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          class="control-btn"
+          :title="t('timelineView.transport')"
+          :active="Boolean(transportVisible)"
+          :color="transportVisible ? 'primary' : undefined"
+          @click="emit('update-transport-visible', !transportVisible)"
+        >
+          <v-icon :icon="transportVisible ? 'mdi-chevron-down' : 'mdi-chevron-up'" size="22" />
+        </v-btn>
+      </div>
     </div>
   </v-card>
 </template>
@@ -165,7 +164,6 @@ const props = defineProps({
   selectedMode: { type: String, required: true },
   snapEnabled: { type: Boolean, default: true },
   soundPreviewEnabled: { type: Boolean, default: true },
-  soundDurationScale: { type: Number, default: 1 },
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
   pickupEnabled: { type: Boolean, default: false },
@@ -173,18 +171,23 @@ const props = defineProps({
   numStrings: { type: Number, default: 6 },
   numFrets: { type: Number, default: 12 },
   stringsCollapsed: { type: Boolean, default: false },
+  showChordShapePanel: { type: Boolean, default: false },
   simGroupMode: { type: String, default: '' },
+  fretboardVisible: { type: Boolean, default: true },
+  chordMenuVisible: { type: Boolean, default: true },
   timelineVisible: { type: Boolean, default: true },
+  transportVisible: { type: Boolean, default: true },
+  libraryPanelVisible: { type: Boolean, default: true },
   activeNotesVisible: { type: Boolean, default: true },
   libraryEnabled: { type: Boolean, default: true },
   isDarkTheme: { type: Boolean, default: false },
+  isPlaying: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'update-mode',
   'update-snap',
   'update-sound-preview',
-  'update-sound-duration-scale',
   'update-beat-top',
   'update-beat-bottom',
   'update-pickup-enabled',
@@ -192,13 +195,18 @@ const emit = defineEmits([
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
+  'update-fretboard-visible',
+  'update-chord-menu-visible',
+  'update-show-chord-shape-panel',
   'update-sim-group-mode',
   'update-timeline-visible',
+  'update-transport-visible',
+  'update-library-panel-visible',
   'update-active-notes-visible',
   'open-library',
   'toggle-theme',
-  'undo',
-  'redo',
+  'toggle-play',
+  'seek-start',
 ])
 const { t } = useI18n()
 // Local state for the note-length modifier toggle group (dot/triplet).
@@ -228,7 +236,6 @@ const activeModeItem = computed(() => {
   const activeValue = String(noteValueLocal.value || '')
   return modeItems.value.find((item) => String(item.value) === activeValue) || modeItems.value[0]
 })
-
 const beatBottomItems = [1, 2, 4, 8]
 const pickupMax = computed(() => {
   const top = Number.parseInt(String(props.beatTop), 10)
@@ -264,11 +271,6 @@ function toggleSim() {
   }
   emit('update-mode', 'sim')
 }
-
-const soundDurationLocal = computed({
-  get: () => props.soundDurationScale,
-  set: (v) => emit('update-sound-duration-scale', Number(v)),
-})
 
 const numStringsLocal = computed({
   get: () => props.numStrings,
@@ -363,6 +365,21 @@ function updatePickupBeats(v) {
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 4px;
+}
+
+.main-menu-spacer {
+  flex: 1 1 auto;
+  min-height: 6px;
+}
+
+.main-menu-transport-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  align-items: center;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
 }
 
 .control-label {

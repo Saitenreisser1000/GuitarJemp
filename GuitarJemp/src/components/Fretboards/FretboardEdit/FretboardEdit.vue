@@ -5,7 +5,7 @@
     </FretboardControls>
 
     <div class="fretboard">
-      <FretboardShow :num-frets="props.numFrets" :editable="true" />
+      <FretboardShow :num-frets="props.numFrets" :editable="true" @update-frets="(n) => emit('update-frets', n)" />
     </div>
   </div>
 </template>

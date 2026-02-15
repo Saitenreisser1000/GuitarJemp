@@ -9,6 +9,11 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
+    :fretboard-visible="fretboardVisible" :chord-menu-visible="chordMenuVisible"
+    :timeline-visible="timelineVisible" :transport-visible="transportVisible"
+    :library-panel-visible="libraryPanelVisible"
+    :show-chord-shape-panel="showChordShapePanel"
+    :hand-position-visible="handPositionVisible"
     :auto-follow-enabled="autoFollowEnabled" :ghost-notes-enabled="ghostNotesEnabled" :markers="markers"
     :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
     :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
@@ -26,6 +31,12 @@
     @update-pickup-enabled="settings.setPickupEnabled"
     @update-pickup-beats="settings.setPickupBeats"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
+    @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
+    @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
+    @update-timeline-visible="(v) => emit('update-timeline-visible', Boolean(v))"
+    @update-transport-visible="(v) => emit('update-transport-visible', Boolean(v))"
+    @update-library-panel-visible="(v) => emit('update-library-panel-visible', Boolean(v))"
+    @update-show-chord-shape-panel="settings.setShowChordShapePanel"
     @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
     @update-total-blocks="handleUpdateTotalBlocks"
     @open-library="emit('open-library')"
@@ -74,15 +85,32 @@ import {
   snapStepBlocksForMode,
 } from '@/domain/timelineInteractions'
 
-defineProps({
+const props = defineProps({
   compact: { type: Boolean, default: false },
   numFrets: { type: Number, default: 12 },
   activeNotesVisible: { type: Boolean, default: true },
+  fretboardVisible: { type: Boolean, default: true },
+  chordMenuVisible: { type: Boolean, default: true },
+  timelineVisible: { type: Boolean, default: true },
+  transportVisible: { type: Boolean, default: true },
+  libraryPanelVisible: { type: Boolean, default: true },
+  externalUndoTick: { type: Number, default: 0 },
+  externalRedoTick: { type: Number, default: 0 },
   libraryEnabled: { type: Boolean, default: true },
   isDarkTheme: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update-frets', 'update-active-notes-visible', 'open-library', 'toggle-theme'])
+const emit = defineEmits([
+  'update-frets',
+  'update-active-notes-visible',
+  'update-fretboard-visible',
+  'update-chord-menu-visible',
+  'update-timeline-visible',
+  'update-transport-visible',
+  'update-library-panel-visible',
+  'open-library',
+  'toggle-theme',
+])
 
 const store = useNotesStore()
 const transport = useTransportStore()
@@ -106,6 +134,8 @@ const {
   activeString,
   activeTool,
   stringsCollapsed,
+  showChordShapePanel,
+  handPositionVisible,
   simGroupMode,
   loopEnabled,
   loopStartBlock,
@@ -476,6 +506,22 @@ function handleRedo() {
   const ok = store.redo()
   if (ok) syncSelectionToExistingNotes()
 }
+
+watch(
+  () => Number(props.externalUndoTick || 0),
+  (next, prev) => {
+    if (next === prev) return
+    handleUndo()
+  },
+)
+
+watch(
+  () => Number(props.externalRedoTick || 0),
+  (next, prev) => {
+    if (next === prev) return
+    handleRedo()
+  },
+)
 
 function isEditableTarget(target) {
   const el = target

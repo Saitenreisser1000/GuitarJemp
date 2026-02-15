@@ -201,7 +201,7 @@ const barLinePositionsPct = computed(() => {
     out.push((blockPos / total) * 100)
   }
 
-  if (Boolean(props.pickupEnabled)) {
+  if (props.pickupEnabled) {
     const pickupBlocks = pickupBeatsClamped.value * blocksPerBeat.value
     let pos = pickupBlocks
     pushPct(pos)
