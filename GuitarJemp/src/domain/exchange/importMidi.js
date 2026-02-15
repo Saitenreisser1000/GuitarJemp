@@ -109,12 +109,12 @@ function parseTrack(bytes, start, end) {
 
 export function parseMidiToClip(arrayBuffer, { openMidi = [], maxFret = 24 } = {}) {
   const bytes = new Uint8Array(arrayBuffer)
-  if (bytes.length < 14) throw new Error('Ungültige MIDI-Datei.')
+  if (bytes.length < 14) throw new Error('Invalid MIDI file.')
   const headerId = String.fromCharCode(...bytes.slice(0, 4))
-  if (headerId !== 'MThd') throw new Error('Ungültige MIDI-Datei.')
+  if (headerId !== 'MThd') throw new Error('Invalid MIDI file.')
 
   const division = readU16(bytes, 12)
-  if (division & 0x8000) throw new Error('SMPTE-MIDI wird nicht unterstützt.')
+  if (division & 0x8000) throw new Error('SMPTE MIDI is not supported.')
   const ppq = Math.max(1, division)
 
   let pos = 8 + readU32(bytes, 4)

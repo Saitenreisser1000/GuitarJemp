@@ -2,11 +2,11 @@
   <div class="controls">
     <template v-if="showSetup">
       <div class="control-group">
-        <label for="strings">Saiten:</label>
+        <label for="strings">Strings:</label>
         <input id="strings" v-model.number="numStringsLocal" type="number" min="1" max="12" />
       </div>
       <div class="control-group">
-        <label for="frets">Bünde:</label>
+        <label for="frets">Frets:</label>
         <input id="frets" v-model.number="numFretsLocal" type="number" min="1" max="24" />
       </div>
     </template>

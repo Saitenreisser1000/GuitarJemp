@@ -20,6 +20,59 @@ create table if not exists public.profile_directory (
   created_at timestamptz not null default now()
 );
 
+-- Legacy-Daten vorbereiten: fehlende Nicknames aus Metadata übernehmen, sonst neutraler Fallback.
+update public.profiles p
+set display_name = coalesce(
+  nullif(trim(u.raw_user_meta_data ->> 'display_name'), ''),
+  'Player-' || substr(p.id::text, 1, 8)
+)
+from auth.users u
+where u.id = p.id
+  and (p.display_name is null or length(trim(p.display_name)) = 0);
+
+update public.profile_directory d
+set display_name = coalesce(
+  nullif(trim(p.display_name), ''),
+  nullif(trim(u.raw_user_meta_data ->> 'display_name'), ''),
+  'Player-' || substr(d.id::text, 1, 8)
+)
+from auth.users u
+left join public.profiles p on p.id = u.id
+where u.id = d.id
+  and (d.display_name is null or length(trim(d.display_name)) = 0);
+
+-- Nickname serverseitig erzwingen (nicht leer, begrenzte Länge).
+alter table public.profiles
+  alter column display_name set not null;
+
+alter table public.profile_directory
+  alter column display_name set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'profiles_display_name_length_chk'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_display_name_length_chk
+      check (length(trim(display_name)) between 2 and 40);
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'profile_directory_display_name_length_chk'
+      and conrelid = 'public.profile_directory'::regclass
+  ) then
+    alter table public.profile_directory
+      add constraint profile_directory_display_name_length_chk
+      check (length(trim(display_name)) between 2 and 40);
+  end if;
+end $$;
+
 alter table public.profiles enable row level security;
 alter table public.profile_directory enable row level security;
 
@@ -27,13 +80,20 @@ alter table public.profile_directory enable row level security;
 -- Das ist wichtig, wenn Email-Confirmation aktiv ist (dann gibt es beim Signup evtl. noch keine Session).
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  v_display_name text;
 begin
+  v_display_name := coalesce(
+    nullif(trim(new.raw_user_meta_data ->> 'display_name'), ''),
+    'Player-' || substr(new.id::text, 1, 8)
+  );
+
   insert into public.profiles (id, display_name, role)
-  values (new.id, null, 'student')
+  values (new.id, v_display_name, 'student')
   on conflict (id) do nothing;
 
   insert into public.profile_directory (id, display_name)
-  values (new.id, null)
+  values (new.id, v_display_name)
   on conflict (id) do nothing;
 
   return new;
@@ -69,24 +129,6 @@ drop policy if exists "profiles_update_own" on public.profiles;
 drop policy if exists "profile_directory_select_authenticated" on public.profile_directory;
 drop policy if exists "profile_directory_upsert_own" on public.profile_directory;
 drop policy if exists "profile_directory_update_own" on public.profile_directory;
-
-drop policy if exists "connections_select_participants" on public.connections;
-drop policy if exists "connections_insert_requester" on public.connections;
-drop policy if exists "connections_update_participants" on public.connections;
-
-drop policy if exists "library_items_owner_select" on public.library_items;
-drop policy if exists "library_items_owner_insert" on public.library_items;
-drop policy if exists "library_items_owner_update" on public.library_items;
-drop policy if exists "library_items_owner_delete" on public.library_items;
-drop policy if exists "library_items_public_select" on public.library_items;
-drop policy if exists "library_items_connections_select" on public.library_items;
-drop policy if exists "library_items_shared_select" on public.library_items;
-
-drop policy if exists "library_item_shares_owner_insert" on public.library_item_shares;
-drop policy if exists "library_item_shares_owner_delete" on public.library_item_shares;
-drop policy if exists "library_item_shares_participants_select" on public.library_item_shares;
-drop policy if exists "library_item_shares_select_recipient" on public.library_item_shares;
-drop policy if exists "library_item_shares_select_owner" on public.library_item_shares;
 
 -- Nutzer darf eigenes Profil lesen/updaten
 create policy "profiles_select_own"
@@ -138,6 +180,11 @@ create index if not exists connections_addressee_idx on public.connections(addre
 
 alter table public.connections enable row level security;
 
+-- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
+drop policy if exists "connections_select_participants" on public.connections;
+drop policy if exists "connections_insert_requester" on public.connections;
+drop policy if exists "connections_update_participants" on public.connections;
+
 create policy "connections_select_participants"
   on public.connections for select
   using (auth.uid() = requester_id or auth.uid() = addressee_id);
@@ -178,6 +225,15 @@ create index if not exists library_items_owner_idx on public.library_items(owner
 create index if not exists library_items_visibility_idx on public.library_items(visibility);
 
 alter table public.library_items enable row level security;
+
+-- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
+drop policy if exists "library_items_owner_select" on public.library_items;
+drop policy if exists "library_items_owner_insert" on public.library_items;
+drop policy if exists "library_items_owner_update" on public.library_items;
+drop policy if exists "library_items_owner_delete" on public.library_items;
+drop policy if exists "library_items_public_select" on public.library_items;
+drop policy if exists "library_items_connections_select" on public.library_items;
+drop policy if exists "library_items_shared_select" on public.library_items;
 
 -- updated_at automatisch
 create or replace function public.set_updated_at()
@@ -242,6 +298,13 @@ create index if not exists library_item_shares_user_idx on public.library_item_s
 
 alter table public.library_item_shares enable row level security;
 
+-- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
+drop policy if exists "library_item_shares_owner_insert" on public.library_item_shares;
+drop policy if exists "library_item_shares_owner_delete" on public.library_item_shares;
+drop policy if exists "library_item_shares_participants_select" on public.library_item_shares;
+drop policy if exists "library_item_shares_select_recipient" on public.library_item_shares;
+drop policy if exists "library_item_shares_select_owner" on public.library_item_shares;
+
 -- Helper: Ownership-Check ohne RLS-Rekursion.
 -- (Verhindert "infinite recursion detected in policy" durch gegenseitige Policy-Queries)
 create or replace function public.is_library_item_owner(p_library_item_id uuid)
@@ -272,8 +335,6 @@ create policy "library_item_shares_owner_delete"
     public.is_library_item_owner(library_item_id)
   );
 
-drop policy if exists "library_item_shares_participants_select" on public.library_item_shares;
-
 create policy "library_item_shares_select_recipient"
   on public.library_item_shares for select
   using (auth.uid() = shared_with_id);
@@ -291,3 +352,32 @@ create policy "library_items_shared_select"
       where s.library_item_id = public.library_items.id and s.shared_with_id = auth.uid()
     )
   );
+
+-- 5) One-time helper: einzigen bestehenden User auf festen Nickname setzen.
+-- Nur verwenden, wenn in der Instanz wirklich genau ein User existiert.
+do $$
+declare
+  v_user_id uuid;
+begin
+  select id into v_user_id
+  from auth.users
+  order by created_at asc
+  limit 1;
+
+  if v_user_id is null then
+    raise notice 'No user found in auth.users.';
+    return;
+  end if;
+
+  update auth.users
+  set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('display_name', 'saitenreisser')
+  where id = v_user_id;
+
+  update public.profiles
+  set display_name = 'saitenreisser'
+  where id = v_user_id;
+
+  update public.profile_directory
+  set display_name = 'saitenreisser'
+  where id = v_user_id;
+end $$;

@@ -6,6 +6,8 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
+import { useI18n } from '@/i18n'
+import { supabase, isSupabaseConfigured } from '@/infra/supabase/client'
 
 const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -32,6 +34,8 @@ const notes = useNotesStore()
 const instrument = useInstrumentStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const { t } = useI18n()
+const ownerNamesById = ref({})
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -57,8 +61,8 @@ const sharedItems = computed(() => {
     const uid = userId.value
     if (!uid) return []
 
-    // Heuristik: Items, die nicht dir gehören und nicht public/connections sind,
-    // kommen typischerweise aus expliziten Shares.
+    // Heuristic: items not owned by you and not public/connections
+    // typically come from explicit shares.
     return (library.items ?? []).filter((i) => i?.owner_id !== uid && i?.visibility === 'private')
 })
 
@@ -165,96 +169,169 @@ watch(
     async (v) => {
         if (!v) return
         await library.refresh()
+        await refreshOwnerNames()
     },
 )
+
+watch(
+    () => library.items,
+    async () => {
+        if (!open.value) return
+        await refreshOwnerNames()
+    },
+    { deep: true },
+)
+
+async function refreshOwnerNames() {
+    ownerNamesById.value = {}
+    if (!isSupabaseConfigured || !supabase) return
+    const ids = [...new Set((library.items ?? []).map((i) => String(i?.owner_id ?? '')).filter(Boolean))]
+    if (!ids.length) return
+
+    const { data, error } = await supabase
+        .from('profile_directory')
+        .select('id, display_name')
+        .in('id', ids)
+
+    if (error) return
+
+    const next = {}
+    for (const row of Array.isArray(data) ? data : []) {
+        const id = String(row?.id ?? '')
+        const name = String(row?.display_name ?? '').trim()
+        if (!id || !name) continue
+        next[id] = name
+    }
+    ownerNamesById.value = next
+}
+
+function ownerDisplayNameFor(item) {
+    const ownerId = String(item?.owner_id ?? '')
+    if (!ownerId) return '—'
+    const fromMap = String(ownerNamesById.value?.[ownerId] ?? '').trim()
+    if (fromMap) return fromMap
+
+    const meId = String(auth.user?.id ?? '')
+    if (meId && ownerId === meId) {
+        const meName = String(auth.profile?.display_name ?? auth.user?.user_metadata?.display_name ?? '').trim()
+        if (meName) return meName
+    }
+    return '—'
+}
 </script>
 
 <template>
-    <v-navigation-drawer v-model="open" location="right" temporary width="860">
-        <div class="d-flex flex-column h-100">
-            <div class="d-flex align-center justify-space-between px-4 py-3">
-                <div class="text-h6">Cloud Library</div>
+    <v-navigation-drawer v-model="open" location="right" temporary width="680" class="library-drawer">
+        <div class="d-flex flex-column h-100 library-shell">
+            <div class="d-flex align-center justify-space-between px-3 py-2">
+                <div class="text-h6">{{ t('libraryDialog.title') }}</div>
                 <v-btn icon="mdi-close" variant="text" @click="open = false" />
             </div>
 
             <v-divider />
 
-            <div class="pa-4 flex-grow-1" style="overflow: auto">
-                <v-alert v-if="!auth.isSignedIn" type="info" variant="tonal" class="mb-4">
-                    Bitte einloggen, um Songs/Übungen zu speichern und zu teilen.
+            <div class="pa-3 flex-grow-1 library-content">
+                <v-alert v-if="!auth.isSignedIn" type="info" variant="tonal" class="mb-2" density="compact">
+                    {{ t('libraryDialog.signInHint') }}
                 </v-alert>
 
-                <v-alert v-if="library.error" type="error" variant="tonal" class="mb-4">
+                <v-alert v-if="library.error" type="error" variant="tonal" class="mb-2" density="compact">
                     {{ String(library.error?.message ?? library.error) }}
                 </v-alert>
 
                 <template v-if="auth.isSignedIn">
-                    <div class="d-flex flex-wrap ga-3 align-start mb-4">
+                    <div class="d-flex flex-wrap ga-2 align-start mb-2">
                         <v-select v-model="kind" :items="[
-                            { title: 'Song', value: 'song' },
-                            { title: 'Übung', value: 'exercise' },
-                        ]" label="Typ" style="min-width: 160px" density="compact" />
+                            { title: t('libraryDialog.song'), value: 'song' },
+                            { title: t('libraryDialog.exercise'), value: 'exercise' },
+                        ]" :label="t('libraryDialog.type')" style="min-width: 130px" density="compact" hide-details />
 
-                        <v-text-field v-model="title" label="Titel" density="compact" style="min-width: 240px" />
+                        <v-text-field v-model="title" :label="t('libraryDialog.titleLabel')" density="compact" style="min-width: 180px" hide-details />
 
                         <v-select v-model="visibility" :items="[
-                            { title: 'Privat', value: 'private' },
-                            { title: 'Connections', value: 'connections' },
-                            { title: 'Öffentlich', value: 'public' },
-                        ]" label="Sichtbarkeit" style="min-width: 180px" density="compact" />
+                            { title: t('libraryDialog.private'), value: 'private' },
+                            { title: t('libraryDialog.connections'), value: 'connections' },
+                            { title: t('libraryDialog.public'), value: 'public' },
+                        ]" :label="t('libraryDialog.visibility')" style="min-width: 150px" density="compact" hide-details />
 
-                        <v-text-field v-model="category" label="Kategorie (optional)" density="compact"
-                            style="min-width: 200px" />
+                        <v-text-field v-model="category" :label="t('libraryDialog.categoryOptional')" density="compact"
+                            style="min-width: 150px" hide-details />
 
-                        <v-btn color="primary" @click="onSave">Speichern</v-btn>
+                        <v-btn color="primary" size="small" @click="onSave">{{ t('libraryDialog.save') }}</v-btn>
                     </div>
 
-                    <v-divider class="mb-4" />
+                    <v-divider class="mb-2" />
 
-                    <div class="d-flex align-center justify-space-between mb-2">
+                    <div class="d-flex align-center justify-space-between mb-1">
                         <v-tabs v-model="listTab" density="compact">
-                            <v-tab value="mine">Meine</v-tab>
-                            <v-tab value="connections">Connections</v-tab>
-                            <v-tab value="public">Public</v-tab>
-                            <v-tab value="shared">Geteilt</v-tab>
+                            <v-tab value="mine" class="px-2">{{ t('libraryDialog.mine') }}</v-tab>
+                            <v-tab value="connections" class="px-2">{{ t('libraryDialog.connections') }}</v-tab>
+                            <v-tab value="public" class="px-2">{{ t('libraryDialog.public') }}</v-tab>
+                            <v-tab value="shared" class="px-2">{{ t('libraryDialog.shared') }}</v-tab>
                         </v-tabs>
-                        <v-btn variant="tonal" @click="library.refresh">Aktualisieren</v-btn>
+                        <v-btn variant="tonal" size="small" @click="library.refresh">{{ t('libraryDialog.refresh') }}</v-btn>
                     </div>
 
-                    <v-table density="compact">
+                    <v-table density="compact" class="library-table">
                         <thead>
                             <tr>
-                                <th>Titel</th>
-                                <th>Typ</th>
-                                <th>Sichtbarkeit</th>
-                                <th>Kategorie</th>
-                                <th>Owner</th>
+                                <th>{{ t('libraryDialog.titleLabel') }}</th>
+                                <th>{{ t('libraryDialog.type') }}</th>
+                                <th>{{ t('libraryDialog.visibility') }}</th>
+                                <th>{{ t('libraryDialog.category') }}</th>
+                                <th>{{ t('libraryDialog.owner') }}</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="item in visibleItems" :key="item.id">
-                                <td>{{ item.title }}</td>
+                                <td class="library-ellipsis">{{ item.title }}</td>
                                 <td>{{ item.kind }}</td>
                                 <td>{{ item.visibility }}</td>
-                                <td>{{ item.category || '—' }}</td>
-                                <td class="text-medium-emphasis">{{ item.owner_id }}</td>
+                                <td class="library-ellipsis">{{ item.category || '—' }}</td>
+                                <td class="text-medium-emphasis library-ellipsis">{{ ownerDisplayNameFor(item) }}</td>
                                 <td class="text-right">
-                                    <v-btn size="small" variant="tonal" @click="onLoad(item)">Laden</v-btn>
+                                    <v-btn size="x-small" variant="tonal" @click="onLoad(item)">{{ t('libraryDialog.load') }}</v-btn>
                                 </td>
                             </tr>
                             <tr v-if="visibleItems.length === 0">
-                                <td colspan="6" class="text-medium-emphasis">Keine Items gefunden.</td>
+                                <td colspan="6" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
                             </tr>
                         </tbody>
                     </v-table>
 
-                    <v-alert type="info" variant="tonal" class="mt-4">
-                        Hinweis: "Connections" zeigt Items mit Sichtbarkeit "connections" (nach akzeptierter
-                        Freundschaft). "Geteilt" sind Items, die via Share-Tabelle sichtbar sind.
+                    <v-alert type="info" variant="tonal" class="mt-2" density="compact">
+                        {{ t('libraryDialog.connectionsNote') }}
                     </v-alert>
                 </template>
             </div>
         </div>
     </v-navigation-drawer>
 </template>
+
+<style scoped>
+.library-shell {
+    min-width: 0;
+}
+
+.library-content {
+    overflow: auto;
+}
+
+.library-table {
+    table-layout: fixed;
+}
+
+.library-table :deep(th),
+.library-table :deep(td) {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+}
+
+.library-ellipsis {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>

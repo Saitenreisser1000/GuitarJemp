@@ -38,6 +38,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     profile.value = data ?? null
+
+    // Backfill display_name from auth metadata when profile row exists but is missing a name.
+    const metaName = String(user.value?.user_metadata?.display_name ?? '').trim()
+    if (profile.value && !String(profile.value.display_name ?? '').trim() && metaName) {
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ display_name: metaName })
+        .eq('id', user.value.id)
+
+      if (updateErr && !isMissingTableError(updateErr)) {
+        error.value = updateErr
+        return
+      }
+      profile.value = { ...profile.value, display_name: metaName }
+    }
   }
 
   async function init() {
@@ -80,7 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function signIn(email, password) {
     error.value = null
     if (!supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
       return
     }
 
@@ -101,13 +116,22 @@ export const useAuthStore = defineStore('auth', () => {
   async function signUp({ email, password, displayName } = {}) {
     error.value = null
     if (!supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
+      return
+    }
+
+    const nickname = String(displayName ?? '').trim()
+    if (!nickname) {
+      error.value = new Error('Nickname is required.')
       return
     }
 
     const { data, error: err } = await supabase.auth.signUp({
       email: String(email ?? ''),
       password: String(password ?? ''),
+      options: {
+        data: { display_name: nickname },
+      },
     })
 
     if (err) {
@@ -117,12 +141,12 @@ export const useAuthStore = defineStore('auth', () => {
 
     session.value = data?.session ?? null
 
-    // Profile wird serverseitig per Trigger angelegt.
-    // displayName setzen wir nur, wenn es bereits eine Session gibt (ohne Confirmation-Flow).
-    if (session.value && displayName) {
+    // Profile is created server-side by trigger.
+    // We set displayName only when a session already exists (without confirmation flow).
+    if (session.value) {
       const { error: updateErr } = await supabase
         .from('profiles')
-        .update({ display_name: String(displayName) })
+        .update({ display_name: nickname })
         .eq('id', session.value.user.id)
 
       if (updateErr && !isMissingTableError(updateErr)) {
@@ -146,7 +170,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function requestPasswordReset(email) {
     error.value = null
     if (!supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
       return
     }
 
@@ -160,7 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function updatePassword(newPassword) {
     error.value = null
     if (!supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
       return
     }
 

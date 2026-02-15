@@ -2,6 +2,7 @@
 import FretboardEdit from '@/components/Fretboards/FretboardEdit/FretboardEdit.vue'
 import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
 import Timeline from '@/components/Timeline/Timeline.vue'
+import ChordMenu from '@/components/Timeline/controls/chordMenu.vue'
 import AuthDialog from '@/components/Cloud/AuthDialog.vue'
 import LibraryDialog from '@/components/Cloud/LibraryDialog.vue'
 import ConnectionsDialog from '@/components/Cloud/ConnectionsDialog.vue'
@@ -22,6 +23,7 @@ import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { parseMidiToClip } from '@/domain/exchange/importMidi'
 import { getTuning } from '@/domain/music/tunings'
+import { useI18n } from '@/i18n/useI18n'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -30,6 +32,7 @@ const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const library = useLibraryStore()
 const handPositions = useHandPositionsStore()
+const { locale, languages, setLocale, t } = useI18n()
 
 const authOpen = ref(false)
 const libraryOpen = ref(false)
@@ -175,7 +178,7 @@ const canReset = computed(() => {
 
 function openSaveAsNew() {
   const base = String(library.currentItem?.title ?? '').trim()
-  saveAsNewTitle.value = base ? `${base} (copy)` : 'Neue Aufnahme'
+  saveAsNewTitle.value = base ? `${base} (copy)` : t('app.newRecording')
   saveAsNewVisibility.value = 'private'
   saveAsNewOpen.value = true
 }
@@ -202,7 +205,7 @@ async function onSaveAsNewConfirm() {
 
     if (!created) {
       saveError.value = String(
-        library.error?.message ?? library.error ?? 'Speichern fehlgeschlagen.',
+        library.error?.message ?? library.error ?? t('app.saveFailed'),
       )
       return
     }
@@ -216,7 +219,7 @@ async function onSaveAsNewConfirm() {
 function onResetChanges() {
   if (!canReset.value) return
   const ok = window.confirm(
-    'Alle Änderungen verwerfen und auf den zuletzt geladenen Stand zurücksetzen?',
+    t('app.discardConfirm'),
   )
   if (!ok) return
   saveError.value = ''
@@ -232,7 +235,7 @@ async function onSaveCloud() {
     const updated = await library.updateCurrentItemContent(makeSnapshot())
     if (!updated) {
       saveError.value = String(
-        library.error?.message ?? library.error ?? 'Speichern fehlgeschlagen.',
+        library.error?.message ?? library.error ?? t('app.saveFailed'),
       )
     }
   } finally {
@@ -286,7 +289,7 @@ function maxNoteEndBlock(noteList) {
 }
 
 function applyImportedClip(clip, mode = 'replace') {
-  if (!clip || !Array.isArray(clip.notes)) throw new Error('Import enthält keine Noten.')
+  if (!clip || !Array.isArray(clip.notes)) throw new Error(t('app.importNoNotes'))
   const importNotes = clip.notes
   const appendMode = mode === 'append'
 
@@ -324,9 +327,9 @@ function applyImportedClip(clip, mode = 'replace') {
 }
 
 function showImportError(err, fileName = '') {
-  const message = String(err?.message || err || 'Import fehlgeschlagen.')
+  const message = String(err?.message || err || t('app.importFailed'))
   const details = String(err?.stack || err?.cause || '')
-  importErrorTitle.value = fileName ? `${message}\nDatei: ${fileName}` : message
+  importErrorTitle.value = fileName ? `${message}\n${t('app.fileLabel')}: ${fileName}` : message
   importErrorDetails.value = details
   importErrorOpen.value = true
 }
@@ -373,57 +376,32 @@ async function onImportFileChange(e) {
         <v-spacer />
 
         <div class="d-flex flex-wrap align-center ga-2">
-          <v-menu location="bottom end">
-            <template #activator="{ props: menuProps }">
-              <v-btn v-bind="menuProps" size="small" color="secondary" variant="flat" prepend-icon="mdi-content-save">
-                Save/Load
-              </v-btn>
-            </template>
-
-            <v-list density="compact" min-width="220">
-              <v-list-item prepend-icon="mdi-content-save" title="Save" :disabled="!canSave || saveBusy"
-                @click="onSaveCloud" />
-              <v-list-item prepend-icon="mdi-content-save-plus" title="Save as new" :disabled="!canSaveAsNew"
-                @click="openSaveAsNew" />
-              <v-list-item prepend-icon="mdi-restore" title="Reset" :disabled="!canReset" @click="onResetChanges" />
-              <v-divider class="my-1" />
-              <v-list-item prepend-icon="mdi-file-music-outline" title="Export MusicXML" :disabled="!hasNotes"
-                @click="onExportMusicXml" />
-              <v-list-item prepend-icon="mdi-file-music" title="Export MIDI" :disabled="!hasNotes"
-                @click="onExportMidi" />
-              <v-divider class="my-1" />
-              <v-list-item prepend-icon="mdi-file-replace-outline" title="Import (ersetzen)"
-                @click="openImportPicker('replace')" />
-              <v-list-item prepend-icon="mdi-file-plus-outline" title="Import (anhängen)"
-                @click="openImportPicker('append')" />
-            </v-list>
-          </v-menu>
           <input ref="importFileInput" type="file" accept=".musicxml,.xml,.mid,.midi"
             style="display: none" @change="onImportFileChange" />
 
           <v-chip v-if="!isSupabaseConfigured" size="small" color="warning" variant="tonal">
-            Cloud: nicht konfiguriert
+            {{ t('app.cloudNotConfigured') }}
           </v-chip>
           <v-chip v-else-if="auth.isSignedIn" size="small" color="success" variant="tonal">
-            {{ auth.user?.email }}
+            {{ auth.profile?.display_name || auth.user?.user_metadata?.display_name || 'User' }}
           </v-chip>
 
           <v-menu location="bottom end">
             <template #activator="{ props: menuProps }">
               <v-btn v-bind="menuProps" size="small" variant="tonal" prepend-icon="mdi-account">
-                Account
+                {{ t('app.account') }}
               </v-btn>
             </template>
 
             <v-list density="compact" min-width="180">
               <v-list-item
                 :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
-                :title="auth.isSignedIn ? 'Logout' : 'Login'"
+                :title="auth.isSignedIn ? t('app.logout') : t('app.login')"
                 @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
               />
               <v-list-item
                 prepend-icon="mdi-account-multiple"
-                title="Freunde"
+                :title="t('app.friends')"
                 :disabled="!auth.isSignedIn"
                 @click="connectionsOpen = true"
               />
@@ -431,10 +409,57 @@ async function onImportFileChange(e) {
           </v-menu>
         </div>
       </v-app-bar>
+      <div class="app-menu-bar">
+        <v-menu location="bottom start">
+          <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">
+              {{ t('menu.file') }}
+              </v-btn>
+          </template>
+
+          <v-list density="compact" min-width="220">
+            <v-list-item prepend-icon="mdi-content-save" :title="t('app.save')" :disabled="!canSave || saveBusy"
+              @click="onSaveCloud" />
+            <v-list-item prepend-icon="mdi-content-save-plus" :title="t('app.saveAsNew')" :disabled="!canSaveAsNew"
+              @click="openSaveAsNew" />
+            <v-list-item prepend-icon="mdi-restore" :title="t('app.reset')" :disabled="!canReset" @click="onResetChanges" />
+            <v-divider class="my-1" />
+            <v-list-item prepend-icon="mdi-file-music-outline" :title="t('app.exportMusicXml')" :disabled="!hasNotes"
+              @click="onExportMusicXml" />
+            <v-list-item prepend-icon="mdi-file-music" :title="t('app.exportMidi')" :disabled="!hasNotes"
+              @click="onExportMidi" />
+            <v-divider class="my-1" />
+            <v-list-item prepend-icon="mdi-file-replace-outline" :title="t('app.importReplace')"
+              @click="openImportPicker('replace')" />
+            <v-list-item prepend-icon="mdi-file-plus-outline" :title="t('app.importAppend')"
+              @click="openImportPicker('append')" />
+          </v-list>
+        </v-menu>
+        <v-btn variant="text" size="small" class="app-menu-btn">{{ t('menu.edit') }}</v-btn>
+        <v-btn variant="text" size="small" class="app-menu-btn">{{ t('menu.view') }}</v-btn>
+        <v-btn variant="text" size="small" class="app-menu-btn">{{ t('menu.window') }}</v-btn>
+        <v-menu location="bottom start">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">
+              {{ t('menu.language') }}
+            </v-btn>
+          </template>
+          <v-list density="compact" min-width="180">
+            <v-list-item
+              v-for="lang in languages"
+              :key="lang.code"
+              :title="lang.label"
+              :prepend-icon="locale === lang.code ? 'mdi-check' : undefined"
+              @click="setLocale(lang.code)"
+            />
+          </v-list>
+        </v-menu>
+        <v-btn variant="text" size="small" class="app-menu-btn">{{ t('menu.help') }}</v-btn>
+      </div>
 
       <LibraryDialog v-model="libraryOpen" />
 
-      <v-main>
+      <v-main class="app-main-with-menubar">
         <div class="app-shell">
           <v-container fluid class="app-content with-main-menu py-3">
             <v-row class="mt-2" align="start" justify="center" dense>
@@ -449,26 +474,26 @@ async function onImportFileChange(e) {
               <v-dialog v-model="saveAsNewOpen" max-width="520">
                 <v-card rounded="lg">
                   <v-card-title class="d-flex align-center justify-space-between">
-                    <span>Save as new</span>
+                    <span>{{ t('app.saveAsNew') }}</span>
                     <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
                   </v-card-title>
 
                   <v-card-text>
-                    <v-text-field v-model="saveAsNewTitle" label="Titel" density="compact" variant="outlined"
+                    <v-text-field v-model="saveAsNewTitle" :label="t('app.title')" density="compact" variant="outlined"
                       autofocus />
 
                     <v-select v-model="saveAsNewVisibility" :items="[
-                      { title: 'Privat', value: 'private' },
-                      { title: 'Connections', value: 'connections' },
-                      { title: 'Öffentlich', value: 'public' },
-                    ]" label="Sichtbarkeit" density="compact" variant="outlined" />
+                      { title: t('app.private'), value: 'private' },
+                      { title: t('app.connections'), value: 'connections' },
+                      { title: t('app.public'), value: 'public' },
+                    ]" :label="t('app.visibility')" density="compact" variant="outlined" />
                   </v-card-text>
 
                   <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="saveAsNewOpen = false">Abbrechen</v-btn>
+                    <v-btn variant="text" @click="saveAsNewOpen = false">{{ t('app.cancel') }}</v-btn>
                     <v-btn color="primary" variant="flat" :disabled="!canSaveAsNew || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy
                       " @click="onSaveAsNewConfirm">
-                      Speichern
+                      {{ t('app.save') }}
                     </v-btn>
                   </v-card-actions>
                 </v-card>
@@ -477,7 +502,7 @@ async function onImportFileChange(e) {
               <v-dialog v-model="importErrorOpen" max-width="700">
                 <v-card rounded="lg">
                   <v-card-title class="d-flex align-center justify-space-between">
-                    <span>Import fehlgeschlagen</span>
+                    <span>{{ t('app.importFailed') }}</span>
                     <v-btn icon="mdi-close" variant="text" @click="importErrorOpen = false" />
                   </v-card-title>
                   <v-card-text>
@@ -487,7 +512,7 @@ async function onImportFileChange(e) {
                     </v-sheet>
                   </v-card-text>
                   <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="importErrorOpen = false">Schließen</v-btn>
+                    <v-btn variant="text" @click="importErrorOpen = false">{{ t('app.close') }}</v-btn>
                   </v-card-actions>
                 </v-card>
               </v-dialog>
@@ -501,6 +526,7 @@ async function onImportFileChange(e) {
                   @toggle-theme="toggleTheme"
                   @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
                   @update-frets="(n) => (numFrets = n)" />
+                <ChordMenu class="mt-3" />
               </v-col>
 
               <v-col v-if="activeNotesVisible" cols="12" md="3" class="active-tones-col">
@@ -534,6 +560,35 @@ async function onImportFileChange(e) {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--color-primary-2);
+}
+
+.app-menu-bar {
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.app-menu-btn {
+  min-width: auto;
+  height: 24px;
+  padding-inline: 8px;
+  font-size: 0.74rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.app-main-with-menubar {
+  padding-top: 30px;
 }
 
 .app-shell {

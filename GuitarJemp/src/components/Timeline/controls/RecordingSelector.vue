@@ -1,48 +1,48 @@
 <template>
     <v-card class="pa-3" variant="flat" border tabindex="0" @keydown="onKeyDown">
         <div class="d-flex align-center ga-3 flex-wrap">
-            <v-text-field v-model="search" label="Suche (Titel/Kategorie)" density="compact" variant="outlined"
+            <v-text-field v-model="search" :label="t('recordingSelector.search')" density="compact" variant="outlined"
                 clearable hide-details class="flex-grow-1" style="min-width: 260px" :disabled="!canUse" />
 
-            <v-select v-model="visibilityFilter" :items="visibilityItems" label="Sichtbarkeit" density="compact"
+            <v-select v-model="visibilityFilter" :items="visibilityItems" :label="t('recordingSelector.visibility')" density="compact"
                 variant="outlined" hide-details style="width: 170px" :disabled="!canUse" />
 
-            <v-select v-model="kindFilter" :items="kindItems" label="Typ" density="compact" variant="outlined"
+            <v-select v-model="kindFilter" :items="kindItems" :label="t('recordingSelector.type')" density="compact" variant="outlined"
                 hide-details style="width: 160px" :disabled="!canUse" />
 
             <v-btn variant="tonal" :disabled="!canUse || library.loading" @click="library.refresh">
-                Aktualisieren
+                {{ t('recordingSelector.refresh') }}
             </v-btn>
 
             <v-btn color="primary" variant="flat" :disabled="!canUse || !highlightedId" @click="loadHighlighted">
-                Laden
+                {{ t('recordingSelector.load') }}
             </v-btn>
         </div>
 
         <div v-if="canUse" class="d-flex align-center justify-space-between mt-3">
             <div class="d-flex align-center ga-2">
-                <v-chip size="small" variant="tonal" color="primary">{{ filteredCount }} Items</v-chip>
+                <v-chip size="small" variant="tonal" color="primary">{{ t('recordingSelector.items', { count: filteredCount }) }}</v-chip>
                 <v-chip size="small" variant="tonal" color="secondary">
-                    Seite {{ page + 1 }} / {{ Math.max(1, pageCount) }}
+                    {{ t('recordingSelector.page', { current: page + 1, total: Math.max(1, pageCount) }) }}
                 </v-chip>
             </div>
 
             <div class="d-flex align-center ga-1">
-                <v-btn icon variant="text" :disabled="!hasPrevPage" :title="'Vorherige Seite (←)'" @click="goPrevPage">
+                <v-btn icon variant="text" :disabled="!hasPrevPage" :title="t('recordingSelector.prevPage')" @click="goPrevPage">
                     <v-icon icon="mdi-chevron-left" />
                 </v-btn>
-                <v-btn icon variant="text" :disabled="!hasNextPage" :title="'Nächste Seite (→)'" @click="goNextPage">
+                <v-btn icon variant="text" :disabled="!hasNextPage" :title="t('recordingSelector.nextPage')" @click="goNextPage">
                     <v-icon icon="mdi-chevron-right" />
                 </v-btn>
             </div>
         </div>
 
         <v-alert v-if="!isSupabaseConfigured" type="warning" variant="tonal" class="mt-3">
-            Cloud ist nicht konfiguriert.
+            {{ t('recordingSelector.cloudNotConfigured') }}
         </v-alert>
 
         <v-alert v-else-if="auth.isSignedIn === false" type="info" variant="tonal" class="mt-3">
-            Bitte einloggen, um Aufnahmen aus der Cloud zu laden.
+            {{ t('recordingSelector.signInHint') }}
         </v-alert>
 
         <v-alert v-else-if="library.error" type="error" variant="tonal" class="mt-3">
@@ -51,14 +51,14 @@
 
         <v-list v-if="canUse" class="mt-3" density="compact" lines="two" border>
             <v-list-item v-for="item in pagedItems" :key="item.id" :active="item.id === highlightedId"
-                :title="String(item.title ?? 'Ohne Titel')" :subtitle="subtitleFor(item)" @click="onClickItem(item)" />
+                :title="String(item.title ?? t('recordingSelector.untitled'))" :subtitle="subtitleFor(item)" @click="onClickItem(item)" />
 
-            <v-list-item v-if="pagedItems.length === 0" title="Keine Items gefunden."
-                subtitle="Passe Suche/Filter an." />
+            <v-list-item v-if="pagedItems.length === 0" :title="t('recordingSelector.noItems')"
+                :subtitle="t('recordingSelector.adjustFilter')" />
         </v-list>
 
         <div v-if="canUse" class="text-medium-emphasis mt-2" style="font-size: 12px">
-            Tipp: Pfeiltasten ↑/↓ wählen, ←/→ blättern, Enter lädt.
+            {{ t('recordingSelector.tip') }}
         </div>
     </v-card>
 </template>
@@ -73,6 +73,7 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { isSupabaseConfigured } from '@/infra/supabase/client'
+import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'RecordingSelector' })
 
@@ -84,6 +85,7 @@ const instrument = useInstrumentStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const handPositions = useHandPositionsStore()
+const { t } = useI18n()
 
 const search = ref('')
 const kindFilter = ref('all')
@@ -94,16 +96,16 @@ const PAGE_SIZE = 20
 
 const highlightedId = ref(null)
 
-const kindItems = [
-    { title: 'Alle', value: 'all' },
-    { title: 'Song', value: 'song' },
-    { title: 'Übung', value: 'exercise' },
-]
+const kindItems = computed(() => [
+    { title: t('recordingSelector.all'), value: 'all' },
+    { title: t('recordingSelector.song'), value: 'song' },
+    { title: t('recordingSelector.exercise'), value: 'exercise' },
+])
 
-const visibilityItems = [
-    { title: 'Public', value: 'public' },
-    { title: 'Alle', value: 'all' },
-]
+const visibilityItems = computed(() => [
+    { title: t('recordingSelector.public'), value: 'public' },
+    { title: t('recordingSelector.all'), value: 'all' },
+])
 
 const canUse = computed(() => Boolean(isSupabaseConfigured) && Boolean(auth.isSignedIn))
 
@@ -185,7 +187,7 @@ function subtitleFor(item) {
     if (kind) parts.push(kind)
     if (vis) parts.push(vis)
     if (cat) parts.push(cat)
-    if (updated) parts.push(`updated ${updated}`)
+    if (updated) parts.push(t('recordingSelector.updatedAt', { updated }))
     return parts.join(' · ')
 }
 

@@ -1,13 +1,13 @@
 <template>
   <div class="active-tones-window">
     <div class="header-row">
-      <h2>Aktive Noten</h2>
+      <h2>{{ t('activeTones.title') }}</h2>
       <button class="clear-btn" type="button" :disabled="activeNotes.length === 0" @click="clearAll">
-        Clear
+        {{ t('activeTones.clear') }}
       </button>
     </div>
     <div class="tones-list">
-      <div v-if="activeNotes.length === 0" class="empty-message">Keine aktiven Noten</div>
+      <div v-if="activeNotes.length === 0" class="empty-message">{{ t('activeTones.empty') }}</div>
       <div v-else>
         <div
           v-for="note in sortedActiveNotes"
@@ -19,7 +19,7 @@
           <div class="tone-left">
             <span class="tone-color" :style="{ backgroundColor: note.color ?? '#d32f2f' }" />
             <span class="tone-label">
-              Bund {{ note.fret }}, Saite {{ note.string }}
+              {{ t('activeTones.fretString', { fret: note.fret, string: note.string }) }}
               <span class="tone-pitch">{{ pitchLabelFor(note) }}</span>
             </span>
           </div>
@@ -28,7 +28,7 @@
       </div>
     </div>
     <div class="info">
-      <p><strong>Insgesamt:</strong> {{ activeNotes.length }} aktive Note(n)</p>
+      <p><strong>{{ t('activeTones.total') }}</strong> {{ t('activeTones.totalCount', { count: activeNotes.length }) }}</p>
     </div>
   </div>
 </template>
@@ -40,12 +40,14 @@ import { useSelectionStore } from '@/store/useSelection'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
+import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'ActiveTonesWindow' })
 
 const store = useNotesStore()
 const selection = useSelectionStore()
 const instrument = useInstrumentStore()
+const { t } = useI18n()
 const activeNotes = computed(() => store.activeNotes)
 
 function isSelected(noteKey) {

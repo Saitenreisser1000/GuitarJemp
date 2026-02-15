@@ -9,7 +9,7 @@
         </span>
       </template>
       <template v-else>
-        {{ stringLabel || `Saite ${string}` }}
+        {{ stringLabel || t('timelineTrack.string', { string }) }}
       </template>
     </button>
     <div ref="trackEl" class="timeline-track" :style="trackStyle" @pointerdown="onScrubPointerDown"
@@ -19,7 +19,7 @@
         <span v-for="(left, idx) in barLinePositionsPct" :key="`bar-line-${idx}`" class="bar-line"
           :style="{ left: `${left}%` }" />
       </div>
-      <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" title="Position ziehen" />
+      <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" :title="t('timelineTrack.dragPosition')" />
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
         :time-per-block-ms="timePerBlockMs" :snapEnabled="props.snapEnabled" :step="props.step"
@@ -39,6 +39,7 @@ import NoteEvent from './NoteEvent.vue'
 import { computed, ref } from 'vue'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
 import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
+import { useI18n } from '@/i18n'
 
 const props = defineProps({
   string: Number,
@@ -70,6 +71,7 @@ const emit = defineEmits([
   'group-resize-notes',
   'seek-playhead',
 ])
+const { t } = useI18n()
 
 const trackEl = ref(null)
 const isScrubbing = ref(false)
@@ -86,9 +88,9 @@ const labelClasses = computed(() => ({
 }))
 
 const labelTitle = computed(() => {
-  const label = props.stringLabel || `Saite ${props.string}`
+  const label = props.stringLabel || t('timelineTrack.string', { string: props.string })
   if (props.isAuxTrack) return label
-  return `Aktive Saite: ${label}`
+  return t('timelineTrack.activeString', { label })
 })
 
 function onLabelClick() {

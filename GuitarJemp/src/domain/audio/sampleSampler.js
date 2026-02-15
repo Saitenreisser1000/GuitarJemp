@@ -55,14 +55,14 @@ function pickNearestSample(samples, targetMidi) {
 async function fetchJson(url) {
   const cache = import.meta?.env?.DEV ? 'no-store' : 'force-cache'
   const res = await fetch(url, { cache })
-  if (!res.ok) throw new Error(`Manifest nicht gefunden (${res.status}): ${url}`)
+  if (!res.ok) throw new Error(`Manifest not found (${res.status}): ${url}`)
   return res.json()
 }
 
 async function fetchArrayBuffer(url) {
   const cache = import.meta?.env?.DEV ? 'no-store' : 'force-cache'
   const res = await fetch(url, { cache })
-  if (!res.ok) throw new Error(`Sample nicht gefunden (${res.status}): ${url}`)
+  if (!res.ok) throw new Error(`Sample not found (${res.status}): ${url}`)
   return res.arrayBuffer()
 }
 
@@ -70,7 +70,7 @@ const presetCache = new Map()
 
 async function loadPresetInternal(manifestUrl) {
   const ctx = getAudioContext()
-  if (!ctx) throw new Error('WebAudio nicht verfügbar')
+  if (!ctx) throw new Error('WebAudio not available')
 
   const rawManifest = await fetchJson(manifestUrl)
   const manifest = safeJsonClone(rawManifest) || {}
@@ -86,13 +86,13 @@ async function loadPresetInternal(manifestUrl) {
     decoded.push({ midi, url, buffer })
   }
 
-  if (decoded.length === 0) throw new Error('Keine Samples im Manifest')
+  if (decoded.length === 0) throw new Error('No samples in manifest')
   return { manifestUrl, samples: decoded }
 }
 
 export function preloadSamplerPreset(manifestUrl) {
   const key = String(manifestUrl || '').trim()
-  if (!key) return Promise.reject(new Error('Kein Manifest angegeben'))
+  if (!key) return Promise.reject(new Error('No manifest specified'))
   if (presetCache.has(key)) return presetCache.get(key)
 
   const p = loadPresetInternal(key).catch((err) => {
@@ -132,7 +132,7 @@ export async function playMidiWithSampler(
     const sampleSeconds = Number(sample.buffer?.duration) || 0
     const playableSeconds = rate > 0 ? sampleSeconds / rate : sampleSeconds
     if (sampleSeconds > 0 && dur > playableSeconds + 0.02) {
-      console.warn('[audio] Note länger als Sample (kein Sustain/Loop implementiert)', {
+      console.warn('[audio] Note longer than sample (no sustain/loop implemented)', {
         midi,
         rootMidi: sample.midi,
         url: sample.url,

@@ -12,6 +12,7 @@
     "preview": "node scripts/check-node.mjs && vite preview",
     "test": "node scripts/check-node.mjs && vitest",
     "test:watch": "node scripts/check-node.mjs && vitest --watch",
+    "i18n:check": "node scripts/check-node.mjs && node scripts/check-i18n.mjs",
     "lint": "node scripts/check-node.mjs && eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/"
   },

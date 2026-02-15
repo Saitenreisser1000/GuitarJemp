@@ -2,16 +2,16 @@
   <v-card class="transport-controls ui-panel pa-3" variant="flat" tabindex="0" @keydown.tab.prevent="onTapTempo">
     <div class="d-flex align-center ga-4 flex-wrap">
       <div class="d-flex align-center ga-2">
-        <v-btn color="primary" variant="flat" icon :title="isPlaying ? 'Pause' : 'Play'"
-          :aria-label="isPlaying ? 'Pause' : 'Play'" @click="togglePlayPause">
+        <v-btn color="primary" variant="flat" icon :title="isPlaying ? t('playback.pause') : t('playback.play')"
+          :aria-label="isPlaying ? t('playback.pause') : t('playback.play')" @click="togglePlayPause">
           <v-icon :icon="isPlaying ? 'mdi-pause' : 'mdi-play'" />
         </v-btn>
 
-        <v-btn color="primary" variant="flat" icon title="Von vorne" aria-label="Von vorne" @click="seekStart">
+        <v-btn color="primary" variant="flat" icon :title="t('playback.fromStart')" :aria-label="t('playback.fromStart')" @click="seekStart">
           <v-icon icon="mdi-skip-backward" />
         </v-btn>
 
-        <v-switch class="loop-switch" density="compact" hide-details inset label="Loop" :model-value="loopEnabled"
+        <v-switch class="loop-switch" density="compact" hide-details inset :label="t('playback.loop')" :model-value="loopEnabled"
           @update:model-value="(v) => emit('update-loop', Boolean(v))" />
       </div>
 
@@ -24,22 +24,22 @@
           size="small"
           :variant="autoFollowEnabled ? 'flat' : 'tonal'"
           :color="autoFollowEnabled ? 'primary' : undefined"
-          :title="autoFollowEnabled ? 'Auto-Follow ausschalten' : 'Auto-Follow einschalten'"
+          :title="autoFollowEnabled ? t('playback.disableAutoFollow') : t('playback.enableAutoFollow')"
           @click="emit('update-auto-follow', !autoFollowEnabled)"
         >
-          Follow
+          {{ t('playback.follow') }}
         </v-btn>
         <v-btn
           class="click-btn"
           size="small"
           :variant="clickEnabled ? 'flat' : 'tonal'"
           :color="clickEnabled ? 'primary' : undefined"
-          :title="clickEnabled ? 'Click ausschalten' : 'Click einschalten'"
+          :title="clickEnabled ? t('playback.disableClick') : t('playback.enableClick')"
           @click="emit('update-click', !clickEnabled)"
         >
-          Click
+          {{ t('playback.click') }}
         </v-btn>
-        <v-btn class="tap-btn" size="small" variant="tonal" title="TAB zum Eintappen der BPM" @click="onTapTempo">
+        <v-btn class="tap-btn" size="small" variant="tonal" :title="t('playback.tapTempoHint')" @click="onTapTempo">
           TAB
         </v-btn>
         <v-text-field class="tempo-input" density="compact" hide-details variant="outlined" type="number" :min="TEMPO_MIN"
@@ -51,6 +51,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useI18n } from '@/i18n'
 
 const TEMPO_MIN = 30
 const TEMPO_MAX = 200
@@ -75,6 +76,7 @@ const emit = defineEmits([
   'update-auto-follow',
   'update-loop',
 ])
+const { t } = useI18n()
 
 const tapTimesMs = ref([])
 

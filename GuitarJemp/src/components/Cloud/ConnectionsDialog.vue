@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/store/useAuth'
 import { useConnectionsStore } from '@/store/useConnections'
+import { useI18n } from '@/i18n'
 
 const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -16,6 +17,7 @@ const open = computed({
 
 const auth = useAuthStore()
 const connections = useConnectionsStore()
+const { t } = useI18n()
 
 const tab = ref('friends')
 const query = ref('')
@@ -41,13 +43,13 @@ watch(
     <v-dialog v-model="open" max-width="820">
         <v-card rounded="lg">
             <v-card-title class="d-flex align-center justify-space-between">
-                <span>Freunde</span>
+                <span>{{ t('connectionsDialog.title') }}</span>
                 <v-btn icon="mdi-close" variant="text" @click="open = false" />
             </v-card-title>
 
             <v-card-text>
                 <v-alert v-if="!auth.isSignedIn" type="info" variant="tonal" class="mb-4">
-                    Bitte einloggen, um Freunde hinzuzufügen.
+                    {{ t('connectionsDialog.signInHint') }}
                 </v-alert>
 
                 <v-alert v-if="connections.error" type="error" variant="tonal" class="mb-4">
@@ -56,23 +58,23 @@ watch(
 
                 <template v-if="auth.isSignedIn">
                     <v-tabs v-model="tab" density="compact" class="mb-3">
-                        <v-tab value="friends">Freunde</v-tab>
-                        <v-tab value="requests">Anfragen</v-tab>
-                        <v-tab value="search">Suchen</v-tab>
+                        <v-tab value="friends">{{ t('connectionsDialog.friends') }}</v-tab>
+                        <v-tab value="requests">{{ t('connectionsDialog.requests') }}</v-tab>
+                        <v-tab value="search">{{ t('connectionsDialog.search') }}</v-tab>
                     </v-tabs>
 
                     <v-window v-model="tab">
                         <v-window-item value="friends">
                             <div class="d-flex align-center justify-space-between mb-2">
-                                <div class="text-subtitle-1">Verbindungen</div>
-                                <v-btn variant="tonal" @click="connections.refresh">Aktualisieren</v-btn>
+                                <div class="text-subtitle-1">{{ t('connectionsDialog.connections') }}</div>
+                                <v-btn variant="tonal" @click="connections.refresh">{{ t('connectionsDialog.refresh') }}</v-btn>
                             </div>
 
                             <v-table density="compact">
                                 <thead>
                                     <tr>
-                                        <th>Connection</th>
-                                        <th>Status</th>
+                                        <th>{{ t('connectionsDialog.connection') }}</th>
+                                        <th>{{ t('connectionsDialog.status') }}</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -81,32 +83,31 @@ watch(
                                         <td class="text-medium-emphasis">
                                             {{ row.requester_id }} ↔ {{ row.addressee_id }}
                                         </td>
-                                        <td>accepted</td>
+                                        <td>{{ t('connectionsDialog.accepted') }}</td>
                                         <td class="text-right">
                                             <v-btn size="small" variant="tonal"
                                                 @click="connections.removeConnection(row.id)">
-                                                Entfernen
+                                                {{ t('connectionsDialog.remove') }}
                                             </v-btn>
                                         </td>
                                     </tr>
                                     <tr v-if="connections.accepted.length === 0">
-                                        <td colspan="3" class="text-medium-emphasis">Noch keine Freunde.</td>
+                                        <td colspan="3" class="text-medium-emphasis">{{ t('connectionsDialog.noFriends') }}</td>
                                     </tr>
                                 </tbody>
                             </v-table>
 
                             <v-alert type="info" variant="tonal" class="mt-4">
-                                Hinweis: Aktuell zeigen wir IDs. Als nächstes können wir die Anzeige mit
-                                display_name aus dem Directory aufhübschen.
+                                {{ t('connectionsDialog.idsNote') }}
                             </v-alert>
                         </v-window-item>
 
                         <v-window-item value="requests">
-                            <div class="text-subtitle-1 mb-2">Eingehend</div>
+                            <div class="text-subtitle-1 mb-2">{{ t('connectionsDialog.incoming') }}</div>
                             <v-table density="compact" class="mb-4">
                                 <thead>
                                     <tr>
-                                        <th>Von</th>
+                                        <th>{{ t('connectionsDialog.from') }}</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -116,25 +117,25 @@ watch(
                                         <td class="text-right">
                                             <v-btn size="small" color="primary"
                                                 @click="connections.acceptRequest(row.id)">
-                                                Annehmen
+                                                {{ t('connectionsDialog.accept') }}
                                             </v-btn>
                                             <v-btn size="small" variant="tonal"
                                                 @click="connections.rejectRequest(row.id)">
-                                                Ablehnen
+                                                {{ t('connectionsDialog.reject') }}
                                             </v-btn>
                                         </td>
                                     </tr>
                                     <tr v-if="connections.incoming.length === 0">
-                                        <td colspan="2" class="text-medium-emphasis">Keine eingehenden Anfragen.</td>
+                                        <td colspan="2" class="text-medium-emphasis">{{ t('connectionsDialog.noIncoming') }}</td>
                                     </tr>
                                 </tbody>
                             </v-table>
 
-                            <div class="text-subtitle-1 mb-2">Ausgehend</div>
+                            <div class="text-subtitle-1 mb-2">{{ t('connectionsDialog.outgoing') }}</div>
                             <v-table density="compact">
                                 <thead>
                                     <tr>
-                                        <th>An</th>
+                                        <th>{{ t('connectionsDialog.to') }}</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -144,25 +145,25 @@ watch(
                                         <td class="text-right">
                                             <v-btn size="small" variant="tonal"
                                                 @click="connections.removeConnection(row.id)">
-                                                Zurückziehen
+                                                {{ t('connectionsDialog.withdraw') }}
                                             </v-btn>
                                         </td>
                                     </tr>
                                     <tr v-if="connections.outgoing.length === 0">
-                                        <td colspan="2" class="text-medium-emphasis">Keine ausgehenden Anfragen.</td>
+                                        <td colspan="2" class="text-medium-emphasis">{{ t('connectionsDialog.noOutgoing') }}</td>
                                     </tr>
                                 </tbody>
                             </v-table>
                         </v-window-item>
 
                         <v-window-item value="search">
-                            <v-text-field v-model="query" label="Name suchen (min. 2 Zeichen)" density="compact"
+                            <v-text-field v-model="query" :label="t('connectionsDialog.searchName')" density="compact"
                                 prepend-inner-icon="mdi-magnify" class="mb-3" />
 
                             <v-table density="compact">
                                 <thead>
                                     <tr>
-                                        <th>Name</th>
+                                        <th>{{ t('connectionsDialog.name') }}</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -171,19 +172,18 @@ watch(
                                         <td>{{ p.display_name || p.id }}</td>
                                         <td class="text-right">
                                             <v-btn size="small" color="primary" @click="connections.sendRequest(p.id)">
-                                                Anfrage senden
+                                                {{ t('connectionsDialog.sendRequest') }}
                                             </v-btn>
                                         </td>
                                     </tr>
                                     <tr v-if="connections.searchResults.length === 0">
-                                        <td colspan="2" class="text-medium-emphasis">Keine Treffer.</td>
+                                        <td colspan="2" class="text-medium-emphasis">{{ t('connectionsDialog.noResults') }}</td>
                                     </tr>
                                 </tbody>
                             </v-table>
 
                             <v-alert type="info" variant="tonal" class="mt-4">
-                                Tipp: Jeder User sollte in seinem Profil einen display_name setzen, sonst wird die
-                                UUID angezeigt.
+                                {{ t('connectionsDialog.displayNameTip') }}
                             </v-alert>
                         </v-window-item>
                     </v-window>

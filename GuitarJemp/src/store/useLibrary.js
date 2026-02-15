@@ -85,7 +85,7 @@ export const useLibraryStore = defineStore('library', () => {
     error.value = null
 
     if (!isSupabaseConfigured || !supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
       return null
     }
 
@@ -116,13 +116,13 @@ export const useLibraryStore = defineStore('library', () => {
     error.value = null
 
     if (!isSupabaseConfigured || !supabase) {
-      error.value = new Error('Supabase ist nicht konfiguriert.')
+      error.value = new Error('Supabase is not configured.')
       return null
     }
 
     const itemId = String(id ?? '').trim()
     if (!itemId) {
-      error.value = new Error('Kein Item ausgewählt.')
+      error.value = new Error('No item selected.')
       return null
     }
 

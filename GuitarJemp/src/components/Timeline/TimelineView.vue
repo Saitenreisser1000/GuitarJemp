@@ -5,7 +5,7 @@
     </div>
 
     <div class="timeline-layout">
-      <aside class="main-menu-rail" aria-label="Hauptmenü">
+      <aside class="main-menu-rail" :aria-label="t('timelineView.mainMenu')">
         <ModeSelector :selected-mode="selectedMode" :snap-enabled="snapEnabled"
           :sound-preview-enabled="soundPreviewEnabled"
           :sound-duration-scale="soundDurationScale" :beat-top="beatTop"
@@ -30,58 +30,58 @@
           @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" />
       </aside>
 
-      <section class="timeline-body" aria-label="Timeline Hauptbereich">
+      <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
         <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
           <div class="timeline-columns">
-            <div v-if="!stringsCollapsed" class="timeline-tools" aria-label="Timeline Tools">
-              <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }" title="Pfeil">
+            <div v-if="!stringsCollapsed" class="timeline-tools" :aria-label="t('timelineView.tools')">
+              <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }" :title="t('timelineView.arrow')">
                 <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="arrow"
                   :checked="String(activeTool) === 'arrow'" @change="() => emit('update-active-tool', 'arrow')" />
                 <span class="timeline-tool-icon" aria-hidden="true">➤</span>
               </label>
 
               <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'select' }"
-                title="Auswahl-Rechteck">
+                :title="t('timelineView.selectionRect')">
                 <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="select"
                   :checked="String(activeTool) === 'select'" @change="() => emit('update-active-tool', 'select')" />
                 <span class="timeline-tool-icon" aria-hidden="true">▭</span>
               </label>
 
-              <button class="timeline-tool" type="button" title="Kopieren" @click="() => emit('copy-selection')">
+              <button class="timeline-tool" type="button" :title="t('timelineView.copy')" @click="() => emit('copy-selection')">
                 <span class="timeline-tool-icon" aria-hidden="true">⧉</span>
               </button>
 
-              <button class="timeline-tool" type="button" title="Einfügen" @click="() => emit('paste-at-playhead')">
+              <button class="timeline-tool" type="button" :title="t('timelineView.paste')" @click="() => emit('paste-at-playhead')">
                 <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" title="Marker bei Playhead"
+              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.markerAtPlayhead')"
                 @click="() => emit('add-marker-at-playhead')">
                 M+
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" title="Loop auf Auswahl"
+              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
                 @click="() => emit('loop-to-selection')">
-                Loop Sel
+                {{ t('timelineView.loopSel') }}
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" title="Auswahl quantisieren"
+              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.quantizeSelection')"
                 @click="() => emit('quantize-selection')">
                 Q
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" title="Länge Auswahl halbieren"
+              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.halveSelection')"
                 @click="() => emit('scale-selection-length', 0.5)">
                 1/2
               </button>
 
-              <button class="timeline-tool timeline-tool-text" type="button" title="Länge Auswahl verdoppeln"
+              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.doubleSelection')"
                 @click="() => emit('scale-selection-length', 2)">
                 2x
               </button>
 
               <button class="timeline-tool timeline-tool-text" type="button"
-                :title="ghostNotesEnabled ? 'Ghost-Noten ausblenden' : 'Ghost-Noten einblenden'"
+                :title="ghostNotesEnabled ? t('timelineView.hideGhost') : t('timelineView.showGhost')"
                 @click="() => emit('update-ghost-notes', !ghostNotesEnabled)">
                 Ghost
               </button>
@@ -96,20 +96,20 @@
                     <button
                       class="loop-handle loop-handle-start"
                       type="button"
-                      title="Loopstart ziehen"
+                      :title="t('timelineView.dragLoopStart')"
                       @pointerdown="onLoopHandlePointerDown('start', $event)"
                     />
                     <div class="loop-bracket-bar" />
                     <button
                       class="loop-handle loop-handle-end"
                       type="button"
-                      title="Loopende ziehen"
+                      :title="t('timelineView.dragLoopEnd')"
                       @pointerdown="onLoopHandlePointerDown('end', $event)"
                     />
                   </div>
                 </div>
 
-                <div v-if="markerItems.length" class="marker-layer" aria-label="Marker">
+                <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
                   <button
                     v-for="marker in markerItems"
                     :key="marker.id"
@@ -124,7 +124,7 @@
                 </div>
 
                 <div class="strings-timeline">
-                  <TimelineTrack :string="0" string-label="HandPosition" :active-string="activeString"
+                  <TimelineTrack :string="0" :string-label="t('timelineView.handPosition')" :active-string="activeString"
                     :notes="handPositionNotes"
                     :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                     :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
@@ -172,8 +172,8 @@
                   <button
                     class="timeline-length-handle"
                     type="button"
-                    title="Timeline-Länge ziehen"
-                    aria-label="Timeline-Länge ziehen"
+                    :title="t('timelineView.dragTimelineLength')"
+                    :aria-label="t('timelineView.dragTimelineLength')"
                     @pointerdown="onLengthHandlePointerDown"
                   >
                     <span class="timeline-length-handle-grip" aria-hidden="true">⋮⋮</span>
@@ -189,23 +189,80 @@
         <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
           <div class="d-flex align-center ga-3 flex-wrap pa-2">
             <v-chip class="status-chip" label variant="tonal" color="primary">
-              Zeit: {{ playheadTimeLabel }}
+              {{ t('timelineView.time') }}: {{ playheadTimeLabel }}
             </v-chip>
             <v-chip class="status-chip" label variant="tonal" color="secondary">
-              Takt: {{ barBeatLabel }}
+              {{ t('timelineView.bar') }}: {{ barBeatLabel }}
             </v-chip>
 
             <div class="zoom-status d-flex align-center ga-2">
-              <div class="text-caption zoom-label">Zoom</div>
+              <div class="text-caption zoom-label">{{ t('timelineView.zoom') }}</div>
               <v-slider v-model="zoomLocal" class="zoom-slider" density="compact" hide-details min="12" max="120"
                 step="2" />
             </div>
           </div>
         </v-card>
       </section>
+
+      <aside class="secondary-menu-rail" :aria-label="t('timelineView.tools')">
+        <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
+          <div class="secondary-menu-title">LibraryMenu</div>
+          <div class="secondary-menu">
+            <v-btn
+              icon="mdi-book-open-page-variant"
+              size="small"
+              variant="tonal"
+              class="secondary-menu-btn"
+              :title="t('modeSelector.openLibrary')"
+              @click="emit('open-library')"
+            />
+            <v-btn
+              :icon="activeNotesVisible ? 'mdi-waveform-off' : 'mdi-waveform'"
+              size="small"
+              variant="tonal"
+              class="secondary-menu-btn"
+              :title="activeNotesVisible ? t('modeSelector.hideActiveNotes') : t('modeSelector.showActiveNotes')"
+              @click="emit('update-active-notes-visible', !activeNotesVisible)"
+            />
+            <v-btn
+              :icon="timelineVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+              size="small"
+              variant="tonal"
+              class="secondary-menu-btn"
+              :title="timelineVisible ? t('modeSelector.hideTimeline') : t('modeSelector.showTimeline')"
+              @click="timelineVisible = !timelineVisible"
+            />
+            <v-btn
+              :icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
+              size="small"
+              variant="tonal"
+              class="secondary-menu-btn"
+              :title="isDarkTheme ? t('modeSelector.light') : t('modeSelector.dark')"
+              @click="emit('toggle-theme')"
+            />
+            <v-divider class="my-1" />
+            <v-btn
+              icon="mdi-undo"
+              size="small"
+              variant="text"
+              class="secondary-menu-btn"
+              :title="t('modeSelector.undo')"
+              @click="emit('undo')"
+            />
+            <v-btn
+              icon="mdi-redo"
+              size="small"
+              variant="text"
+              class="secondary-menu-btn"
+              :title="t('modeSelector.redo')"
+              @click="emit('redo')"
+            />
+          </div>
+        </v-card>
+      </aside>
     </div>
 
-    <div ref="transportEl" class="timeline-transport" aria-label="Transport">
+    <div ref="transportEl" class="timeline-transport" :aria-label="t('timelineView.transport')">
       <div class="timeline-transport-inner">
         <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
           :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
@@ -224,6 +281,7 @@ import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
+import { useI18n } from '@/i18n'
 
 const props = defineProps({
   isPlaying: { type: Boolean, required: true },
@@ -317,6 +375,7 @@ const emit = defineEmits([
   'scale-selection-length',
   'update-ghost-notes',
 ])
+const { t } = useI18n()
 
 const zoomLocal = computed({
   get: () => props.zoomPxPerBlock,
@@ -671,7 +730,7 @@ const markerItems = computed(() => {
       return {
         id: String(m?.id ?? `m_${idx}`),
         label: String(m?.label ?? `M${idx + 1}`),
-        title: String(m?.title ?? `Marker ${idx + 1}`),
+        title: String(m?.title ?? t('timelineView.markerN', { index: idx + 1 })),
         timeMs: tMs,
         leftPx: labelWidthPx + blocks * zoom,
       }
@@ -757,7 +816,7 @@ const barBeatLabel = computed(() => {
   const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 1
 
   const tpb = timePerBlockMs.value
-  if (!(tpb > 0)) return '1|1'
+  if (!(tpb > 0)) return t('timelineView.barBeatFallback')
 
   const totalBlocks = Math.max(1, Number(props.totalBlocks) || 1)
   const blocksRaw = (Number(props.playhead) || 0) / tpb
@@ -792,6 +851,8 @@ const barBeatLabel = computed(() => {
 .timeline-main {
   --main-menu-w: 84px;
   --main-menu-v-pad: var(--space-3);
+  --app-menubar-h: 30px;
+  --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -832,7 +893,7 @@ const barBeatLabel = computed(() => {
 .main-menu-rail {
   position: fixed;
   left: 0;
-  top: var(--v-layout-top, 0px);
+  top: var(--top-bars-h);
   bottom: 0;
   width: var(--main-menu-w);
   z-index: 25;
@@ -841,8 +902,43 @@ const barBeatLabel = computed(() => {
 
 .main-menu-rail :deep(.main-menu-shell) {
   height: calc(
-    100vh - var(--v-layout-top, 0px) - (2 * var(--main-menu-v-pad))
+    100vh - var(--top-bars-h) - (2 * var(--main-menu-v-pad))
   );
+}
+
+.secondary-menu-rail {
+  position: fixed;
+  right: 0;
+  top: var(--top-bars-h);
+  bottom: 0;
+  width: var(--main-menu-w);
+  z-index: 25;
+  padding: var(--main-menu-v-pad) var(--space-2);
+}
+
+.secondary-menu-shell {
+  height: calc(
+    100vh - var(--top-bars-h) - (2 * var(--main-menu-v-pad))
+  );
+}
+
+.secondary-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.secondary-menu-title {
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.secondary-menu-btn {
+  width: 100%;
 }
 
 .timeline-body {
@@ -850,12 +946,13 @@ const barBeatLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding-right: calc(var(--main-menu-w) + var(--space-4));
 }
 
 .timeline-transport {
   position: fixed;
   left: calc(var(--main-menu-w) + var(--space-4));
-  right: 0;
+  right: calc(var(--main-menu-w) + var(--space-4));
   bottom: 0;
   z-index: 30;
   display: flex;
@@ -1190,12 +1287,26 @@ const barBeatLabel = computed(() => {
     height: auto;
   }
 
+  .secondary-menu-rail {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin-top: var(--space-2);
+  }
+
+  .secondary-menu-shell {
+    height: auto;
+  }
+
   .timeline-body {
     min-width: 0;
+    padding-right: 0;
   }
 
   .timeline-transport {
     left: 0;
+    right: 0;
   }
 
   .status-chip {

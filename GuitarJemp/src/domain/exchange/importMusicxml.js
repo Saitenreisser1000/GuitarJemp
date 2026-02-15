@@ -29,7 +29,7 @@ export function parseMusicXmlToClip(xmlText, { openMidi = [], maxFret = 24 } = {
   const parser = new DOMParser()
   const doc = parser.parseFromString(String(xmlText || ''), 'application/xml')
   const parseError = doc.querySelector('parsererror')
-  if (parseError) throw new Error('Ungültige MusicXML-Datei.')
+  if (parseError) throw new Error('Invalid MusicXML file.')
 
   const title = firstText(doc, 'work > work-title', firstText(doc, 'movement-title', 'Import'))
   const tempo = Number.parseFloat(firstText(doc, 'direction sound[tempo], sound[tempo]', '120')) || 120

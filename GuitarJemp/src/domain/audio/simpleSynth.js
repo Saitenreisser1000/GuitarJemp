@@ -75,7 +75,7 @@ export async function playMidi(
       const ok = await playMidiWithSampler(preset.manifestUrl, effectiveMidi, { durationMs, gain })
       if (ok) return
       if (import.meta?.env?.DEV) {
-        console.warn('[audio] Sampler nicht verwendet (ok=false), fallback auf Synth', {
+        console.warn('[audio] Sampler not used (ok=false), fallback to synth', {
           presetId: resolvedPresetId,
           instrumentType,
           manifestUrl: preset.manifestUrl,
@@ -84,7 +84,7 @@ export async function playMidi(
       }
     } catch (err) {
       if (import.meta?.env?.DEV) {
-        console.warn('[audio] Sampler fehlgeschlagen, fallback auf Synth', {
+        console.warn('[audio] Sampler failed, fallback to synth', {
           presetId: resolvedPresetId,
           instrumentType,
           manifestUrl: preset.manifestUrl,

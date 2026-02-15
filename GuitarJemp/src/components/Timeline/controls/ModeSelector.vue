@@ -1,17 +1,17 @@
 <template>
   <v-card class="main-menu-shell ui-panel pa-2" variant="flat">
     <div class="main-menu">
-      <v-btn variant="tonal" class="control-btn undo-btn" title="Undo" @click="emit('undo')">
+      <v-btn variant="tonal" class="control-btn undo-btn" :title="t('modeSelector.undo')" @click="emit('undo')">
         <v-icon icon="mdi-undo" size="22" />
       </v-btn>
 
-      <v-btn variant="tonal" class="control-btn redo-btn" title="Redo" @click="emit('redo')">
+      <v-btn variant="tonal" class="control-btn redo-btn" :title="t('modeSelector.redo')" @click="emit('redo')">
         <v-icon icon="mdi-redo" size="22" />
       </v-btn>
 
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="tonal" class="control-btn mode-menu-btn" title="Notenwerte">
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn mode-menu-btn" :title="t('modeSelector.noteValues')">
             <v-icon v-if="activeModeItem?.icon" class="mode-icon" :icon="activeModeItem.icon" size="30" />
             <span v-else-if="activeModeItem?.value === '1/2'" class="note-glyph note-glyph-half" aria-label="Half note">
               <span class="note-head-outline"></span>
@@ -26,7 +26,7 @@
         </template>
 
         <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-          <div class="text-caption control-label">Notenwert</div>
+          <div class="text-caption control-label">{{ t('modeSelector.noteValue') }}</div>
           <v-btn-toggle v-model="noteValueLocal" mandatory divided class="dropdown-toggle-row">
             <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" class="dropdown-btn"
               :title="item.title">
@@ -42,42 +42,42 @@
             </v-btn>
           </v-btn-toggle>
 
-          <div class="text-caption control-label">Modifier</div>
+          <div class="text-caption control-label">{{ t('modeSelector.modifier') }}</div>
           <v-btn-toggle v-model="noteModifierLocal" divided class="dropdown-toggle-row">
-            <v-btn value="dotted" variant="tonal" class="dropdown-btn" title="Punktiert">.</v-btn>
-            <v-btn value="3" variant="tonal" class="dropdown-btn" title="Triolen">3</v-btn>
+            <v-btn value="dotted" variant="tonal" class="dropdown-btn" :title="t('modeSelector.dotted')">.</v-btn>
+            <v-btn value="3" variant="tonal" class="dropdown-btn" :title="t('modeSelector.triplets')">3</v-btn>
           </v-btn-toggle>
         </v-card>
       </v-menu>
 
       <v-btn variant="tonal" class="control-btn sim-btn" :active="Boolean(isSimOn)"
-        :color="isSimOn ? 'primary' : undefined" :title="isSimOn ? 'Chord aus' : 'Chord an'"
+        :color="isSimOn ? 'primary' : undefined" :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
         :aria-pressed="String(isSimOn)" @click="toggleSim">
         CH
       </v-btn>
 
       <v-btn variant="tonal" class="control-btn timeline-visibility-btn" :active="Boolean(timelineVisible)"
-        :color="timelineVisible ? 'primary' : undefined" :title="timelineVisible ? 'Timeline ausblenden' : 'Timeline einblenden'"
+        :color="timelineVisible ? 'primary' : undefined" :title="timelineVisible ? t('modeSelector.hideTimeline') : t('modeSelector.showTimeline')"
         :aria-pressed="String(timelineVisible)" @click="emit('update-timeline-visible', !timelineVisible)">
         <v-icon :icon="timelineVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" size="22" />
       </v-btn>
 
       <v-btn variant="tonal" class="control-btn active-notes-visibility-btn" :active="Boolean(activeNotesVisible)"
         :color="activeNotesVisible ? 'primary' : undefined"
-        :title="activeNotesVisible ? 'Aktive Noten ausblenden' : 'Aktive Noten einblenden'"
+        :title="activeNotesVisible ? t('modeSelector.hideActiveNotes') : t('modeSelector.showActiveNotes')"
         :aria-pressed="String(activeNotesVisible)"
         @click="emit('update-active-notes-visible', !activeNotesVisible)">
         <v-icon :icon="activeNotesVisible ? 'mdi-music-note-outline' : 'mdi-music-note-off-outline'" size="22" />
       </v-btn>
 
       <v-btn variant="tonal" class="control-btn library-btn" :disabled="!libraryEnabled"
-        :title="libraryEnabled ? 'Library öffnen' : 'Library: bitte einloggen'" @click="emit('open-library')">
+        :title="libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn')" @click="emit('open-library')">
         <v-icon icon="mdi-cloud-outline" size="22" />
       </v-btn>
 
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="tonal" class="control-btn symbols-btn" :title="`Symbole (${selectedColor})`">
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn symbols-btn" :title="t('modeSelector.symbols', { color: selectedColor })">
             <v-icon icon="mdi-palette-outline" size="22" />
             <span class="symbols-swatch" :style="{ backgroundColor: selectedColor }" aria-hidden="true" />
           </v-btn>
@@ -90,7 +90,7 @@
 
       <v-menu location="right" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="tonal" class="control-btn options-btn" title="Optionen">
+          <v-btn v-bind="menuProps" variant="tonal" class="control-btn options-btn" :title="t('modeSelector.options')">
             <v-icon icon="mdi-cog-outline" size="24" />
           </v-btn>
         </template>
@@ -98,27 +98,27 @@
         <v-card class="pa-3" min-width="320">
           <div class="d-flex flex-column ga-3">
             <div class="d-flex flex-column ga-2">
-              <div class="text-caption control-label">Griffbrett</div>
+              <div class="text-caption control-label">{{ t('modeSelector.fretboard') }}</div>
               <div class="d-flex ga-2">
                 <v-text-field v-model="numStringsLocal" density="compact" hide-details type="number" min="1" max="12"
-                  step="1" style="width: 84px" label="Saiten" />
+                  step="1" style="width: 84px" :label="t('modeSelector.strings')" />
 
                 <v-text-field v-model="numFretsLocal" density="compact" hide-details type="number" min="1" max="24"
-                  step="1" style="width: 84px" label="Bünde" />
+                  step="1" style="width: 84px" :label="t('modeSelector.frets')" />
               </div>
             </div>
 
-            <v-switch density="compact" hide-details inset label="Saiten einklappen" :model-value="stringsCollapsed"
+            <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')" :model-value="stringsCollapsed"
               @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
 
             <div class="d-flex align-center ga-2">
-              <div class="text-caption control-label">Tondauer</div>
+              <div class="text-caption control-label">{{ t('modeSelector.toneDuration') }}</div>
               <v-text-field v-model="soundDurationLocal" density="compact" hide-details type="number" min="0.1"
                 step="0.1" style="width: 92px" />
             </div>
 
             <div class="d-flex flex-column ga-2">
-              <div class="text-caption control-label">Beat</div>
+              <div class="text-caption control-label">{{ t('modeSelector.beat') }}</div>
               <div class="d-flex ga-2">
                 <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
                   :model-value="beatTop" @update:model-value="updateBeatTop" />
@@ -127,25 +127,25 @@
                   :model-value="beatBottom" @update:model-value="updateBeatBottom" />
               </div>
               <div class="d-flex align-center ga-2">
-                <v-switch density="compact" hide-details inset label="Auftakt"
+                <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
                   :model-value="pickupEnabled"
                   @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
                 <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax"
-                  step="1" style="width: 84px" label="Beats" :disabled="!pickupEnabled"
+                  step="1" style="width: 84px" :label="t('modeSelector.beats')" :disabled="!pickupEnabled"
                   :model-value="pickupBeats" @update:model-value="updatePickupBeats" />
               </div>
             </div>
 
-            <v-switch density="compact" hide-details inset label="Snap" :model-value="snapEnabled"
+            <v-switch density="compact" hide-details inset :label="t('modeSelector.snap')" :model-value="snapEnabled"
               @update:model-value="(v) => emit('update-snap', Boolean(v))" />
 
-            <v-switch density="compact" hide-details inset label="Sound" :model-value="soundPreviewEnabled"
+            <v-switch density="compact" hide-details inset :label="t('modeSelector.sound')" :model-value="soundPreviewEnabled"
               @update:model-value="(v) => emit('update-sound-preview', Boolean(v))" />
 
             <v-btn density="comfortable" variant="tonal"
               :prepend-icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
               @click="emit('toggle-theme')">
-              {{ isDarkTheme ? 'Hell' : 'Dunkel' }}
+              {{ isDarkTheme ? t('modeSelector.light') : t('modeSelector.dark') }}
             </v-btn>
           </div>
         </v-card>
@@ -159,6 +159,7 @@ import { computed, watch, ref } from 'vue'
 import ColorPalette from '../../Fretboards/FretboardEdit/controls/ColorPalette.vue'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
+import { useI18n } from '@/i18n'
 
 const props = defineProps({
   selectedMode: { type: String, required: true },
@@ -199,6 +200,7 @@ const emit = defineEmits([
   'undo',
   'redo',
 ])
+const { t } = useI18n()
 // Local state for the note-length modifier toggle group (dot/triplet).
 const noteModifierLocal = ref(props.simGroupMode)
 
@@ -216,10 +218,15 @@ watch(noteModifierLocal, (val) => {
 const settings = useTimelineSettingsStore()
 const selectedColor = computed(() => String(settings.selectedColor || ''))
 
-const modeItems = NOTE_VALUE_ITEMS
+const modeItems = computed(() =>
+  NOTE_VALUE_ITEMS.map((item) => ({
+    ...item,
+    title: t(`noteValues.${item.value.replace('/', '_')}`, item.title),
+  })),
+)
 const activeModeItem = computed(() => {
   const activeValue = String(noteValueLocal.value || '')
-  return modeItems.find((item) => String(item.value) === activeValue) || modeItems[0]
+  return modeItems.value.find((item) => String(item.value) === activeValue) || modeItems.value[0]
 })
 
 const beatBottomItems = [1, 2, 4, 8]

@@ -28,6 +28,7 @@ import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { clampResizeLength, snapStepBlocksForMode } from '@/domain/timelineInteractions'
+import { useI18n } from '@/i18n'
 const props = defineProps({
   note: { type: Object, required: true },
   totalBlocks: { type: Number, default: 16 },
@@ -46,6 +47,7 @@ const notesStore = useNotesStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const { t } = useI18n()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
@@ -242,14 +244,22 @@ const dragTooltip = computed(() => {
   const gi = Number(visualGridIndex.value)
   const len = isResizing.value ? Number(dragLength.value ?? safeLengthBlocks.value) : safeLengthBlocks.value
   if (!Number.isFinite(gi) || !Number.isFinite(len)) return ''
-  return `Raster ${gi.toFixed(2)} | Länge ${Math.max(0.01, len).toFixed(2)}`
+  return t('noteEvent.dragTooltip', {
+    grid: gi.toFixed(2),
+    length: Math.max(0.01, len).toFixed(2),
+  })
 })
 
 const title = computed(() => {
   const len = safeLengthBlocks.value
   const p = pitchLabel.value
-  const pPart = p ? ` (${p})` : ''
-  return `Bund ${props.note?.fret}, Saite ${props.note?.string}${pPart}, Raster ${props.note?.gridIndex}, Länge ${len}`
+  return t('noteEvent.title', {
+    fret: props.note?.fret,
+    string: props.note?.string,
+    pitch: p ? ` (${p})` : '',
+    grid: props.note?.gridIndex,
+    length: len,
+  })
 })
 
 function onPointerDown(e) {

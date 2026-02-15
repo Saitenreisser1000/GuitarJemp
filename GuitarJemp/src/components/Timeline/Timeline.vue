@@ -53,6 +53,7 @@ import { useInstrumentStore } from '@/store/useInstrument'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useSelectionStore } from '@/store/useSelection'
 import { useHandPositionsStore } from '@/store/useHandPositions'
+import { useI18n } from '@/i18n'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
@@ -90,6 +91,7 @@ const instrument = useInstrumentStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const selection = useSelectionStore()
 const handPositionsStore = useHandPositionsStore()
+const { t } = useI18n()
 
 const { tempo } = storeToRefs(transport)
 const { playheadMs } = storeToRefs(transport)
@@ -200,7 +202,7 @@ const tracks = computed(() => {
   const result = []
   for (let stringIdx = 1; stringIdx <= n; stringIdx++) {
     const midi = Array.isArray(openMidi) ? openMidi[stringIdx - 1] : null
-    const label = midiToNoteName(midi, { includeOctave: false }) || `Saite ${stringIdx}`
+    const label = midiToNoteName(midi, { includeOctave: false }) || t('timelineTrack.string', { string: stringIdx })
     result.push({ stringIdx, label, notes: notesForString(stringIdx) })
   }
   return result

@@ -28,12 +28,24 @@
             :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
             :rx="suggestedHandPositionOverlayRect.rx" />
           <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
-            Empf. Lage {{ suggestedHandPositionOverlayRect.fromFret }}-{{ suggestedHandPositionOverlayRect.toFret }}
+            {{ t('fretboardShow.suggestedPosition', { from: suggestedHandPositionOverlayRect.fromFret, to: suggestedHandPositionOverlayRect.toFret }) }}
           </text>
         </g>
 
         <!-- ToneDots -->
         <g class="fb-tone-dots">
+          <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
+            <circle
+              v-for="d in harmonyGuideDots"
+              :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`"
+              :cx="toneDotX(d)"
+              :cy="toneDotY(d)"
+              :r="harmonyGuideRadius(d)"
+              :fill="harmonyGuideFill(d)"
+              :stroke="harmonyGuideStroke(d)"
+              :stroke-width="harmonyGuideStrokeWidth(d)"
+            />
+          </g>
           <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
             <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
               :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color"
@@ -147,33 +159,33 @@
       <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
     </div>
     <div class="fb-chord-shape-panel">
-      <span class="fb-chord-detected">Chord: {{ detectedChordLabel }}</span>
+      <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
-        +1 Bund
+        {{ t('fretboardShow.plusFret') }}
       </button>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
-        -1 Bund
+        {{ t('fretboardShow.minusFret') }}
       </button>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
-        Saite ↑
+        {{ t('fretboardShow.stringUp') }}
       </button>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
-        Saite ↓
+        {{ t('fretboardShow.stringDown') }}
       </button>
       <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
-        Shape speichern
+        {{ t('fretboardShow.saveShape') }}
       </button>
       <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
-        <option value="">Shape wählen</option>
+        <option value="">{{ t('fretboardShow.selectShape') }}</option>
         <option v-for="s in savedShapes" :key="s.id" :value="s.id">
           {{ s.name }}
         </option>
       </select>
       <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
-        Shape laden
+        {{ t('fretboardShow.loadShape') }}
       </button>
       <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
-        Löschen
+        {{ t('fretboardShow.delete') }}
       </button>
     </div>
 
@@ -194,6 +206,7 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useHandPositionsStore } from '@/store/useHandPositions'
+import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
@@ -207,6 +220,7 @@ import { midiForFretString } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
 import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
 import { gridIndexToStartMs, lengthBlocksToDurationMs } from '@/domain/timelineTime'
+import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'FretboardShow' })
 
@@ -228,9 +242,12 @@ const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const handPositionsStore = useHandPositionsStore()
+const harmonyMenu = useHarmonyMenuStore()
+const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
+const { chordPitchClasses, scalePitchClasses, patternFretRange } = storeToRefs(harmonyMenu)
 const isPlaying = computed(() => playState.value === 'playing')
 
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
@@ -645,7 +662,9 @@ function loadChordShapes() {
 
 function saveCurrentShape() {
   if (!canSaveCurrentShape.value) return
-  const chord = detectedChordLabel.value && detectedChordLabel.value !== '—' ? detectedChordLabel.value : 'Shape'
+  const chord = detectedChordLabel.value && detectedChordLabel.value !== '—'
+    ? detectedChordLabel.value
+    : t('fretboardShow.shape')
   const stamp = new Date().toISOString().slice(11, 19)
   const id = `shape_${Date.now()}`
   const name = `${chord} ${stamp}`
@@ -1095,6 +1114,35 @@ const strings = computed(() => {
   return res
 })
 
+const harmonyGuideDots = computed(() => {
+  const chordSet = chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
+  const scaleSet = scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
+  if (!chordSet.size && !scaleSet.size) return []
+
+  const fromFret = Math.max(0, Number(patternFretRange.value?.fromFret) || 0)
+  const toFretRaw = Number(patternFretRange.value?.toFret)
+  const toFret = Number.isFinite(toFretRaw) ? Math.max(fromFret, toFretRaw) : Infinity
+
+  const maxFret = Math.max(0, Number(props.numFrets) || 12)
+  const out = []
+  for (const s of strings.value) {
+    const string = Number(s?.string)
+    if (!Number.isFinite(string)) continue
+
+    for (let fret = 0; fret <= maxFret; fret += 1) {
+      if (fret < fromFret || fret > toFret) continue
+      const midi = midiForFretString({ fret, string }, tuning.value)
+      if (!Number.isFinite(Number(midi))) continue
+      const pc = ((Number(midi) % 12) + 12) % 12
+      const inChord = chordSet.has(pc)
+      const inScale = scaleSet.has(pc)
+      if (!inChord && !inScale) continue
+      out.push({ string, fret, inChord, inScale, pc })
+    }
+  }
+  return out
+})
+
 function parseFretRange(rawLabel) {
   const text = String(rawLabel ?? '').trim()
   const m = text.match(/^(\d+)\s*-\s*(\d+)$/)
@@ -1242,10 +1290,10 @@ const suggestedHandPositionOverlayRect = computed(() => {
 
 const handModeInfoText = computed(() => {
   const range = suggestedHandPositionRange.value
-  if (range) return `Handlage Vorschlag: ${range.fromFret}-${range.toFret}`
+  if (range) return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
   const hp = activeHandPosition.value
   if (!hp) return ''
-  return `Aktive Handlage: ${String(hp?.fret ?? '')}`
+  return t('fretboardShow.activeHandPosition', { fret: String(hp?.fret ?? '') })
 })
 
 const handModeWarningText = computed(() => {
@@ -1259,7 +1307,8 @@ const handModeWarningText = computed(() => {
   const ds = Math.abs((Number(cur?.string) || 0) - (Number(prev?.string) || 0))
   const hardJump = df >= 6 || (df >= 4 && ds >= 2)
   if (!hardJump) return ''
-  return `Warnung: großer Lagensprung (${df} Bünde${ds ? `, ${ds} Saiten` : ''})`
+  const tail = ds ? t('fretboardShow.warningStringsPart', { strings: ds }) : ''
+  return t('fretboardShow.warningLargeJump', { frets: df, tail })
 })
 
 const fretLabels = computed(() => {
@@ -1624,6 +1673,30 @@ function toneDotY(d) {
   return Number(s?.y) || 0
 }
 
+function harmonyGuideFill(d) {
+  if (d?.inChord && d?.inScale) return 'rgba(230, 154, 66, 0.38)'
+  if (d?.inChord) return 'rgba(230, 154, 66, 0.26)'
+  return 'transparent'
+}
+
+function harmonyGuideStroke(d) {
+  if (d?.inChord && d?.inScale) return 'rgba(255, 202, 125, 0.98)'
+  if (d?.inChord) return 'rgba(255, 188, 96, 0.92)'
+  return 'rgba(135, 190, 255, 0.86)'
+}
+
+function harmonyGuideStrokeWidth(d) {
+  if (d?.inChord && d?.inScale) return 2.3
+  if (d?.inChord) return 1.9
+  return 1.5
+}
+
+function harmonyGuideRadius(d) {
+  if (d?.inChord && d?.inScale) return 9.2
+  if (d?.inChord) return 8
+  return 6
+}
+
 function toneDotOffset(d) {
   const count = Number(d?._stackCount) || 1
   if (count <= 1) return { dx: 0, dy: 0 }
@@ -1871,6 +1944,10 @@ watch(
 
 .fb-playback-self-loop .self-loop-head {
   filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.75));
+}
+
+.fb-harmony-guides circle {
+  opacity: 0.95;
 }
 
 .fb-tone-dot-symbol {
