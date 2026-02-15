@@ -608,6 +608,7 @@ async function onImportFileChange(e) {
 
 .app-content.with-main-menu {
   padding-left: calc(var(--main-menu-w) + var(--space-4));
+  padding-right: calc(var(--main-menu-w) + var(--space-4));
 }
 
 .fretboard {
@@ -648,6 +649,7 @@ async function onImportFileChange(e) {
 @media (max-width: 860px) {
   .app-content.with-main-menu {
     padding-left: 0;
+    padding-right: 0;
   }
 }
 </style>
