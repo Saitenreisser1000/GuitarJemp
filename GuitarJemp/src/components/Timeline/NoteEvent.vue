@@ -2,7 +2,8 @@
   <div v-if="isVisibleInTimeline || isGhostVisible" class="note-event"
     :class="{ 'is-selected': isSelected, 'is-ghost': isGhostVisible }" :data-note-key="note?.key"
     :style="noteStyle" :title="title"
-    @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
+    @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp"
+    @contextmenu.prevent.stop="onContextMenu">
     <div class="note-label" :class="{ 'is-hand-position-label': isHandPositionNote }">
       <span class="fret-number" :class="{ 'is-editable': isHandPositionNote }" @pointerdown.stop
         @click.stop="onEditLabel" @dblclick.stop="onEditLabel">
@@ -13,10 +14,24 @@
     <div v-if="dragTooltip" class="drag-tooltip">{{ dragTooltip }}</div>
     <div class="resize-handle" @pointerdown.stop="onResizePointerDown" />
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="contextMenu.open"
+      class="note-context-menu"
+      :style="contextMenuStyle"
+      @pointerdown.stop
+      @contextmenu.prevent
+    >
+      <button class="note-context-item is-danger" type="button" @click="onDeleteFromContextMenu">
+        {{ t('fretboardShow.delete') }}
+      </button>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
 import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
@@ -250,6 +265,78 @@ const dragTooltip = computed(() => {
   })
 })
 
+const contextMenu = ref({
+  open: false,
+  x: 0,
+  y: 0,
+})
+
+const contextMenuStyle = computed(() => ({
+  left: `${Number(contextMenu.value.x) || 0}px`,
+  top: `${Number(contextMenu.value.y) || 0}px`,
+}))
+
+function closeContextMenu() {
+  if (!contextMenu.value.open) return
+  contextMenu.value = { open: false, x: 0, y: 0 }
+  window.removeEventListener('pointerdown', onGlobalPointerDown, true)
+  window.removeEventListener('keydown', onGlobalKeyDown, true)
+  window.removeEventListener('resize', closeContextMenu, true)
+  window.removeEventListener('scroll', closeContextMenu, true)
+}
+
+function onGlobalPointerDown(event) {
+  const target = event?.target
+  if (target?.closest?.('.note-context-menu')) return
+  closeContextMenu()
+}
+
+function onGlobalKeyDown(event) {
+  if (event?.key === 'Escape') closeContextMenu()
+}
+
+function onContextMenu(event) {
+  const key = props.note?.key
+  if (key && !selection.isSelected(key)) selection.selectNote(key)
+
+  const margin = 8
+  const menuWidth = 160
+  const menuHeight = 40
+  const vw = Number(globalThis?.innerWidth) || 0
+  const vh = Number(globalThis?.innerHeight) || 0
+  const xRaw = Number(event?.clientX) || 0
+  const yRaw = Number(event?.clientY) || 0
+  const maxX = Math.max(margin, vw - menuWidth - margin)
+  const maxY = Math.max(margin, vh - menuHeight - margin)
+  const x = Math.max(margin, Math.min(maxX, xRaw))
+  const y = Math.max(margin, Math.min(maxY, yRaw))
+
+  contextMenu.value = { open: true, x, y }
+  window.addEventListener('pointerdown', onGlobalPointerDown, true)
+  window.addEventListener('keydown', onGlobalKeyDown, true)
+  window.addEventListener('resize', closeContextMenu, true)
+  window.addEventListener('scroll', closeContextMenu, true)
+}
+
+function onDeleteFromContextMenu() {
+  const key = String(props.note?.key ?? '')
+  if (!key) {
+    closeContextMenu()
+    return
+  }
+
+  notesStore.removeNote(key)
+
+  if (selection.isSelected(key)) {
+    const current = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+    const next = current.filter((k) => String(k) !== key)
+    if (next.length) selection.setSelectedNotes(next)
+    else selection.clearSelection()
+  }
+
+  closeContextMenu()
+}
+
 const title = computed(() => {
   const len = safeLengthBlocks.value
   const p = pitchLabel.value
@@ -264,6 +351,7 @@ const title = computed(() => {
 
 function onPointerDown(e) {
   if (isResizing.value) return
+  if (e?.button != null && e.button !== 0) return
   const key = props.note?.key
 
   // Allow double-click label editing on HandPosition events without starting drag.
@@ -331,6 +419,7 @@ function onPointerDown(e) {
 
 function onResizePointerDown(e) {
   if (isDragging.value) return
+  if (e?.button != null && e.button !== 0) return
   const key = props.note?.key
   if (key) {
     if (e?.shiftKey && e?.altKey && e?.metaKey) selectForwardFromHere({ allStrings: true })
@@ -444,6 +533,10 @@ function onEditLabel() {
   if (!value) return
   if (props.note?.key) emit('update-label', props.note.key, value)
 }
+
+onBeforeUnmount(() => {
+  closeContextMenu()
+})
 </script>
 
 <style scoped>
@@ -537,6 +630,38 @@ function onEditLabel() {
   background: linear-gradient(to left, rgb(255 255 255 / 28%), rgb(255 255 255 / 5%));
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
+}
+
+.note-context-menu {
+  position: fixed;
+  z-index: 1400;
+  min-width: 136px;
+  background: color-mix(in srgb, var(--color-surface) 94%, #000 6%);
+  border: 1px solid color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 10px 22px rgb(0 0 0 / 28%);
+  padding: 6px;
+}
+
+.note-context-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-on-surface);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.note-context-item:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+}
+
+.note-context-item.is-danger {
+  color: #d04e4e;
 }
 
 @media (max-width: 860px) {

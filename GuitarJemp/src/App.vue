@@ -20,6 +20,7 @@ import { useTheme } from 'vuetify'
 import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
 import { toMidiBytes } from '@/domain/exchange/midi'
+import { toPdfBytes } from '@/domain/exchange/pdf'
 import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { parseMidiToClip } from '@/domain/exchange/importMidi'
@@ -298,6 +299,12 @@ function onExportMidi() {
   downloadBinaryFile(`${exportBaseFileName()}.mid`, midi, 'audio/midi')
 }
 
+function onExportPdf() {
+  const clip = buildClipForExchange()
+  const pdf = toPdfBytes(clip, { title: library.currentItem?.title || 'GuitarJemp Export' })
+  downloadBinaryFile(`${exportBaseFileName()}.pdf`, pdf, 'application/pdf')
+}
+
 function openImportPicker(mode = 'replace') {
   importMode.value = mode === 'append' ? 'append' : 'replace'
   importFileInput.value?.click?.()
@@ -468,6 +475,8 @@ function triggerRedo() {
               @click="onExportMusicXml" />
             <v-list-item prepend-icon="mdi-file-music" :title="t('app.exportMidi')" :disabled="!hasNotes"
               @click="onExportMidi" />
+            <v-list-item prepend-icon="mdi-file-pdf-box" :title="t('app.exportPdf')" :disabled="!hasNotes"
+              @click="onExportPdf" />
             <v-divider class="my-1" />
             <v-list-item prepend-icon="mdi-file-replace-outline" :title="t('app.importReplace')"
               @click="openImportPicker('replace')" />

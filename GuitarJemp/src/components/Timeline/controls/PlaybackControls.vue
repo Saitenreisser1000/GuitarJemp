@@ -15,8 +15,19 @@
           @update:model-value="(v) => emit('update-loop', Boolean(v))" />
       </div>
 
-      <v-slider v-model="playheadLocal" class="transport-slider flex-grow-1" :min="0"
-        :max="Math.max(0, Number(totalDuration) || 0)" :step="PLAYHEAD_STEP_MS" hide-details />
+      <v-slider
+        v-model="playheadLocal"
+        class="transport-slider flex-grow-1"
+        :min="0"
+        :max="Math.max(0, Number(totalDuration) || 0)"
+        :step="PLAYHEAD_STEP_MS"
+        thumb-label
+        hide-details
+      >
+        <template #thumb-label="{ modelValue }">
+          {{ formatPlayheadMs(modelValue) }}
+        </template>
+      </v-slider>
 
       <div class="d-flex align-center ga-2">
         <v-btn
@@ -143,6 +154,18 @@ function onTapTempo() {
   const bpm = clampTempo(60000 / avgMs)
   emit('update-tempo', bpm)
 }
+
+function formatPlayheadMs(valueMs) {
+  const ms = Math.max(0, Number(valueMs) || 0)
+  const totalSeconds = ms / 1000
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.floor(totalSeconds % 60)
+  const hundredths = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100)
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  const hh = String(hundredths).padStart(2, '0')
+  return `${mm}:${ss}.${hh}`
+}
 </script>
 
 <style scoped>
@@ -168,6 +191,8 @@ function onTapTempo() {
 }
 
 .transport-controls {
+  min-height: 72px;
+  padding-top: 16px !important;
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
   border: 1px solid var(--color-border);
 }

@@ -106,7 +106,7 @@
 
               <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
                 @click="() => emit('loop-to-selection')">
-                {{ t('timelineView.loopSel') }}
+                {{ t('playback.loop') }}
               </button>
             </div>
 
@@ -154,6 +154,7 @@
                     :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
                     :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
                     :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
+                    :show-bar-numbers="showBarNumbersOnAuxTrack"
                     @add-aux-item="() => emit('add-hand-position')" @seek-playhead="(t) => emit('seek-playhead', t)"
                     @update-note-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
                     @update-note-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
@@ -170,6 +171,7 @@
                     :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
                     :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
                     :ghost-notes-enabled="ghostNotesEnabled"
+                    :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
                     @update-active-string="(v) => emit('update-active-string', v)"
                     @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                       (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
@@ -188,19 +190,15 @@
                   class="timeline-length-handle-wrap"
                   :style="{ left: `${trackEndPx}px` }"
                 >
-                  <div class="timeline-length-marker" aria-hidden="true">
-                    <span class="timeline-length-marker-thin" />
-                    <span class="timeline-length-marker-thick" />
-                  </div>
-                  <button
-                    class="timeline-length-handle"
-                    type="button"
+                  <div
+                    class="timeline-length-marker"
                     :title="t('timelineView.dragTimelineLength')"
                     :aria-label="t('timelineView.dragTimelineLength')"
                     @pointerdown="onLengthHandlePointerDown"
                   >
-                    <span class="timeline-length-handle-grip" aria-hidden="true">⋮⋮</span>
-                  </button>
+                    <span class="timeline-length-marker-thin" />
+                    <span class="timeline-length-marker-thick" />
+                  </div>
                 </div>
 
                 <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
@@ -211,17 +209,43 @@
 
         <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
           <div class="d-flex align-center ga-3 flex-wrap pa-2">
-            <v-chip class="status-chip" label variant="tonal" color="primary">
-              {{ t('timelineView.time') }}: {{ playheadTimeLabel }}
-            </v-chip>
-            <v-chip class="status-chip" label variant="tonal" color="secondary">
-              {{ t('timelineView.bar') }}: {{ barBeatLabel }}
-            </v-chip>
-
             <div class="zoom-status d-flex align-center ga-2">
               <div class="text-caption zoom-label">{{ t('timelineView.zoom') }}</div>
               <v-slider v-model="zoomLocal" class="zoom-slider" density="compact" hide-details min="12" max="120"
                 step="2" />
+            </div>
+
+            <div class="bars-input-wrap d-flex align-center ga-2 ms-auto">
+              <div class="text-caption zoom-label">Bars:</div>
+              <v-text-field
+                class="bars-count-input"
+                density="compact"
+                hide-details
+                variant="outlined"
+                type="number"
+                min="1"
+                step="1"
+                :model-value="barsNoPickupLocal"
+                @update:model-value="(v) => (barsNoPickupLocal = v)"
+              />
+              <v-btn
+                size="x-small"
+                variant="tonal"
+                class="bars-adjust-btn"
+                :title="'Bars -1'"
+                @click="decrementBarsNoPickup"
+              >
+                -
+              </v-btn>
+              <v-btn
+                size="x-small"
+                variant="tonal"
+                class="bars-adjust-btn"
+                :title="'Bars +1'"
+                @click="incrementBarsNoPickup"
+              >
+                +
+              </v-btn>
             </div>
           </div>
         </v-card>
@@ -413,10 +437,18 @@ const zoomLocal = computed({
 })
 
 const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
+const TRACK_START_OFFSET_PX = 54
 
 const visibleTracks = computed(() => {
   return Array.isArray(props.tracks) ? props.tracks : []
 })
+
+const showBarNumbersOnAuxTrack = computed(() => Boolean(props.handPositionVisible))
+
+function isFirstVisibleTrack(track) {
+  const first = Array.isArray(visibleTracks.value) ? visibleTracks.value[0] : null
+  return Number(track?.stringIdx) === Number(first?.stringIdx)
+}
 
 const selection = useSelectionStore()
 
@@ -446,7 +478,9 @@ const lengthDrag = ref({
   active: false,
   pointerId: null,
   startClientX: 0,
+  startScrollLeft: 0,
   startBlocks: 0,
+  previewBlocks: null,
 })
 const loopDrag = ref({
   active: false,
@@ -583,7 +617,9 @@ function onLengthHandlePointerDown(e) {
     active: true,
     pointerId,
     startClientX: Number(e?.clientX) || 0,
+    startScrollLeft: Number(scrollEl.value?.scrollLeft) || 0,
     startBlocks: Math.max(1, Number(props.totalBlocks) || 1),
+    previewBlocks: Math.max(1, Number(props.totalBlocks) || 1),
   }
 
   target?.setPointerCapture?.(pointerId)
@@ -599,12 +635,37 @@ function onLengthHandlePointerMove(e) {
   if (!drag.active) return
   if (e?.pointerId !== drag.pointerId) return
 
-  const dx = (Number(e?.clientX) || 0) - drag.startClientX
+  const currentScroll = Number(scrollEl.value?.scrollLeft) || 0
+  const scrollDx = currentScroll - (Number(drag.startScrollLeft) || 0)
+  const pointerDx = (Number(e?.clientX) || 0) - drag.startClientX
+  const dx = pointerDx + scrollDx
   const zoom = Math.max(8, Number(zoomPx.value) || 50)
   const deltaBlocks = dx / zoom
   const rawNext = Math.max(1, drag.startBlocks + deltaBlocks)
-  // Drag should feel fluid: update freely and only snap on pointerup.
-  emit('update-total-blocks', Number(rawNext.toFixed(3)))
+  // Keep drag lightweight: local preview while moving, commit on pointerup.
+  lengthDrag.value = { ...drag, previewBlocks: rawNext }
+
+  // Keep the length handle in view while dragging, especially when extending to the right.
+  const el = scrollEl.value
+  if (el) {
+    const handleX = TRACK_START_OFFSET_PX + rawNext * zoom
+    const margin = 56
+    const viewLeft = Number(el.scrollLeft) || 0
+    const viewRight = viewLeft + (Number(el.clientWidth) || 0)
+
+    let nextScrollLeft = viewLeft
+    if (handleX > viewRight - margin) {
+      nextScrollLeft = handleX - (Number(el.clientWidth) || 0) + margin
+    } else if (handleX < viewLeft + margin) {
+      nextScrollLeft = handleX - margin
+    }
+
+    if (nextScrollLeft !== viewLeft) {
+      const maxScroll = Math.max(0, (Number(el.scrollWidth) || 0) - (Number(el.clientWidth) || 0))
+      el.scrollLeft = Math.max(0, Math.min(maxScroll, nextScrollLeft))
+    }
+  }
+
   e.preventDefault()
   e.stopPropagation()
 }
@@ -614,10 +675,7 @@ function onLengthHandlePointerUp(e) {
   if (!drag.active) return
   if (e?.pointerId !== drag.pointerId) return
 
-  const dx = (Number(e?.clientX) || 0) - drag.startClientX
-  const zoom = Math.max(8, Number(zoomPx.value) || 50)
-  const deltaBlocks = dx / zoom
-  const rawNext = Math.max(1, drag.startBlocks + deltaBlocks)
+  const rawNext = Math.max(1, Number(drag.previewBlocks) || drag.startBlocks || 1)
   const raster = Math.max(0.01, Number(props.currentStep) || 1)
   const snapped = Math.round(rawNext / raster) * raster
   emit('update-total-blocks', Number(snapped.toFixed(3)))
@@ -631,7 +689,9 @@ function onLengthHandlePointerUp(e) {
     active: false,
     pointerId: null,
     startClientX: 0,
+    startScrollLeft: 0,
     startBlocks: 0,
+    previewBlocks: null,
   }
   e?.preventDefault?.()
   e?.stopPropagation?.()
@@ -653,10 +713,9 @@ const loopRange = computed(() => {
 })
 
 const loopBracketStyle = computed(() => {
-  const labelWidthPx = 48
   const zoom = Math.max(8, Number(zoomPx.value) || 50)
-  const startPx = labelWidthPx + loopRange.value.start * zoom
-  const endPx = labelWidthPx + loopRange.value.end * zoom
+  const startPx = TRACK_START_OFFSET_PX + loopRange.value.start * zoom
+  const endPx = TRACK_START_OFFSET_PX + loopRange.value.end * zoom
   return {
     left: `${startPx}px`,
     width: `${Math.max(6, endPx - startPx)}px`,
@@ -668,9 +727,8 @@ function blockFromPointerEvent(e) {
   if (!el?.getBoundingClientRect) return 0
   const rect = el.getBoundingClientRect()
   const x = Number(e?.clientX) - rect.left + el.scrollLeft
-  const labelWidthPx = 48
   const zoom = Math.max(8, Number(zoomPx.value) || 50)
-  const raw = (x - labelWidthPx) / zoom
+  const raw = (x - TRACK_START_OFFSET_PX) / zoom
   const step = Math.max(0.01, Number(props.currentStep) || 1)
   return Math.round(raw / step) * step
 }
@@ -748,20 +806,26 @@ onMounted(() => {
   }
 })
 
+const effectiveTotalBlocks = computed(() => {
+  if (lengthDrag.value.active) {
+    const preview = Number(lengthDrag.value.previewBlocks)
+    if (Number.isFinite(preview) && preview > 0) return preview
+  }
+  return Math.max(1, Number(props.totalBlocks) || 1)
+})
+
 const trackMinWidthPx = computed(() => {
-  const blocks = Math.max(1, Number(props.totalBlocks) || 1)
+  const blocks = Math.max(1, Number(effectiveTotalBlocks.value) || 1)
   return blocks * zoomPx.value
 })
 
 const trackEndPx = computed(() => {
-  const labelWidthPx = 48
-  return trackMinWidthPx.value + labelWidthPx
+  return trackMinWidthPx.value + TRACK_START_OFFSET_PX
 })
 
 const markerItems = computed(() => {
   const totalDurationMs = Number(props.totalDuration) || 0
   if (!(totalDurationMs > 0)) return []
-  const labelWidthPx = 48
   const zoom = zoomPx.value
   return (Array.isArray(props.markers) ? props.markers : [])
     .map((m, idx) => {
@@ -773,7 +837,7 @@ const markerItems = computed(() => {
         label: String(m?.label ?? `M${idx + 1}`),
         title: String(m?.title ?? t('timelineView.markerN', { index: idx + 1 })),
         timeMs: tMs,
-        leftPx: labelWidthPx + blocks * zoom,
+        leftPx: TRACK_START_OFFSET_PX + blocks * zoom,
       }
     })
     .filter(Boolean)
@@ -812,9 +876,8 @@ watch(
     const timePerBlock = totalDurationMs / totalBlocksSafe
     if (!(timePerBlock > 0)) return
 
-    const labelWidthPx = 48
     const playheadBlocks = Math.max(0, Number(props.playhead) || 0) / timePerBlock
-    const playheadPx = labelWidthPx + playheadBlocks * zoomPx.value
+    const playheadPx = TRACK_START_OFFSET_PX + playheadBlocks * zoomPx.value
 
     const viewportWidth = Math.max(1, el.clientWidth || 0)
     const midpointX = el.scrollLeft + viewportWidth / 2
@@ -851,6 +914,63 @@ function formatMs(tMs) {
 }
 
 const playheadTimeLabel = computed(() => formatMs(props.playhead))
+
+const beatsPerBarSafe = computed(() => {
+  const v = Number.parseInt(String(props.beatTop), 10)
+  return Number.isFinite(v) && v > 0 ? v : 1
+})
+
+const beatBottomSafe = computed(() => {
+  const v = Number.parseInt(String(props.beatBottom), 10)
+  return [1, 2, 4, 8].includes(v) ? v : 4
+})
+
+const blocksPerBeatSafe = computed(() => 4 / beatBottomSafe.value)
+const blocksPerBarSafe = computed(() => beatsPerBarSafe.value * blocksPerBeatSafe.value)
+
+const pickupBeatsSafe = computed(() => {
+  const raw = Number.parseInt(String(props.pickupBeats), 10)
+  if (!Number.isFinite(raw)) return 1
+  const maxByBeat = Math.max(1, beatsPerBarSafe.value - 1)
+  return Math.max(1, Math.min(Math.min(9, raw), maxByBeat))
+})
+
+const pickupBlocksSafe = computed(() =>
+  props.pickupEnabled ? pickupBeatsSafe.value * blocksPerBeatSafe.value : 0,
+)
+
+const barsNoPickup = computed({
+  get: () => {
+    const blocksPerBar = Number(blocksPerBarSafe.value)
+    if (!(blocksPerBar > 0)) return 1
+    const total = Math.max(0, Number(props.totalBlocks) || 0)
+    return Math.max(1, Math.floor(total / blocksPerBar))
+  },
+  set: (v) => {
+    const n = Number.parseInt(String(v), 10)
+    if (!Number.isFinite(n)) return
+    const nextBars = Math.max(1, Math.min(512, n))
+    const total = nextBars * Number(blocksPerBarSafe.value || 1)
+    emit('update-total-blocks', Number(total.toFixed(3)))
+  },
+})
+
+const barsNoPickupLocal = computed({
+  get: () => String(barsNoPickup.value),
+  set: (v) => {
+    const n = Number.parseInt(String(v), 10)
+    if (!Number.isFinite(n)) return
+    barsNoPickup.value = n
+  },
+})
+
+function decrementBarsNoPickup() {
+  barsNoPickup.value = Math.max(1, Number(barsNoPickup.value) - 1)
+}
+
+function incrementBarsNoPickup() {
+  barsNoPickup.value = Math.min(512, Number(barsNoPickup.value) + 1)
+}
 
 const barBeatLabel = computed(() => {
   const beatsPerBarRaw = Number.parseInt(String(props.beatTop), 10)
@@ -892,6 +1012,7 @@ const barBeatLabel = computed(() => {
 .timeline-main {
   --main-menu-w: 84px;
   --secondary-menu-w: 224px;
+  --main-grow-right: 72px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
@@ -899,6 +1020,7 @@ const barBeatLabel = computed(() => {
   flex-direction: column;
   gap: var(--space-4);
   padding-bottom: var(--space-1);
+  margin-right: calc(-1 * var(--main-grow-right));
 }
 
 .count-in-lightbox {
@@ -930,6 +1052,7 @@ const barBeatLabel = computed(() => {
 
 .timeline-layout {
   display: block;
+  padding: var(--space-2) var(--space-2) 0;
 }
 
 .main-menu-rail {
@@ -1033,7 +1156,7 @@ const barBeatLabel = computed(() => {
 
 .timeline-options-menu {
   position: absolute;
-  top: -12px;
+  top: 0;
   right: -34px;
   z-index: 40;
 }
@@ -1058,15 +1181,16 @@ const barBeatLabel = computed(() => {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
   box-shadow: var(--elev-2);
-  overflow: clip;
+  overflow: visible;
   pointer-events: auto;
 }
 
 .timeline {
   position: relative;
   background: color-mix(in srgb, var(--color-surface) 93%, var(--color-surface-2) 7%);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   border: 1px solid var(--color-border);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -1083,21 +1207,25 @@ const barBeatLabel = computed(() => {
   flex: 1 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+  box-shadow: inset 10px 0 12px -12px rgb(0 0 0 / 28%);
 }
 
 .timeline-columns {
   display: flex;
   width: 100%;
+  column-gap: 6px;
 }
 
 .timeline-tools {
-  flex: 0 0 66px;
+  flex: 0 0 54px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px;
+  padding: 4px 3px;
   background: color-mix(in srgb, var(--color-surface-2) 82%, var(--color-surface) 18%);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 75%, var(--color-text) 25%);
+  box-shadow: 1px 0 0 rgb(255 255 255 / 45%) inset;
 }
 
 .timeline-tool {
@@ -1105,7 +1233,7 @@ const barBeatLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
+  width: 46px;
   height: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
@@ -1235,7 +1363,7 @@ const barBeatLabel = computed(() => {
   bottom: 0;
   width: 0;
   display: flex;
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 15;
 }
 
@@ -1250,7 +1378,8 @@ const barBeatLabel = computed(() => {
   gap: 2px;
   opacity: 0.95;
   z-index: 3;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: ew-resize;
 }
 
 .timeline-length-marker-thin {
@@ -1263,61 +1392,14 @@ const barBeatLabel = computed(() => {
   background: #000;
 }
 
-.timeline-length-handle {
-  pointer-events: auto;
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 28px;
-  z-index: 2;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-surface-2) 72%, var(--color-surface) 28%);
-  color: var(--color-text-muted);
-  cursor: ew-resize;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color var(--ui-fast), border-color var(--ui-fast), color var(--ui-fast);
-}
-
-.timeline-length-handle::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -10px;
-  right: -10px;
-}
-
-.timeline-length-handle:hover {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface) 82%);
-  color: var(--color-text);
-}
-
-.timeline-length-handle:active {
-  background: color-mix(in srgb, var(--color-primary) 26%, var(--color-surface) 74%);
-}
-
-.timeline-length-handle-grip {
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: -0.05em;
-  user-select: none;
-}
-
 .timeline-info {
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 0;
 }
 
 .status-chip {
-  width: 200px;
+  width: 133px;
   justify-content: center;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -1335,6 +1417,21 @@ const barBeatLabel = computed(() => {
 .zoom-slider {
   width: 240px;
   max-width: 40vw;
+}
+
+.bars-input-wrap {
+  min-width: 164px;
+}
+
+.bars-count-input {
+  width: 96px;
+  min-width: 96px;
+}
+
+.bars-adjust-btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
 }
 
 .timeline-info :deep(.v-slider-track__background) {
@@ -1361,6 +1458,10 @@ const barBeatLabel = computed(() => {
 }
 
 @media (max-width: 860px) {
+  .timeline-main {
+    margin-right: 0;
+  }
+
   .timeline-layout {
     display: block;
   }

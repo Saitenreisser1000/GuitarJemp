@@ -81,6 +81,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const handPositionVisible = ref(
     typeof stored.handPositionVisible === 'boolean' ? stored.handPositionVisible : false,
   )
+  const showSuggestedPosition = ref(
+    typeof stored.showSuggestedPosition === 'boolean' ? stored.showSuggestedPosition : false,
+  )
 
   function setSelectedMode(m) {
     const mode = String(m)
@@ -196,6 +199,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible.value = Boolean(v)
   }
 
+  function setShowSuggestedPosition(v) {
+    showSuggestedPosition.value = Boolean(v)
+  }
+
   function setSimGroupMode(v) {
     const raw = String(v || '')
     const next = raw === 'dot' ? 'dotted' : raw
@@ -226,6 +233,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     stringsCollapsed,
     showChordShapePanel,
     handPositionVisible,
+    showSuggestedPosition,
     simGroupMode,
   })
 
@@ -253,6 +261,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     stringsCollapsed,
     showChordShapePanel,
     handPositionVisible,
+    showSuggestedPosition,
     simGroupMode,
     setSelectedMode,
     setSnapEnabled,
@@ -276,6 +285,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setStringsCollapsed,
     setShowChordShapePanel,
     setHandPositionVisible,
+    setShowSuggestedPosition,
     setSimGroupMode,
   }
 })

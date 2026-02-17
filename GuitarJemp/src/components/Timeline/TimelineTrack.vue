@@ -16,8 +16,17 @@
       @pointermove="onScrubPointerMove" @pointerup="onScrubPointerUp" @pointercancel="onScrubPointerUp">
       <div class="grid-background" :style="gridBackgroundStyle"></div>
       <div class="bar-lines" aria-hidden="true">
-        <span v-for="(left, idx) in barLinePositionsPct" :key="`bar-line-${idx}`" class="bar-line"
-          :style="{ left: `${left}%` }" />
+        <span class="bar-line is-start" :style="{ left: '0%' }">
+          <span v-if="showBarNumbers" class="bar-line-label">{{ firstBarLabel }}</span>
+        </span>
+        <span
+          v-for="item in barLineItems"
+          :key="`bar-line-${item.idx}`"
+          class="bar-line"
+          :style="{ left: `${item.leftPct}%` }"
+        >
+          <span v-if="showBarNumbers" class="bar-line-label">{{ item.label }}</span>
+        </span>
       </div>
       <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" :title="t('timelineTrack.dragPosition')" />
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
@@ -59,6 +68,7 @@ const props = defineProps({
   simGroupMode: { type: String, default: '' },
   ghostNotesEnabled: { type: Boolean, default: false },
   isAuxTrack: { type: Boolean, default: false },
+  showBarNumbers: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -216,6 +226,20 @@ const barLinePositionsPct = computed(() => {
   return out
 })
 
+const barLineItems = computed(() => {
+  const lefts = Array.isArray(barLinePositionsPct.value) ? barLinePositionsPct.value : []
+  const out = []
+  const pickupOn = Boolean(props.pickupEnabled)
+  for (let i = 0; i < lefts.length; i += 1) {
+    const label = pickupOn ? i + 1 : i + 2
+    out.push({ idx: i, leftPct: lefts[i], label })
+  }
+  return out
+})
+
+const showBarNumbers = computed(() => Boolean(props.showBarNumbers))
+const firstBarLabel = computed(() => (props.pickupEnabled ? 0 : 1))
+
 const gridBackgroundStyle = computed(() => {
   const snapStep = snapStepBlocks.value
   const subdivisionsPerBlock = Math.max(1, Math.round(1 / snapStep))
@@ -316,6 +340,7 @@ function getNoteColor(fret) {
   position: relative;
   flex: 0 0 auto;
   height: 44px;
+  margin-left: 6px;
 }
 
 .timeline-track::after {
@@ -374,6 +399,24 @@ function getNoteColor(fret) {
   width: 3px;
   transform: translateX(-50%);
   background: rgba(70, 70, 70, 0.45);
+}
+
+.bar-line.is-start {
+  transform: translateX(0);
+  background: rgba(70, 70, 70, 0.6);
+}
+
+.bar-line-label {
+  position: absolute;
+  top: 1px;
+  left: 5px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  color: rgba(80, 80, 80, 0.82);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+  user-select: none;
 }
 
 .playhead-indicator {

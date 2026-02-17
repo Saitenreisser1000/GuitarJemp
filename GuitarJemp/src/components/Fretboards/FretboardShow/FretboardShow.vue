@@ -122,6 +122,7 @@
             <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)"
               :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)"
               @mouseleave="onToneDotLeave(d)" @click="onToneDotClick(d, $event)"
+              @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
               @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
               @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
             <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
@@ -196,6 +197,29 @@
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
     </div>
+    <Teleport to="body">
+      <div
+        v-if="toneDotContextMenu.open"
+        class="fb-tone-dot-context-menu"
+        :style="{ left: `${toneDotContextMenu.x}px`, top: `${toneDotContextMenu.y}px` }"
+        @pointerdown.stop
+        @contextmenu.prevent
+      >
+        <div class="fb-tone-dot-context-title">
+          S{{ toneDotContextMenu.string }} F{{ toneDotContextMenu.fret }}
+        </div>
+        <button
+          v-for="item in toneDotContextMenu.items"
+          :key="`tone-dot-context-${item.noteKey}`"
+          class="fb-tone-dot-context-item"
+          type="button"
+          @click="onDeleteToneDotContextItem(item.noteKey)"
+        >
+          <span class="item-label">{{ item.label }}</span>
+          <span class="item-action">{{ t('fretboardShow.delete') }}</span>
+        </button>
+      </div>
+    </Teleport>
 
     <div class="fb-options-menu">
       <v-menu location="bottom end" :close-on-content-click="false">
@@ -275,6 +299,14 @@
             :label="t('modeSelector.chordShapePanel')"
             :model-value="settings.showChordShapePanel"
             @update:model-value="(v) => settings.setShowChordShapePanel(Boolean(v))"
+          />
+          <v-switch
+            density="compact"
+            hide-details
+            inset
+            :label="t('modeSelector.suggestedPosition')"
+            :model-value="settings.showSuggestedPosition"
+            @update:model-value="(v) => settings.setShowSuggestedPosition(Boolean(v))"
           />
           <v-switch
             density="compact"
@@ -1228,6 +1260,139 @@ const dragPreviewToneDot = computed(() => {
 })
 
 const tooltip = ref({ visible: false, x: 0, y: 0, text: '' })
+const toneDotContextMenu = ref({
+  open: false,
+  x: 0,
+  y: 0,
+  posKey: '',
+  string: 0,
+  fret: 0,
+  items: [],
+})
+
+function removeSelectionKey(noteKey) {
+  const key = String(noteKey || '')
+  if (!key) return
+  if (!selection.isSelected(key)) return
+  const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  const next = keys.map((k) => String(k)).filter((k) => k && k !== key)
+  if (next.length) selection.setSelectedNotes(next)
+  else selection.clearSelection()
+}
+
+function buildToneDotContextItems(posKey) {
+  const notes = notesByPosKey.value.get(String(posKey || ''))
+  if (!Array.isArray(notes) || !notes.length) return []
+  const sorted = [...notes]
+  sorted.sort((a, b) => {
+    const ta = Number(a?.placedAtMs) || 0
+    const tb = Number(b?.placedAtMs) || 0
+    if (ta !== tb) return tb - ta
+    return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+  })
+  return sorted
+    .map((n) => {
+      const noteKey = String(n?.key ?? '')
+      if (!noteKey) return null
+      const grid = Number(n?.gridIndex)
+      const length = Number(n?.lengthBlocks)
+      const safeLength = Number.isFinite(length) && length > 0 ? length : 1
+      const label = Number.isFinite(grid)
+        ? t('noteEvent.dragTooltip', {
+          grid: grid.toFixed(2),
+          length: Math.max(0.01, safeLength).toFixed(2),
+        })
+        : noteKey
+      return { noteKey, label }
+    })
+    .filter(Boolean)
+}
+
+function closeToneDotContextMenu() {
+  if (!toneDotContextMenu.value.open) return
+  toneDotContextMenu.value = {
+    open: false,
+    x: 0,
+    y: 0,
+    posKey: '',
+    string: 0,
+    fret: 0,
+    items: [],
+  }
+  window.removeEventListener('pointerdown', onGlobalToneDotContextPointerDown, true)
+  window.removeEventListener('keydown', onGlobalToneDotContextKeyDown, true)
+  window.removeEventListener('resize', closeToneDotContextMenu, true)
+  window.removeEventListener('scroll', closeToneDotContextMenu, true)
+}
+
+function onGlobalToneDotContextPointerDown(event) {
+  const target = event?.target
+  if (target?.closest?.('.fb-tone-dot-context-menu')) return
+  closeToneDotContextMenu()
+}
+
+function onGlobalToneDotContextKeyDown(event) {
+  if (event?.key === 'Escape') closeToneDotContextMenu()
+}
+
+function onToneDotContextMenu(d, event) {
+  const posKey = posKeyForToneDot(d)
+  const items = buildToneDotContextItems(posKey)
+  if (!items.length) return
+
+  const [stringRaw, fretRaw] = String(posKey || '').split('-')
+  const string = Number(stringRaw)
+  const fret = Number(fretRaw)
+  const margin = 8
+  const menuWidth = 290
+  const rowHeight = 34
+  const menuHeight = 40 + items.length * rowHeight
+  const vw = Number(globalThis?.innerWidth) || 0
+  const vh = Number(globalThis?.innerHeight) || 0
+  const xRaw = Number(event?.clientX) || 0
+  const yRaw = Number(event?.clientY) || 0
+  const maxX = Math.max(margin, vw - menuWidth - margin)
+  const maxY = Math.max(margin, vh - menuHeight - margin)
+  const x = Math.max(margin, Math.min(maxX, xRaw))
+  const y = Math.max(margin, Math.min(maxY, yRaw))
+
+  toneDotContextMenu.value = {
+    open: true,
+    x,
+    y,
+    posKey: String(posKey || ''),
+    string: Number.isFinite(string) ? string : 0,
+    fret: Number.isFinite(fret) ? fret : 0,
+    items,
+  }
+  window.addEventListener('pointerdown', onGlobalToneDotContextPointerDown, true)
+  window.addEventListener('keydown', onGlobalToneDotContextKeyDown, true)
+  window.addEventListener('resize', closeToneDotContextMenu, true)
+  window.addEventListener('scroll', closeToneDotContextMenu, true)
+}
+
+function onDeleteToneDotContextItem(noteKey) {
+  const key = String(noteKey || '')
+  if (!key) return
+  store.removeNote(key)
+  removeSelectionKey(key)
+  hideTooltip()
+
+  const posKey = String(toneDotContextMenu.value.posKey || '')
+  if (!posKey) {
+    closeToneDotContextMenu()
+    return
+  }
+  const nextItems = buildToneDotContextItems(posKey)
+  if (!nextItems.length) {
+    closeToneDotContextMenu()
+    return
+  }
+  toneDotContextMenu.value = {
+    ...toneDotContextMenu.value,
+    items: nextItems,
+  }
+}
 
 function setTooltipFromEvent(event, text) {
   const rect = rootEl.value?.getBoundingClientRect?.()
@@ -1408,6 +1573,7 @@ const focusNoteForHandMode = computed(() => {
 })
 
 const suggestedHandPositionRange = computed(() => {
+  if (!settings.showSuggestedPosition) return null
   if (activeHandPosition.value) return null
   const note = focusNoteForHandMode.value
   const fretRaw = Number(note?.fret)
@@ -1466,7 +1632,7 @@ const suggestedHandPositionOverlayRect = computed(() => {
 })
 
 const handModeInfoText = computed(() => {
-  const range = suggestedHandPositionRange.value
+  const range = settings.showSuggestedPosition ? suggestedHandPositionRange.value : null
   if (range) return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
   const hp = activeHandPosition.value
   if (!hp) return ''
@@ -1696,6 +1862,7 @@ function onToneDotLeave(d) {
 }
 
 function onToneDotClick(d, event) {
+  if (event?.button != null && event.button !== 0) return
   if (Date.now() < suppressClicksUntilMs) return
   const noteKey = noteKeyForToneDot(d)
   if (!noteKey) return
@@ -1738,6 +1905,7 @@ function clearLongPressTimer() {
 }
 
 function onToneDotPointerDown(d, event) {
+  if (event?.button != null && event.button !== 0) return
   if (!props.editable) return
   if (isPlaying.value) return
 
@@ -2025,6 +2193,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  closeToneDotContextMenu()
   stopAnim()
 })
 
@@ -2214,6 +2383,61 @@ watch(
   white-space: nowrap;
 
   transform: translateY(-2px);
+}
+
+.fb-tone-dot-context-menu {
+  position: fixed;
+  z-index: 1300;
+  min-width: 240px;
+  max-width: min(340px, calc(100vw - 16px));
+  max-height: min(50vh, 360px);
+  overflow: auto;
+  background: rgba(20, 24, 30, 0.96);
+  border: 1px solid rgba(220, 233, 248, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+}
+
+.fb-tone-dot-context-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(210, 225, 242, 0.9);
+  padding: 4px 6px 6px;
+}
+
+.fb-tone-dot-context-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: transparent;
+  color: rgba(236, 243, 250, 0.96);
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fb-tone-dot-context-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.fb-tone-dot-context-item .item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fb-tone-dot-context-item .item-action {
+  color: rgba(255, 176, 176, 0.98);
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .fb-fret-numbers {

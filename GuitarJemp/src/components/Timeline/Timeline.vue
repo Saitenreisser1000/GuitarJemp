@@ -24,12 +24,12 @@
     @update-click="settings.setClickEnabled"
     @update-auto-follow="settings.setAutoFollowEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
-    @update-active-tool="settings.setActiveTool" @update-beat-top="settings.setBeatTop"
-    @update-beat-bottom="settings.setBeatBottom" @update-num-strings="instrument.setNumStrings"
+    @update-active-tool="settings.setActiveTool" @update-beat-top="handleUpdateBeatTop"
+    @update-beat-bottom="handleUpdateBeatBottom" @update-num-strings="instrument.setNumStrings"
     @update-loop-start-block="settings.setLoopStartBlock"
     @update-loop-end-block="settings.setLoopEndBlock"
-    @update-pickup-enabled="settings.setPickupEnabled"
-    @update-pickup-beats="settings.setPickupBeats"
+    @update-pickup-enabled="handleUpdatePickupEnabled"
+    @update-pickup-beats="handleUpdatePickupBeats"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
     @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
     @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
@@ -170,6 +170,44 @@ function blocksPerBar() {
   const raw = top * (4 / bottom)
   const safe = Number.isFinite(raw) && raw > 0 ? raw : 4
   return Number(safe.toFixed(2))
+}
+
+function handleUpdatePickupEnabled(v) {
+  settings.setPickupEnabled(v)
+  normalizeTimelineLengthToWholeBars()
+}
+
+function handleUpdatePickupBeats(v) {
+  settings.setPickupBeats(v)
+  normalizeTimelineLengthToWholeBars()
+}
+
+function barsFromTotalAndBar(total, bar) {
+  const safeTotal = Math.max(1, Number(total) || 1)
+  const safeBar = Math.max(0.01, Number(bar) || 1)
+  return Math.max(1, Math.round(safeTotal / safeBar))
+}
+
+function normalizeTimelineLengthToWholeBars() {
+  const bar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  const bars = barsFromTotalAndBar(totalBlocks.value, bar)
+  settings.setTimelineLengthBlocks(Number((bars * bar).toFixed(3)))
+}
+
+function handleUpdateBeatTop(v) {
+  const prevBar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  const bars = barsFromTotalAndBar(totalBlocks.value, prevBar)
+  settings.setBeatTop(v)
+  const nextBar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  settings.setTimelineLengthBlocks(Number((bars * nextBar).toFixed(3)))
+}
+
+function handleUpdateBeatBottom(v) {
+  const prevBar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  const bars = barsFromTotalAndBar(totalBlocks.value, prevBar)
+  settings.setBeatBottom(v)
+  const nextBar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  settings.setTimelineLengthBlocks(Number((bars * nextBar).toFixed(3)))
 }
 
 function handleUpdateTotalBlocks(nextBlocks) {
