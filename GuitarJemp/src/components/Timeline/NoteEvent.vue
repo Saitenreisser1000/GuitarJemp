@@ -353,6 +353,17 @@ function onPointerDown(e) {
   if (isResizing.value) return
   if (e?.button != null && e.button !== 0) return
   const key = props.note?.key
+  if (settings.eraseMode) {
+    if (key) {
+      notesStore.removeNote(String(key))
+      const current = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+      const next = current.filter((k) => String(k) !== String(key))
+      if (next.length) selection.setSelectedNotes(next)
+      else selection.clearSelection()
+    }
+    e?.preventDefault?.()
+    return
+  }
 
   // Allow double-click label editing on HandPosition events without starting drag.
   if (isHandPositionNote.value && e?.target?.closest?.('.fret-number.is-editable')) {

@@ -6,6 +6,26 @@
           :aria-label="isPlaying ? t('playback.pause') : t('playback.play')" @click="togglePlayPause">
           <v-icon :icon="isPlaying ? 'mdi-pause' : 'mdi-play'" />
         </v-btn>
+        <v-btn
+          :color="practiceActive ? 'success' : 'primary'"
+          variant="tonal"
+          icon
+          :title="practiceActive ? 'Stop practice' : 'Start practice'"
+          :aria-label="practiceActive ? 'Stop practice' : 'Start practice'"
+          @click="emit('toggle-practice')"
+        >
+          <v-icon :icon="practiceActive ? 'mdi-microphone' : 'mdi-microphone-outline'" />
+        </v-btn>
+        <v-btn
+          :color="recordActive ? 'error' : 'primary'"
+          variant="tonal"
+          icon
+          :title="recordActive ? 'Stop record' : 'Start record'"
+          :aria-label="recordActive ? 'Stop record' : 'Start record'"
+          @click="emit('toggle-record')"
+        >
+          <v-icon :icon="recordActive ? 'mdi-record-rec' : 'mdi-record-circle-outline'" />
+        </v-btn>
 
         <v-btn color="primary" variant="flat" icon :title="t('playback.fromStart')" :aria-label="t('playback.fromStart')" @click="seekStart">
           <v-icon icon="mdi-skip-backward" />
@@ -30,6 +50,16 @@
       </v-slider>
 
       <div class="d-flex align-center ga-2">
+        <div
+          v-if="practiceActive || recordActive || Boolean(practiceHintText)"
+          class="practice-status text-caption"
+          :class="{ 'is-ok': practiceMatchState === 'ok', 'is-tune': practiceMatchState === 'tune', 'is-error': practiceMatchState === 'error' }"
+        >
+          <span v-if="recordActive" class="practice-target">REC</span>
+          <span v-if="practiceTargetLabel" class="practice-target">Target: {{ practiceTargetLabel }}</span>
+          <span v-if="practiceDetectedLabel">Detected: {{ practiceDetectedLabel }}</span>
+          <span v-if="practiceHintText">{{ practiceHintText }}</span>
+        </div>
         <v-btn
           class="follow-btn"
           size="small"
@@ -76,6 +106,13 @@ const props = defineProps({
   loopEnabled: { type: Boolean, default: false },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
+  practiceActive: { type: Boolean, default: false },
+  practiceAvailable: { type: Boolean, default: true },
+  practiceTargetLabel: { type: String, default: '' },
+  practiceDetectedLabel: { type: String, default: '' },
+  practiceHintText: { type: String, default: '' },
+  practiceMatchState: { type: String, default: '' },
+  recordActive: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -86,6 +123,8 @@ const emit = defineEmits([
   'update-click',
   'update-auto-follow',
   'update-loop',
+  'toggle-practice',
+  'toggle-record',
 ])
 const { t } = useI18n()
 
@@ -217,6 +256,33 @@ function formatPlayheadMs(valueMs) {
 
 .transport-controls :deep(.v-field) {
   background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%);
+}
+
+.practice-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-surface) 20%);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.practice-status.is-tune {
+  color: #ad6b18;
+}
+
+.practice-status.is-ok {
+  color: #1f7a38;
+}
+
+.practice-status.is-error {
+  color: #9f2f2f;
+}
+
+.practice-target {
+  font-weight: 700;
 }
 
 @media (max-width: 860px) {

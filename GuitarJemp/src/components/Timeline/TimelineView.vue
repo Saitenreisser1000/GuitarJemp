@@ -3,39 +3,17 @@
     <div v-if="countInVisible" class="count-in-lightbox" aria-live="polite" aria-atomic="true">
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
-
-    <aside class="main-menu-rail" :aria-label="t('timelineView.mainMenu')">
-      <ModeSelector :selected-mode="selectedMode" :snap-enabled="snapEnabled"
-        :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop"
-        :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-        :num-strings="numStrings" :num-frets="numFrets" :strings-collapsed="stringsCollapsed"
-        :fretboard-visible="fretboardVisible" :chord-menu-visible="chordMenuVisible"
-        :timeline-visible="timelineVisible" :transport-visible="transportVisible"
-        :library-panel-visible="libraryPanelVisible"
-        :show-chord-shape-panel="showChordShapePanel"
-        :sim-group-mode="simGroupMode"
-        :active-notes-visible="activeNotesVisible"
-        :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme" :is-playing="isPlaying"
-        @update-sim-group-mode="(v) => emit('update-sim-group-mode', v)"
-        @update-timeline-visible="(v) => emit('update-timeline-visible', Boolean(v))"
-        @update-transport-visible="(v) => emit('update-transport-visible', Boolean(v))"
-        @update-library-panel-visible="(v) => emit('update-library-panel-visible', Boolean(v))"
-        @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
-        @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
-        @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
-        @open-library="emit('open-library')"
-        @toggle-theme="emit('toggle-theme')"
-        @toggle-play="emit('toggle-play')"
-        @seek-start="emit('seek-start')"
-        @update-mode="(v) => emit('update-mode', v)" @update-snap="(v) => emit('update-snap', v)"
-        @update-sound-preview="(v) => emit('update-sound-preview', v)"
-        @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
-        @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
-        @update-pickup-beats="(v) => emit('update-pickup-beats', v)"
-        @update-num-strings="(v) => emit('update-num-strings', v)" @update-frets="(v) => emit('update-frets', v)"
-        @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)"
-        @update-show-chord-shape-panel="(v) => emit('update-show-chord-shape-panel', v)" />
-    </aside>
+    <div v-if="transportVisible || timelineVisible" class="timeline-collapse-btn-wrap">
+      <v-btn
+        size="x-small"
+        variant="tonal"
+        :title="timelineVisible ? 'Collapse' : 'Expand'"
+        :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
+        @click="emit('update-timeline-visible', !timelineVisible)"
+      >
+        {{ timelineVisible ? 'Collapse' : 'Expand' }}
+      </v-btn>
+    </div>
 
     <div class="timeline-layout">
 
@@ -214,29 +192,65 @@
                 </template>
 
                 <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
+                  <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
+                  <div class="d-flex ga-2">
+                    <v-text-field
+                      density="compact"
+                      hide-details
+                      type="number"
+                      min="1"
+                      step="1"
+                      style="width: 84px"
+                      :model-value="beatTop"
+                      @update:model-value="updateBeatTopFromOptions"
+                    />
+                    <v-select
+                      density="compact"
+                      hide-details
+                      style="width: 84px"
+                      :items="beatBottomItems"
+                      :model-value="beatBottom"
+                      @update:model-value="updateBeatBottomFromOptions"
+                    />
+                  </div>
+                  <div class="d-flex align-center ga-2">
+                    <v-switch
+                      density="compact"
+                      hide-details
+                      inset
+                      :label="t('modeSelector.pickup')"
+                      :model-value="pickupEnabled"
+                      @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))"
+                    />
+                    <v-text-field
+                      density="compact"
+                      hide-details
+                      type="number"
+                      min="1"
+                      :max="pickupMax"
+                      step="1"
+                      style="width: 84px"
+                      :label="t('modeSelector.beats')"
+                      :disabled="!pickupEnabled"
+                      :model-value="pickupBeats"
+                      @update:model-value="updatePickupBeatsFromOptions"
+                    />
+                  </div>
                   <v-switch
                     density="compact"
                     hide-details
                     inset
-                    label="Collapse"
-                    :model-value="collapseTimeline"
-                    @update:model-value="(v) => (collapseTimeline = v)"
+                    :label="t('modeSelector.snap')"
+                    :model-value="snapEnabled"
+                    @update:model-value="(v) => emit('update-snap', Boolean(v))"
                   />
                   <v-switch
                     density="compact"
                     hide-details
                     inset
-                    :label="t('timelineView.transport')"
-                    :model-value="transportVisible"
-                    @update:model-value="(v) => emit('update-transport-visible', Boolean(v))"
-                  />
-                  <v-switch
-                    density="compact"
-                    hide-details
-                    inset
-                    :label="t('modeSelector.activeNotes')"
-                    :model-value="activeNotesVisible"
-                    @update:model-value="(v) => emit('update-active-notes-visible', Boolean(v))"
+                    :label="t('modeSelector.collapseStrings')"
+                    :model-value="stringsCollapsed"
+                    @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))"
                   />
                 </v-card>
               </v-menu>
@@ -288,11 +302,21 @@
           <div v-if="transportVisible" class="timeline-transport" :aria-label="t('timelineView.transport')">
             <div class="timeline-transport-inner">
               <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
-                :total-duration="totalDuration" @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
+                :total-duration="totalDuration"
+                :practice-active="practiceActive"
+                :practice-available="practiceAvailable"
+                :practice-target-label="practiceTargetLabel"
+                :practice-detected-label="practiceDetectedLabel"
+                :practice-hint-text="practiceHintText"
+                :practice-match-state="practiceMatchState"
+                :record-active="recordActive"
+                @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
                 @update-click="(v) => emit('update-click', v)"
                 @update-auto-follow="(v) => emit('update-auto-follow', v)"
-                @update-loop="(v) => emit('update-loop', v)" />
+                @update-loop="(v) => emit('update-loop', v)"
+                @toggle-practice="emit('toggle-practice')"
+                @toggle-record="emit('toggle-record')" />
             </div>
           </div>
         </div>
@@ -355,7 +379,6 @@
 
 <script setup>
 import PlaybackControls from './controls/PlaybackControls.vue'
-import ModeSelector from './controls/ModeSelector.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
@@ -404,6 +427,13 @@ const props = defineProps({
   totalBlocks: { type: Number, required: true },
   playhead: { type: Number, required: true },
   currentStep: { type: Number, required: true },
+  practiceActive: { type: Boolean, default: false },
+  practiceAvailable: { type: Boolean, default: true },
+  practiceTargetLabel: { type: String, default: '' },
+  practiceDetectedLabel: { type: String, default: '' },
+  practiceHintText: { type: String, default: '' },
+  practiceMatchState: { type: String, default: '' },
+  recordActive: { type: Boolean, default: false },
 
   tracks: { type: Array, required: true },
   handPositionNotes: { type: Array, default: () => [] },
@@ -465,6 +495,8 @@ const emit = defineEmits([
   'quantize-selection',
   'scale-selection-length',
   'update-ghost-notes',
+  'toggle-practice',
+  'toggle-record',
 ])
 const { t } = useI18n()
 
@@ -472,14 +504,33 @@ const zoomLocal = computed({
   get: () => props.zoomPxPerBlock,
   set: (v) => emit('update-zoom', Number(v)),
 })
-
-const collapseTimeline = computed({
-  get: () => !Boolean(props.timelineVisible),
-  set: (v) => emit('update-timeline-visible', !Boolean(v)),
+const beatBottomItems = [1, 2, 4, 8]
+const pickupMax = computed(() => {
+  const top = Number.parseInt(String(props.beatTop), 10)
+  const maxByBeat = Number.isFinite(top) && top > 1 ? top - 1 : 1
+  return Math.max(1, Math.min(9, maxByBeat))
 })
 
+function updateBeatTopFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  emit('update-beat-top', Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+}
+
+function updateBeatBottomFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  emit('update-beat-bottom', beatBottomItems.includes(parsed) ? parsed : 4)
+}
+
+function updatePickupBeatsFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  if (!Number.isFinite(parsed)) return
+  const next = Math.max(1, Math.min(pickupMax.value, parsed))
+  emit('update-pickup-beats', next)
+}
+
 const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
-const TRACK_START_OFFSET_PX = 54
+// Must match the visual left inset of `.timeline-track` (see TimelineTrack.vue: margin-left).
+const TRACK_START_OFFSET_PX = 6
 
 const visibleTracks = computed(() => {
   return Array.isArray(props.tracks) ? props.tracks : []
@@ -1025,17 +1076,24 @@ const barBeatLabel = computed(() => {
 
 <style scoped>
 .timeline-main {
-  --main-menu-w: 84px;
   --secondary-menu-w: 224px;
   --main-grow-right: 0px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding-bottom: var(--space-1);
   margin-right: 0;
+}
+
+.timeline-collapse-btn-wrap {
+  position: absolute;
+  top: var(--space-2);
+  right: calc(var(--secondary-menu-w) + var(--space-4));
+  z-index: 35;
 }
 
 .count-in-lightbox {
@@ -1068,22 +1126,6 @@ const barBeatLabel = computed(() => {
 .timeline-layout {
   display: block;
   padding: var(--space-2) var(--space-2) 0;
-}
-
-.main-menu-rail {
-  position: fixed;
-  left: 0;
-  top: var(--top-bars-h);
-  bottom: 0;
-  width: var(--main-menu-w);
-  z-index: 25;
-  padding: var(--main-menu-v-pad) var(--space-2);
-}
-
-.main-menu-rail :deep(.main-menu-shell) {
-  height: calc(
-    100vh - var(--top-bars-h) - (2 * var(--main-menu-v-pad))
-  );
 }
 
 .secondary-menu-rail {
@@ -1437,7 +1479,7 @@ const barBeatLabel = computed(() => {
 
 .timeline-length-marker {
   position: absolute;
-  left: -7px;
+  left: 0;
   top: 0;
   bottom: 0;
   width: 6px;
@@ -1550,15 +1592,8 @@ const barBeatLabel = computed(() => {
     display: block;
   }
 
-  .main-menu-rail {
-    position: static;
-    width: auto;
-    height: auto;
-    padding: 0;
-  }
-
-  .main-menu-rail :deep(.main-menu-shell) {
-    height: auto;
+  .timeline-collapse-btn-wrap {
+    right: var(--space-2);
   }
 
   .secondary-menu-rail {

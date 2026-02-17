@@ -73,6 +73,14 @@ const preferenceToneDuration = computed({
   get: () => Number(timelineSettings.soundDurationScale) || 1,
   set: (v) => timelineSettings.setSoundDurationScale(Number(v)),
 })
+const preferenceSoundPreview = computed({
+  get: () => Boolean(timelineSettings.soundPreviewEnabled),
+  set: (v) => timelineSettings.setSoundPreviewEnabled(Boolean(v)),
+})
+const preferenceDarkMode = computed({
+  get: () => isDarkTheme.value,
+  set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
+})
 
 function applyTheme(name) {
   const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
@@ -620,6 +628,20 @@ function triggerRedo() {
                       type="number"
                       min="0.1"
                       step="0.1"
+                    />
+                    <v-switch
+                      v-model="preferenceSoundPreview"
+                      density="compact"
+                      hide-details
+                      inset
+                      :label="t('modeSelector.sound')"
+                    />
+                    <v-switch
+                      v-model="preferenceDarkMode"
+                      density="compact"
+                      hide-details
+                      inset
+                      :label="t('modeSelector.dark')"
                     />
                     <v-switch
                       density="compact"

@@ -16,6 +16,10 @@
     :hand-position-visible="handPositionVisible"
     :auto-follow-enabled="autoFollowEnabled" :ghost-notes-enabled="ghostNotesEnabled" :markers="markers"
     :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
+    :practice-active="practiceActive" :practice-available="practiceAvailable"
+    :practice-target-label="practiceTargetLabel" :practice-detected-label="practiceDetectedLabel"
+    :practice-hint-text="practiceHintText" :practice-match-state="practiceMatchState"
+    :record-active="recordActive"
     :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
     @toggle-play="togglePlay"
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
@@ -50,6 +54,8 @@
     @redo="handleRedo" @add-marker-at-playhead="handleAddMarkerAtPlayhead"
     @loop-to-selection="handleLoopToSelection" @quantize-selection="handleQuantizeSelection"
     @scale-selection-length="handleScaleSelectionLength" @update-ghost-notes="settings.setGhostNotesEnabled"
+    @toggle-practice="togglePractice"
+    @toggle-record="toggleRecord"
     :compact="compact" />
 </template>
 
@@ -194,6 +200,29 @@ function normalizeTimelineLengthToWholeBars() {
   settings.setTimelineLengthBlocks(Number((bars * bar).toFixed(3)))
 }
 
+function ensureTimelineCoversNoteEnd(noteKey, overrides = {}) {
+  const key = String(noteKey || '')
+  if (!key) return
+  const note = store.activeNotes.find((n) => String(n?.key || '') === key)
+  if (!note) return
+
+  const gridIndexRaw = overrides?.gridIndex ?? note?.gridIndex
+  const lengthBlocksRaw = overrides?.lengthBlocks ?? note?.lengthBlocks
+  const gridIndex = Number(gridIndexRaw)
+  const lengthBlocks = Number(lengthBlocksRaw)
+  if (!Number.isFinite(gridIndex) || !Number.isFinite(lengthBlocks)) return
+
+  const safeGridIndex = gridIndex > 0 ? gridIndex : 1
+  const safeLen = lengthBlocks > 0 ? lengthBlocks : 1
+  const endBlock = safeGridIndex - 1 + safeLen
+  const total = Math.max(1, Number(totalBlocks.value) || 1)
+  if (endBlock <= total) return
+
+  const bar = Math.max(0.01, Number(blocksPerBar()) || 1)
+  const barsNeeded = Math.max(1, Math.ceil(endBlock / bar))
+  settings.setTimelineLengthBlocks(Number((barsNeeded * bar).toFixed(3)))
+}
+
 function handleUpdateBeatTop(v) {
   const prevBar = Math.max(0.01, Number(blocksPerBar()) || 1)
   const bars = barsFromTotalAndBar(totalBlocks.value, prevBar)
@@ -282,6 +311,7 @@ function handleUpdateNoteGridIndex(noteKey, gridIndex) {
     return
   }
   store.setNoteGridIndex(noteKey, gridIndex)
+  ensureTimelineCoversNoteEnd(noteKey, { gridIndex })
   seekToNoteEnd(noteKey, { gridIndex })
 }
 
@@ -291,6 +321,7 @@ function handleUpdateNoteLength(noteKey, lengthBlocks) {
     return
   }
   store.setNoteLength(noteKey, lengthBlocks)
+  ensureTimelineCoversNoteEnd(noteKey, { lengthBlocks })
   seekToNoteEnd(noteKey, { lengthBlocks })
 }
 
@@ -598,9 +629,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearCountInOverlay()
+  stopPractice()
   window.removeEventListener('keydown', onGlobalKeyDown)
 })
 function togglePlay() {
+  if (practiceActive.value || recordActive.value) stopPractice()
   if (playback.isPlaying.value) {
     clearCountInOverlay()
     playback.pause()
@@ -710,12 +743,15 @@ watch(
     if (!Array.isArray(prevKeys)) return
     const delta = keys.length - prevKeys.length
     if (delta <= 0) return
-    // Paste adds multiple notes; don't auto-seek to a random one.
-    if (delta !== 1) return
 
     const prev = new Set(prevKeys)
-    const addedKey = keys.find((k) => !prev.has(k))
-    if (!addedKey) return
+    const addedKeys = keys.filter((k) => !prev.has(k))
+    if (!addedKeys.length) return
+    for (const k of addedKeys) ensureTimelineCoversNoteEnd(k)
+
+    // Paste/add-many: extend timeline, but don't auto-seek to a random note.
+    if (addedKeys.length !== 1) return
+    const [addedKey] = addedKeys
 
     // In chord mode, keep the playhead fixed but remember the last created note.
     if (selectedMode.value === 'sim') {
@@ -736,6 +772,7 @@ watch(
     const key = pendingChordExitSeekNoteKey.value
     pendingChordExitSeekNoteKey.value = null
     if (!key) return
+    ensureTimelineCoversNoteEnd(key)
     seekToNoteEnd(key)
   },
 )
@@ -796,9 +833,374 @@ let lastAudioTickMs = -Infinity
 let lastClickTickMs = -Infinity
 let triggeredNoteKeys = new Set()
 const pendingChordExitSeekNoteKey = ref(null)
+const practiceActive = ref(false)
+const recordActive = ref(false)
+const practiceTargetIndex = ref(-1)
+const practiceDetectedLabel = ref('')
+const practiceHintText = ref('')
+const practiceMatchState = ref('')
+const practiceConsecutiveHits = ref(0)
+const recordConsecutiveHits = ref(0)
+const recordLastCaptured = ref({ midi: null, gridIndex: -1, at: 0 })
+let practiceRafId = 0
+let practiceStream = null
+let practiceAudioCtx = null
+let practiceAnalyser = null
+let practiceData = null
+let practiceCooldownUntil = 0
+let recordCooldownUntil = 0
+const PRACTICE_MIN_RMS = 0.008
+const PRACTICE_TUNE_CENTS = 35
+const PRACTICE_OK_CENTS = 15
+const PRACTICE_HITS_REQUIRED = 4
+const RECORD_TUNE_CENTS = 30
+const RECORD_HITS_REQUIRED = 3
+const RECORD_MIN_GAP_MS = 180
+const RECORD_SAME_NOTE_GRID_EPS = 0.15
 const countInVisible = ref(false)
 const countInBeat = ref(0)
 let countInTimerId = null
+
+const practiceTargets = computed(() => {
+  const t = tuning.value
+  return store.activeNotes
+    .map((n) => {
+      const midi = Number(midiForNote(n, t))
+      const gridIndex = Number(n?.gridIndex)
+      if (!Number.isFinite(midi) || !Number.isFinite(gridIndex)) return null
+      const startMs = gridIndexToStartMs(gridIndex, safeTimePerBlockMs(grid.grid.value.timePerBlock))
+      return {
+        key: String(n?.key || ''),
+        midi,
+        startMs,
+        label: midiToNoteName(midi, { includeOctave: true }) || `MIDI ${midi}`,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.startMs - b.startMs) || (a.midi - b.midi))
+})
+
+const practiceAvailable = computed(() => practiceTargets.value.length > 0)
+const practiceCurrentTarget = computed(() => {
+  const idx = Number(practiceTargetIndex.value)
+  if (!Number.isFinite(idx) || idx < 0) return null
+  return practiceTargets.value[idx] ?? null
+})
+const practiceTargetLabel = computed(() => practiceCurrentTarget.value?.label ?? '')
+
+function freqToMidi(freqHz) {
+  const f = Number(freqHz)
+  if (!(f > 0)) return null
+  return 69 + 12 * Math.log2(f / 440)
+}
+
+function midiToFreq(midi) {
+  const m = Number(midi)
+  if (!Number.isFinite(m)) return 0
+  return 440 * (2 ** ((m - 69) / 12))
+}
+
+function bestFretStringForMidi(midi) {
+  const openMidi = Array.isArray(tuning.value?.openMidi) ? tuning.value.openMidi : []
+  const maxStrings = Math.max(0, Number(numStrings.value) || 0)
+  const maxFret = Math.max(0, Number(props.numFrets) || 0)
+  const targetMidi = Number(midi)
+  if (!Number.isFinite(targetMidi)) return null
+
+  const candidates = []
+  for (let s = 1; s <= maxStrings; s += 1) {
+    const open = Number(openMidi[s - 1])
+    if (!Number.isFinite(open)) continue
+    const fret = targetMidi - open
+    if (!Number.isFinite(fret)) continue
+    if (fret < 0 || fret > maxFret) continue
+    candidates.push({ string: s, fret })
+  }
+  if (!candidates.length) return null
+  candidates.sort((a, b) => (a.fret - b.fret) || (a.string - b.string))
+  // TODO: Replace lowest-fret heuristic with AI-based positional disambiguation.
+  return candidates[0]
+}
+
+function detectPitchHzAutoCorrelation(data, sampleRate) {
+  const size = data?.length || 0
+  if (size < 2) return null
+  let rms = 0
+  for (let i = 0; i < size; i += 1) rms += data[i] * data[i]
+  rms = Math.sqrt(rms / size)
+  if (rms < PRACTICE_MIN_RMS) return null
+
+  const maxLag = Math.floor(size / 2)
+  let bestLag = -1
+  let bestCorr = 0
+
+  for (let lag = 8; lag < maxLag; lag += 1) {
+    let corr = 0
+    for (let i = 0; i < maxLag; i += 1) corr += data[i] * data[i + lag]
+    if (corr > bestCorr) {
+      bestCorr = corr
+      bestLag = lag
+    }
+  }
+  if (bestLag <= 0 || !(bestCorr > 0)) return null
+  return sampleRate / bestLag
+}
+
+function stopPracticeAudio() {
+  if (practiceRafId) {
+    cancelAnimationFrame(practiceRafId)
+    practiceRafId = 0
+  }
+  if (practiceStream) {
+    for (const track of practiceStream.getTracks?.() || []) track.stop?.()
+    practiceStream = null
+  }
+  if (practiceAudioCtx) {
+    practiceAudioCtx.close?.()
+    practiceAudioCtx = null
+  }
+  practiceAnalyser = null
+  practiceData = null
+}
+
+function stopPractice(resetUi = true) {
+  practiceActive.value = false
+  recordActive.value = false
+  stopPracticeAudio()
+  if (resetUi) {
+    practiceMatchState.value = ''
+    practiceDetectedLabel.value = ''
+    practiceHintText.value = ''
+  }
+  practiceConsecutiveHits.value = 0
+  recordConsecutiveHits.value = 0
+  recordLastCaptured.value = { midi: null, gridIndex: -1, at: 0 }
+}
+
+function advancePracticeTarget() {
+  practiceConsecutiveHits.value = 0
+  practiceDetectedLabel.value = ''
+  practiceHintText.value = ''
+  practiceMatchState.value = ''
+  practiceCooldownUntil = performance.now() + 220
+  const next = Number(practiceTargetIndex.value) + 1
+  if (next >= practiceTargets.value.length) {
+    stopPractice(false)
+    practiceHintText.value = 'Done'
+    return
+  }
+  practiceTargetIndex.value = next
+  const target = practiceTargets.value[next]
+  if (target) seekPlayhead(target.startMs)
+}
+
+function runPracticeFrame() {
+  if ((!practiceActive.value && !recordActive.value) || !practiceAnalyser || !practiceData || !practiceAudioCtx) return
+  practiceAnalyser.getFloatTimeDomainData(practiceData)
+  const freq = detectPitchHzAutoCorrelation(practiceData, practiceAudioCtx.sampleRate)
+  const now = performance.now()
+  if (!(freq > 0)) {
+    practiceConsecutiveHits.value = 0
+    recordConsecutiveHits.value = 0
+    practiceDetectedLabel.value = ''
+    practiceHintText.value = 'Listening...'
+    practiceMatchState.value = ''
+    practiceRafId = requestAnimationFrame(runPracticeFrame)
+    return
+  }
+
+  const detectedMidiFloat = freqToMidi(freq)
+  const detectedMidi = Number.isFinite(detectedMidiFloat) ? Math.round(detectedMidiFloat) : null
+  practiceDetectedLabel.value = Number.isFinite(detectedMidi)
+    ? (midiToNoteName(detectedMidi, { includeOctave: true }) || '')
+    : ''
+
+  if (recordActive.value) {
+    if (!Number.isFinite(detectedMidi)) {
+      recordConsecutiveHits.value = 0
+    } else {
+      const expectedFreq = midiToFreq(detectedMidi)
+      const centsToRounded = expectedFreq > 0 ? 1200 * Math.log2(freq / expectedFreq) : 999
+      const absCentsRounded = Math.abs(centsToRounded)
+      if (absCentsRounded <= RECORD_TUNE_CENTS) {
+        recordConsecutiveHits.value += 1
+      } else {
+        recordConsecutiveHits.value = 0
+      }
+
+      if (now >= recordCooldownUntil && recordConsecutiveHits.value >= RECORD_HITS_REQUIRED) {
+        const pos = bestFretStringForMidi(detectedMidi)
+        if (pos) {
+          const gridIndex = playheadGridIndex()
+          const last = recordLastCaptured.value
+          const sameAsLast = Number(last.midi) === Number(detectedMidi)
+            && Math.abs((Number(last.gridIndex) || 0) - gridIndex) <= RECORD_SAME_NOTE_GRID_EPS
+            && (now - (Number(last.at) || 0)) < RECORD_MIN_GAP_MS
+          if (!sameAsLast) {
+            const note = store.addNote(`${pos.fret}-${pos.string}`)
+            if (note?.key) handleUpdateNoteGridIndex(note.key, gridIndex)
+            recordLastCaptured.value = { midi: detectedMidi, gridIndex, at: now }
+            recordCooldownUntil = now + RECORD_MIN_GAP_MS
+            recordConsecutiveHits.value = 0
+            practiceMatchState.value = 'ok'
+            practiceHintText.value = `${practiceDetectedLabel.value || detectedMidi} recorded`
+          }
+        }
+      }
+    }
+    practiceRafId = requestAnimationFrame(runPracticeFrame)
+    return
+  }
+
+  const target = practiceCurrentTarget.value
+  if (!target) {
+    stopPractice()
+    return
+  }
+
+  const targetFreq = midiToFreq(target.midi)
+  if (!(targetFreq > 0)) {
+    practiceRafId = requestAnimationFrame(runPracticeFrame)
+    return
+  }
+
+  const cents = 1200 * Math.log2(freq / targetFreq)
+  const absCents = Math.abs(cents)
+  const sign = cents > 0 ? '+' : ''
+  practiceHintText.value = `${sign}${Math.round(cents)}c`
+  practiceMatchState.value = absCents <= PRACTICE_OK_CENTS
+    ? 'ok'
+    : absCents <= PRACTICE_TUNE_CENTS
+      ? 'tune'
+      : ''
+
+  if (now >= practiceCooldownUntil && absCents <= PRACTICE_TUNE_CENTS) {
+    practiceConsecutiveHits.value += 1
+    if (practiceConsecutiveHits.value >= PRACTICE_HITS_REQUIRED) advancePracticeTarget()
+  } else if (absCents > PRACTICE_TUNE_CENTS) {
+    practiceConsecutiveHits.value = 0
+  }
+
+  practiceRafId = requestAnimationFrame(runPracticeFrame)
+}
+
+async function startPractice() {
+  if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
+    practiceMatchState.value = 'error'
+    practiceHintText.value = 'Microphone API not available'
+    return
+  }
+  if (!practiceAvailable.value) {
+    practiceMatchState.value = 'error'
+    practiceHintText.value = 'No notes in timeline'
+    return
+  }
+  if (playback.isPlaying.value) playback.pause()
+  clearCountInOverlay()
+
+  const current = Number(playhead.value) || 0
+  const idx = practiceTargets.value.findIndex((n) => Number(n.startMs) >= current - 1)
+  practiceTargetIndex.value = idx >= 0 ? idx : 0
+  practiceDetectedLabel.value = ''
+  practiceHintText.value = ''
+  practiceMatchState.value = ''
+  practiceConsecutiveHits.value = 0
+  practiceCooldownUntil = 0
+  const target = practiceTargets.value[practiceTargetIndex.value]
+  if (target) seekPlayhead(target.startMs)
+  practiceHintText.value = 'Listening...'
+  practiceMatchState.value = ''
+
+  try {
+    practiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
+    const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext
+    if (!Ctx) throw new Error('AudioContext not supported')
+    practiceAudioCtx = new Ctx()
+    await practiceAudioCtx.resume?.()
+    const source = practiceAudioCtx.createMediaStreamSource(practiceStream)
+    practiceAnalyser = practiceAudioCtx.createAnalyser()
+    practiceAnalyser.fftSize = 2048
+    practiceData = new Float32Array(practiceAnalyser.fftSize)
+    source.connect(practiceAnalyser)
+    practiceActive.value = true
+    recordActive.value = false
+    runPracticeFrame()
+  } catch {
+    stopPractice(false)
+    practiceMatchState.value = 'error'
+    practiceHintText.value = 'Mic denied or unavailable'
+  }
+}
+
+function togglePractice() {
+  if (practiceActive.value) {
+    stopPractice(false)
+    practiceHintText.value = ''
+    practiceMatchState.value = ''
+    return
+  }
+  void startPractice()
+}
+
+async function startRecord() {
+  if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
+    practiceMatchState.value = 'error'
+    practiceHintText.value = 'Microphone API not available'
+    return
+  }
+  clearCountInOverlay()
+  if (playback.isPlaying.value) playback.pause()
+  practiceDetectedLabel.value = ''
+  practiceHintText.value = 'Listening...'
+  practiceMatchState.value = ''
+  recordConsecutiveHits.value = 0
+  recordCooldownUntil = 0
+
+  try {
+    practiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
+    const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext
+    if (!Ctx) throw new Error('AudioContext not supported')
+    practiceAudioCtx = new Ctx()
+    await practiceAudioCtx.resume?.()
+    const source = practiceAudioCtx.createMediaStreamSource(practiceStream)
+    practiceAnalyser = practiceAudioCtx.createAnalyser()
+    practiceAnalyser.fftSize = 2048
+    practiceData = new Float32Array(practiceAnalyser.fftSize)
+    source.connect(practiceAnalyser)
+    recordActive.value = true
+    practiceActive.value = false
+    runPracticeFrame()
+  } catch {
+    stopPractice(false)
+    practiceMatchState.value = 'error'
+    practiceHintText.value = 'Mic denied or unavailable'
+  }
+}
+
+function toggleRecord() {
+  if (recordActive.value) {
+    stopPractice(false)
+    practiceHintText.value = ''
+    practiceMatchState.value = ''
+    return
+  }
+  stopPractice(false)
+  void startRecord()
+}
 
 function clearCountInOverlay() {
   if (countInTimerId) {
@@ -998,5 +1400,14 @@ watch(
     if (!playing) playbackVisuals.clear()
   },
   { immediate: true },
+)
+
+watch(
+  () => practiceTargets.value.length,
+  (len) => {
+    if (!practiceActive.value) return
+    if (len <= 0) stopPractice()
+    if (practiceTargetIndex.value >= len) practiceTargetIndex.value = Math.max(0, len - 1)
+  },
 )
 </script>

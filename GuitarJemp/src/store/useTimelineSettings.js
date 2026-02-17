@@ -84,6 +84,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const showSuggestedPosition = ref(
     typeof stored.showSuggestedPosition === 'boolean' ? stored.showSuggestedPosition : false,
   )
+  const eraseMode = ref(typeof stored.eraseMode === 'boolean' ? stored.eraseMode : false)
 
   function setSelectedMode(m) {
     const mode = String(m)
@@ -209,6 +210,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     simGroupMode.value = next === 'dotted' || next === '3' ? next : ''
   }
 
+  function setEraseMode(v) {
+    eraseMode.value = Boolean(v)
+  }
+
   persistRefs(STORAGE_KEY, {
     selectedMode,
     lastRhythmMode,
@@ -235,6 +240,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     simGroupMode,
+    eraseMode,
   })
 
   return {
@@ -263,6 +269,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     simGroupMode,
+    eraseMode,
     setSelectedMode,
     setSnapEnabled,
     setSoundPreviewEnabled,
@@ -287,5 +294,6 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setHandPositionVisible,
     setShowSuggestedPosition,
     setSimGroupMode,
+    setEraseMode,
   }
 })
