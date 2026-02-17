@@ -1,17 +1,5 @@
 <template>
   <div class="string-line" :class="{ 'is-aux-track': props.isAuxTrack }">
-    <button class="string-label" type="button" :class="labelClasses"
-      @click="onLabelClick" :title="labelTitle">
-      <template v-if="props.isAuxTrack">
-        <span class="aux-hand-btn" aria-hidden="true">
-          <span>✋</span>
-          <span class="aux-plus">+</span>
-        </span>
-      </template>
-      <template v-else>
-        {{ stringLabel || t('timelineTrack.string', { string }) }}
-      </template>
-    </button>
     <div ref="trackEl" class="timeline-track" :style="trackStyle" @pointerdown="onScrubPointerDown"
       @pointermove="onScrubPointerMove" @pointerup="onScrubPointerUp" @pointercancel="onScrubPointerUp">
       <div class="grid-background" :style="gridBackgroundStyle"></div>
@@ -92,25 +80,6 @@ const trackStyle = computed(() => {
   return w > 0 ? { width: `${w}px`, minWidth: `${w}px` } : {}
 })
 
-const labelClasses = computed(() => ({
-  'is-active': !props.isAuxTrack && Number(props.activeString) === Number(props.string),
-  'is-aux': props.isAuxTrack,
-}))
-
-const labelTitle = computed(() => {
-  const label = props.stringLabel || t('timelineTrack.string', { string: props.string })
-  if (props.isAuxTrack) return label
-  return t('timelineTrack.activeString', { label })
-})
-
-function onLabelClick() {
-  if (props.isAuxTrack) {
-    emit('add-aux-item')
-    return
-  }
-  emit('update-active-string', Number(props.string))
-}
-
 const snapStepBlocks = computed(() =>
   snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
 )
@@ -150,6 +119,7 @@ function onScrubPointerDown(e) {
   // Don't hijack note dragging/resizing.
   if (e?.target?.closest?.('.note-event')) return
   if (e?.button != null && e.button !== 0) return
+  if (!props.isAuxTrack) emit('update-active-string', Number(props.string))
 
   const t = timeFromPointerEvent(e)
   if (t == null) return
@@ -278,62 +248,6 @@ function getNoteColor(fret) {
 .string-line.is-aux-track {
   border-bottom: 4px solid rgba(70, 70, 70, 0.75);
   margin-bottom: 4px;
-}
-
-
-.string-label {
-  width: 48px;
-  min-width: 48px;
-  max-width: 48px;
-  padding: 0 4px;
-  font-weight: bold;
-  color: #666;
-  background: #f0f0f0;
-  border-right: 1px solid #ddd;
-  position: sticky;
-  left: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.string-label.is-active {
-  color: rgba(20, 20, 20, 0.95);
-}
-
-.string-label.is-aux {
-  cursor: pointer;
-  color: rgba(70, 70, 70, 0.9);
-}
-
-.aux-hand-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 30px;
-  height: 30px;
-  border-radius: 4px;
-  border: 1px solid rgba(70, 70, 70, 0.45);
-  background: rgba(255, 255, 255, 0.45);
-  font-size: 17px;
-  line-height: 1;
-}
-
-.aux-plus {
-  font-size: 13px;
-  font-weight: 800;
-  margin-left: -1px;
-}
-
-.string-label:focus {
-  outline: none;
 }
 
 .timeline-track {

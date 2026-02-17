@@ -46,7 +46,7 @@ const fretboardVisible = ref(true)
 const chordMenuVisible = ref(false)
 const scaleMenuVisible = ref(false)
 const timelineVisible = ref(true)
-const transportVisible = ref(false)
+const transportVisible = ref(true)
 const libraryPanelVisible = ref(false)
 const externalUndoTick = ref(0)
 const externalRedoTick = ref(0)
@@ -548,13 +548,16 @@ function triggerRedo() {
         <div class="app-shell">
           <v-container fluid class="app-content with-main-menu py-3">
             <v-row class="mt-2" align="start" justify="center" dense>
-              <v-col cols="12">
+              <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
                 <v-alert v-if="saveError" type="error" variant="tonal" class="mb-2">
                   {{ saveError }}
                 </v-alert>
 
-                <FretboardEdit v-if="fretboardVisible" class="fretboard" :num-frets="numFrets" @update-frets="(n) => (numFrets = n)" />
+                <v-card v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
+                  <FretboardEdit class="fretboard" :num-frets="numFrets" @update-frets="(n) => (numFrets = n)" />
+                </v-card>
               </v-col>
+              <v-col v-if="activeNotesVisible" md="3" class="d-none d-md-flex fretboard-align-spacer" />
 
               <v-dialog v-model="saveAsNewOpen" max-width="520">
                 <v-card rounded="lg">
@@ -740,9 +743,17 @@ function triggerRedo() {
   padding-right: calc(var(--main-menu-w) + var(--space-4));
 }
 
-.fretboard {
+.fretboard-card {
   width: 100%;
   margin-top: 20px;
+  margin-right: 0;
+  border-radius: var(--radius-lg);
+}
+
+.fretboard {
+  width: 100%;
+  margin-top: 0;
+  margin-right: 0;
   border-radius: var(--radius-lg);
   overflow: visible;
 }
@@ -780,6 +791,11 @@ function triggerRedo() {
   .app-content.with-main-menu {
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .fretboard-card {
+    width: 100%;
+    margin-right: 0;
   }
 }
 </style>

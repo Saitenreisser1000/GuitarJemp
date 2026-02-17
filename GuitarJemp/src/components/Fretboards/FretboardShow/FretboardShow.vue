@@ -12,7 +12,7 @@
 
         <!-- String numbers -->
         <g class="fb-string-labels">
-          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
+          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-6" :y="s.y + 4" text-anchor="end"
             font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
             paint-order="stroke">
             {{ stringLabelFor(s.string) }}
@@ -2445,10 +2445,10 @@ watch(
   width: 100%;
   z-index: 6;
   height: 28px;
-  margin-top: 10px;
+  margin-top: 20px;
   margin-bottom: 10px;
   padding-top: 6px;
-  background: rgba(0, 0, 0, 0.18);
+  background: transparent;
   border-radius: 10px;
   overflow: visible;
 }
@@ -2462,16 +2462,20 @@ watch(
   font-weight: 800;
   line-height: 1;
 
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  color: rgba(34, 40, 48, 0.96);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 2px rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.28);
   user-select: none;
 }
 
 .fb-fret-number.is-marker-fret {
-  color: rgba(255, 244, 198, 0.98);
+  color: rgba(140, 114, 35, 0.98);
   text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.72),
-    0 0 8px rgba(255, 222, 126, 0.5);
+    0 1px 0 rgba(255, 255, 255, 0.92),
+    0 0 2px rgba(255, 255, 255, 0.78),
+    0 1px 2px rgba(0, 0, 0, 0.3);
   font-size: 14px;
 }
 

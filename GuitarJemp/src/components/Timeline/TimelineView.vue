@@ -40,8 +40,8 @@
     <div class="timeline-layout">
 
       <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
-        <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
-          <div class="timeline-columns">
+        <div v-if="timelineVisible || transportVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
+          <div v-if="timelineVisible" class="timeline-columns">
             <div
               v-if="!stringsCollapsed"
               class="timeline-tools timeline-column-card"
@@ -71,6 +71,34 @@
               <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
                 @click="() => emit('loop-to-selection')">
                 {{ t('playback.loop') }}
+              </button>
+            </div>
+
+            <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card" :aria-label="t('timelineView.strings')">
+              <div v-if="loopEnabled" class="timeline-string-names-spacer" />
+              <div v-if="markerItems.length" class="timeline-string-names-spacer" />
+
+              <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
+                <button
+                  class="timeline-string-name-btn"
+                  type="button"
+                  :title="t('timelineView.handPosition')"
+                  @click="() => emit('add-hand-position')"
+                >
+                  ✋+
+                </button>
+              </div>
+
+              <button
+                v-for="track in visibleTracks"
+                :key="`string-name-${track.stringIdx}`"
+                class="timeline-string-name timeline-string-name-btn"
+                :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }"
+                type="button"
+                :title="track.label"
+                @click="() => emit('update-active-string', track.stringIdx)"
+              >
+                {{ track.label }}
               </button>
             </div>
 
@@ -190,9 +218,9 @@
                     density="compact"
                     hide-details
                     inset
-                    :label="t('modeSelector.timeline')"
-                    :model-value="timelineVisible"
-                    @update:model-value="(v) => emit('update-timeline-visible', Boolean(v))"
+                    label="Collapse"
+                    :model-value="collapseTimeline"
+                    @update:model-value="(v) => (collapseTimeline = v)"
                   />
                   <v-switch
                     density="compact"
@@ -214,7 +242,7 @@
               </v-menu>
             </div>
           </div>
-          <v-card class="timeline-info ui-panel" variant="flat">
+          <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
             <div class="d-flex align-center ga-2 flex-wrap pa-1">
               <div class="zoom-status d-flex align-center ga-2">
                 <div class="text-caption zoom-label">{{ t('timelineView.zoom') }}</div>
@@ -443,6 +471,11 @@ const { t } = useI18n()
 const zoomLocal = computed({
   get: () => props.zoomPxPerBlock,
   set: (v) => emit('update-zoom', Number(v)),
+})
+
+const collapseTimeline = computed({
+  get: () => !Boolean(props.timelineVisible),
+  set: (v) => emit('update-timeline-visible', !Boolean(v)),
 })
 
 const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
@@ -994,7 +1027,7 @@ const barBeatLabel = computed(() => {
 .timeline-main {
   --main-menu-w: 84px;
   --secondary-menu-w: 224px;
-  --main-grow-right: 72px;
+  --main-grow-right: 0px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
@@ -1002,7 +1035,7 @@ const barBeatLabel = computed(() => {
   flex-direction: column;
   gap: var(--space-4);
   padding-bottom: var(--space-1);
-  margin-right: calc(-1 * var(--main-grow-right));
+  margin-right: 0;
 }
 
 .count-in-lightbox {
@@ -1158,7 +1191,7 @@ const barBeatLabel = computed(() => {
 .timeline {
   position: relative;
   border-radius: 0;
-  border: 1px solid var(--color-border);
+  border: 0;
   background: color-mix(in srgb, var(--color-surface) 93%, var(--color-surface-2) 7%);
   box-shadow: none;
   overflow: hidden;
@@ -1179,7 +1212,11 @@ const barBeatLabel = computed(() => {
   overflow-x: auto;
   overflow-y: hidden;
   background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
-  box-shadow: inset 10px 0 12px -12px rgb(0 0 0 / 28%);
+  box-shadow:
+    inset 0 3px 10px -5px rgb(0 0 0 / 40%),
+    inset 0 -3px 10px -5px rgb(0 0 0 / 36%),
+    inset 14px 0 16px -11px rgb(0 0 0 / 42%),
+    inset -14px 0 16px -11px rgb(0 0 0 / 38%);
 }
 
 .timeline-columns {
@@ -1201,7 +1238,53 @@ const barBeatLabel = computed(() => {
   flex-direction: column;
   gap: 6px;
   padding: 4px 3px;
+  border: 0;
   background: color-mix(in srgb, var(--color-surface-2) 82%, var(--color-surface) 18%);
+}
+
+.timeline-string-names {
+  flex: 0 0 17px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 1px;
+  border: 0;
+  background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
+}
+
+.timeline-string-names-spacer {
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.timeline-string-name {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-string-name-aux {
+  border-bottom: 4px solid rgba(70, 70, 70, 0.75);
+  margin-bottom: 4px;
+}
+
+.timeline-string-name-btn {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.timeline-string-name-btn.is-active {
+  color: var(--color-text);
 }
 
 .timeline-tool {
@@ -1267,6 +1350,7 @@ const barBeatLabel = computed(() => {
   align-items: flex-start;
   justify-content: center;
   padding-top: 4px;
+  border: 0;
 }
 
 .marker-layer {
@@ -1378,7 +1462,7 @@ const barBeatLabel = computed(() => {
 
 .timeline-info {
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: 0;
   min-height: 28px;
 }

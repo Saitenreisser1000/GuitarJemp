@@ -138,16 +138,6 @@
         >
           <v-icon icon="mdi-skip-backward" size="22" />
         </v-btn>
-        <v-btn
-          variant="tonal"
-          class="control-btn"
-          :title="t('timelineView.transport')"
-          :active="Boolean(transportVisible)"
-          :color="transportVisible ? 'primary' : undefined"
-          @click="emit('update-transport-visible', !transportVisible)"
-        >
-          <v-icon :icon="transportVisible ? 'mdi-chevron-down' : 'mdi-chevron-up'" size="22" />
-        </v-btn>
       </div>
     </div>
   </v-card>

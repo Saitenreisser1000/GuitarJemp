@@ -194,7 +194,7 @@ function formatPlayheadMs(valueMs) {
   min-height: 72px;
   padding-top: 16px !important;
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
-  border: 1px solid var(--color-border);
+  border: 0;
 }
 
 .loop-switch {
