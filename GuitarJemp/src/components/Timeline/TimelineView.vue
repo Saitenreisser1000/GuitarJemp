@@ -5,30 +5,28 @@
     </div>
 
     <div class="timeline-layout">
-
       <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
         <div class="timeline-top-row">
           <div v-if="transportVisible || timelineVisible" class="timeline-collapse-btn-wrap">
-            <v-btn
-              size="x-small"
-              variant="tonal"
-              :title="timelineVisible ? 'Collapse' : 'Expand'"
-              :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
-              @click="emit('update-timeline-visible', !timelineVisible)"
-            >
+            <v-btn size="x-small" variant="tonal" :title="timelineVisible ? 'Collapse' : 'Expand'" :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'
+              " @click="emit('update-timeline-visible', !timelineVisible)">
               {{ timelineVisible ? 'Collapse' : 'Expand' }}
             </v-btn>
           </div>
           <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap">
+            <div v-if="timelineVisible" class="timeline-top-zoom d-flex align-center ga-1">
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="incrementZoom">
+                &lt;
+              </v-btn>
+              <div class="text-caption zoom-value">zoom</div>
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom +'" @click="decrementZoom">
+                &gt;
+              </v-btn>
+            </div>
             <v-menu location="bottom end" :close-on-content-click="false">
               <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  size="x-small"
-                  variant="tonal"
-                  class="timeline-options-btn"
-                  :title="t('modeSelector.options')"
-                >
+                <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="timeline-options-btn"
+                  :title="t('modeSelector.options')">
                   <v-icon icon="mdi-cog-outline" size="16" />
                 </v-btn>
               </template>
@@ -36,185 +34,89 @@
               <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
                 <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
                 <div class="d-flex ga-2">
-                  <v-text-field
-                    density="compact"
-                    hide-details
-                    type="number"
-                    min="1"
-                    step="1"
-                    style="width: 84px"
-                    :model-value="beatTop"
-                    @update:model-value="updateBeatTopFromOptions"
-                  />
-                  <v-select
-                    density="compact"
-                    hide-details
-                    style="width: 84px"
-                    :items="beatBottomItems"
-                    :model-value="beatBottom"
-                    @update:model-value="updateBeatBottomFromOptions"
-                  />
+                  <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
+                    :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
+                  <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
+                    :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
                 </div>
                 <div class="d-flex align-center ga-2">
-                  <v-switch
-                    density="compact"
-                    hide-details
-                    inset
-                    :label="t('modeSelector.pickup')"
+                  <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
                     :model-value="pickupEnabled"
-                    @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))"
-                  />
-                  <v-text-field
-                    density="compact"
-                    hide-details
-                    type="number"
-                    min="1"
-                    :max="pickupMax"
-                    step="1"
-                    style="width: 84px"
-                    :label="t('modeSelector.beats')"
-                    :disabled="!pickupEnabled"
-                    :model-value="pickupBeats"
-                    @update:model-value="updatePickupBeatsFromOptions"
-                  />
+                    @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
+                  <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
+                    style="width: 84px" :label="t('modeSelector.beats')" :disabled="!pickupEnabled"
+                    :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
                 </div>
-                <v-switch
-                  density="compact"
-                  hide-details
-                  inset
-                  :label="t('modeSelector.snap')"
-                  :model-value="snapEnabled"
-                  @update:model-value="(v) => emit('update-snap', Boolean(v))"
-                />
-                <v-switch
-                  density="compact"
-                  hide-details
-                  inset
-                  :label="t('modeSelector.collapseStrings')"
+                <v-switch density="compact" hide-details inset :label="t('modeSelector.snap')"
+                  :model-value="snapEnabled" @update:model-value="(v) => emit('update-snap', Boolean(v))" />
+                <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')"
                   :model-value="stringsCollapsed"
-                  @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))"
-                />
+                  @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
               </v-card>
             </v-menu>
           </div>
         </div>
-        <div v-if="timelineVisible || transportVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
+        <div v-if="timelineVisible || transportVisible" class="timeline ui-panel"
+          :class="{ 'is-collapsed': stringsCollapsed }">
           <div v-if="timelineVisible" class="timeline-columns">
-            <div
-              v-if="!stringsCollapsed"
-              class="timeline-tools timeline-column-card"
-              :aria-label="t('timelineView.tools')"
-            >
-              <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }" :title="t('timelineView.arrow')">
-                <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="arrow"
-                  :checked="String(activeTool) === 'arrow'" @change="() => emit('update-active-tool', 'arrow')" />
-                <span class="timeline-tool-icon" aria-hidden="true">➤</span>
-              </label>
-
-              <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'select' }"
-                :title="t('timelineView.selectionRect')">
-                <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="select"
-                  :checked="String(activeTool) === 'select'" @change="() => emit('update-active-tool', 'select')" />
-                <span class="timeline-tool-icon" aria-hidden="true">▭</span>
-              </label>
-
-              <button class="timeline-tool" type="button" :title="t('timelineView.copy')" @click="() => emit('copy-selection')">
-                <span class="timeline-tool-icon" aria-hidden="true">⧉</span>
-              </button>
-
-              <button class="timeline-tool" type="button" :title="t('timelineView.paste')" @click="() => emit('paste-at-playhead')">
-                <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
-              </button>
-
-              <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
-                @click="() => emit('loop-to-selection')">
-                {{ t('playback.loop') }}
-              </button>
-            </div>
-
-            <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card" :aria-label="t('timelineView.strings')">
+            <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
+              :aria-label="t('timelineView.strings')">
               <div v-if="loopEnabled" class="timeline-string-names-spacer" />
               <div v-if="markerItems.length" class="timeline-string-names-spacer" />
 
               <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
-                <button
-                  class="timeline-string-name-btn"
-                  type="button"
-                  :title="t('timelineView.handPosition')"
-                  @click="() => emit('add-hand-position')"
-                >
+                <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
+                  @click="() => emit('add-hand-position')">
                   ✋+
                 </button>
               </div>
 
-              <button
-                v-for="track in visibleTracks"
-                :key="`string-name-${track.stringIdx}`"
+              <button v-for="track in visibleTracks" :key="`string-name-${track.stringIdx}`"
                 class="timeline-string-name timeline-string-name-btn"
-                :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }"
-                type="button"
-                :title="track.label"
-                @click="() => emit('update-active-string', track.stringIdx)"
-              >
+                :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }" type="button"
+                :title="track.label" @click="() => emit('update-active-string', track.stringIdx)">
                 {{ track.label }}
               </button>
             </div>
 
-            <div
-              ref="scrollEl"
-              class="timeline-scroll timeline-column-card"
-              @wheel="onTimelineWheel"
-              @pointerdown.capture="onMarqueePointerDown"
-              @pointermove.capture="onMarqueePointerMove" @pointerup.capture="onMarqueePointerUp"
-              @pointercancel.capture="onMarqueePointerUp">
-              <div class="timeline-content">
+            <div class="timeline-scroll timeline-column-card">
+              <div ref="scrollEl" class="timeline-scroll-viewport" @wheel="onTimelineWheel"
+                @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
+                @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
+                <div class="timeline-content">
                 <div v-if="loopEnabled" class="loop-bracket-layer">
                   <div class="loop-bracket" :style="loopBracketStyle">
-                    <button
-                      class="loop-handle loop-handle-start"
-                      type="button"
-                      :title="t('timelineView.dragLoopStart')"
-                      @pointerdown="onLoopHandlePointerDown('start', $event)"
-                    />
+                    <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
+                      @pointerdown="onLoopHandlePointerDown('start', $event)" />
                     <div class="loop-bracket-bar" />
-                    <button
-                      class="loop-handle loop-handle-end"
-                      type="button"
-                      :title="t('timelineView.dragLoopEnd')"
-                      @pointerdown="onLoopHandlePointerDown('end', $event)"
-                    />
+                    <button class="loop-handle loop-handle-end" type="button" :title="t('timelineView.dragLoopEnd')"
+                      @pointerdown="onLoopHandlePointerDown('end', $event)" />
                   </div>
                 </div>
 
                 <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
-                  <button
-                    v-for="marker in markerItems"
-                    :key="marker.id"
-                    class="timeline-marker"
-                    type="button"
-                    :style="{ left: `${marker.leftPx}px` }"
-                    :title="marker.title"
-                    @click="() => emit('seek-playhead', marker.timeMs)"
-                  >
+                  <button v-for="marker in markerItems" :key="marker.id" class="timeline-marker" type="button"
+                    :style="{ left: `${marker.leftPx}px` }" :title="marker.title"
+                    @click="() => emit('seek-playhead', marker.timeMs)">
                     <span class="timeline-marker-label">{{ marker.label }}</span>
                   </button>
                 </div>
 
                 <div class="strings-timeline">
-                  <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')" :active-string="activeString"
-                    :notes="handPositionNotes"
-                    :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
-                    :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-                    :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
+                  <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
+                    :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
+                    :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
+                    :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
+                    :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
                     :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
-                    :show-bar-numbers="showBarNumbersOnAuxTrack"
-                    @add-aux-item="() => emit('add-hand-position')" @seek-playhead="(t) => emit('seek-playhead', t)"
-                    @update-note-grid-index="(key, gridIndex) => emit('update-note-grid-index', key, gridIndex)"
-                    @update-note-length="(key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)"
-                    @update-note-label="(key, label) => emit('update-note-label', key, label)"
-                    @group-move-notes="(anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)"
-                    @group-resize-notes="
+                    :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
+                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                      (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                    " @update-note-length="
+                      (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
+                      (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+                    " @group-resize-notes="
                       (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
                     " />
 
@@ -222,81 +124,78 @@
                     :string-label="track.label" :active-string="activeString" :notes="track.notes"
                     :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                     :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-                    :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
-                    :ghost-notes-enabled="ghostNotesEnabled"
+                    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
+                    :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
                     :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
                     @update-active-string="(v) => emit('update-active-string', v)"
                     @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                       (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
                     " @update-note-length="
                       (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
-                    " @update-note-label="
-                      (key, label) => emit('update-note-label', key, label)
-                    " @group-move-notes="
+                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
                       (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
                     " @group-resize-notes="
                       (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
                     " />
                 </div>
 
-                <div
-                  class="timeline-length-handle-wrap"
-                  :style="{ left: `${trackEndPx}px` }"
-                >
-                  <div
-                    class="timeline-length-marker"
-                    :title="t('timelineView.dragTimelineLength')"
-                    :aria-label="t('timelineView.dragTimelineLength')"
-                    @pointerdown="onLengthHandlePointerDown"
-                  >
+                <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
+                  <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
+                    :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
                     <span class="timeline-length-marker-thin" />
                     <span class="timeline-length-marker-thick" />
                   </div>
                 </div>
 
-                <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
+                  <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
+                </div>
               </div>
             </div>
-
           </div>
           <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
             <div class="d-flex align-center ga-2 flex-wrap pa-1">
-              <div class="zoom-status d-flex align-center ga-2">
-                <div class="text-caption zoom-label">{{ t('timelineView.zoom') }}</div>
-                <v-slider v-model="zoomLocal" class="zoom-slider" density="compact" hide-details min="12" max="120"
-                  step="2" />
+              <div class="timeline-info-tools d-flex align-center ga-2" :aria-label="t('timelineView.tools')">
+                <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }"
+                  :title="t('timelineView.arrow')">
+                  <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="arrow"
+                    :checked="String(activeTool) === 'arrow'" @change="() => emit('update-active-tool', 'arrow')" />
+                  <span class="timeline-tool-icon" aria-hidden="true">➤</span>
+                </label>
+
+                <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'select' }"
+                  :title="t('timelineView.selectionRect')">
+                  <input class="timeline-tool-input" type="radio" name="timeline-active-tool" value="select"
+                    :checked="String(activeTool) === 'select'" @change="() => emit('update-active-tool', 'select')" />
+                  <span class="timeline-tool-icon" aria-hidden="true">▭</span>
+                </label>
+
+                <button class="timeline-tool" type="button" :title="t('timelineView.copy')"
+                  @click="() => emit('copy-selection')">
+                  <span class="timeline-tool-icon" aria-hidden="true">⧉</span>
+                </button>
+
+                <button class="timeline-tool" type="button" :title="t('timelineView.paste')"
+                  @click="() => emit('paste-at-playhead')">
+                  <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
+                </button>
+
+                <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
+                  @click="() => emit('loop-to-selection')">
+                  {{ t('playback.loop') }}
+                </button>
               </div>
 
               <div class="bars-input-wrap d-flex align-center ga-2 ms-auto">
                 <div class="text-caption zoom-label">Bars:</div>
-                <v-text-field
-                  class="bars-count-input"
-                  density="compact"
-                  hide-details
-                  variant="outlined"
-                  type="number"
-                  min="1"
-                  step="1"
-                  :model-value="barsNoPickupLocal"
-                  @update:model-value="(v) => (barsNoPickupLocal = v)"
-                />
-                <v-btn
-                  size="x-small"
-                  variant="tonal"
-                  class="bars-adjust-btn"
-                  :title="'Bars -1'"
-                  @click="decrementBarsNoPickup"
-                >
+                <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
+                  min="1" step="1" :model-value="barsNoPickupLocal"
+                  @update:model-value="(v) => (barsNoPickupLocal = v)" />
+                <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
+                  @click="decrementBarsNoPickup">
                   -
                 </v-btn>
-                <v-btn
-                  size="x-small"
-                  variant="tonal"
-                  class="bars-adjust-btn"
-                  :title="'Bars +1'"
-                  @click="incrementBarsNoPickup"
-                >
+                <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
+                  @click="incrementBarsNoPickup">
                   +
                 </v-btn>
               </div>
@@ -305,80 +204,49 @@
 
           <div v-if="transportVisible" class="timeline-transport" :aria-label="t('timelineView.transport')">
             <div class="timeline-transport-inner">
-              <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
-                :total-duration="totalDuration"
-                :practice-active="practiceActive"
-                :practice-available="practiceAvailable"
-                :practice-target-label="practiceTargetLabel"
-                :practice-detected-label="practiceDetectedLabel"
-                :practice-hint-text="practiceHintText"
-                :practice-match-state="practiceMatchState"
-                :record-active="recordActive"
+              <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
+                :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
+                :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
+                :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
+                :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
+                :practice-match-state="practiceMatchState" :record-active="recordActive"
                 @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
                 @update-click="(v) => emit('update-click', v)"
                 @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                @update-auto-follow="(v) => emit('update-auto-follow', v)"
-                @update-loop="(v) => emit('update-loop', v)"
-                @toggle-practice="emit('toggle-practice')"
-                @toggle-record="emit('toggle-record')" />
+                @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
+                @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
             </div>
           </div>
         </div>
       </section>
 
-      <aside
-        v-if="libraryPanelVisible"
-        class="secondary-menu-rail"
+      <aside v-if="libraryPanelVisible" class="secondary-menu-rail"
         :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
-        :aria-label="t('libraryDialog.title')"
-      >
+        :aria-label="t('libraryDialog.title')">
         <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
           <div class="secondary-menu-head">
             <div class="secondary-menu-head-row">
               <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
-              <v-btn
-                size="x-small"
-                variant="text"
-                class="secondary-menu-toggle"
-                icon="mdi-arrow-left-right"
-                :title="'Sidebar width'"
-                @click="cycleSecondaryMenuSize"
-              />
+              <v-btn size="x-small" variant="text" class="secondary-menu-toggle" icon="mdi-arrow-left-right"
+                :title="'Sidebar width'" @click="cycleSecondaryMenuSize" />
             </div>
             <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
               {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
             </div>
           </div>
           <div class="secondary-menu">
-            <v-btn
-              v-if="secondaryMenuSize !== 's'"
-              block
-              prepend-icon="mdi-book-open-page-variant"
-              size="default"
-              variant="tonal"
-              class="secondary-menu-btn secondary-menu-link"
-              :title="t('modeSelector.openLibrary')"
-              :disabled="!libraryEnabled"
-              @click="emit('open-library')"
-            >
+            <v-btn v-if="secondaryMenuSize !== 's'" block prepend-icon="mdi-book-open-page-variant" size="default"
+              variant="tonal" class="secondary-menu-btn secondary-menu-link" :title="t('modeSelector.openLibrary')"
+              :disabled="!libraryEnabled" @click="emit('open-library')">
               {{ t('modeSelector.openLibrary') }}
             </v-btn>
-            <v-btn
-              v-else
-              icon="mdi-book-open-page-variant"
-              size="small"
-              variant="tonal"
-              class="secondary-menu-btn"
-              :title="t('modeSelector.openLibrary')"
-              :disabled="!libraryEnabled"
-              @click="emit('open-library')"
-            />
+            <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
+              :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
           </div>
         </v-card>
       </aside>
     </div>
-
   </div>
 </template>
 
@@ -507,10 +375,6 @@ const emit = defineEmits([
 ])
 const { t } = useI18n()
 
-const zoomLocal = computed({
-  get: () => props.zoomPxPerBlock,
-  set: (v) => emit('update-zoom', Number(v)),
-})
 const beatBottomItems = [1, 2, 4, 8]
 const pickupMax = computed(() => {
   const top = Number.parseInt(String(props.beatTop), 10)
@@ -536,6 +400,9 @@ function updatePickupBeatsFromOptions(v) {
 }
 
 const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
+const ZOOM_UI_MIN = 12
+const ZOOM_UI_MAX = 120
+const ZOOM_UI_STEP = 2
 // Must match the visual left inset of `.timeline-track` (see TimelineTrack.vue: margin-left).
 const TRACK_START_OFFSET_PX = 6
 
@@ -935,6 +802,18 @@ function onTimelineWheel(e) {
   })
 }
 
+function decrementZoom() {
+  const current = Number(props.zoomPxPerBlock) || 50
+  const next = Math.max(ZOOM_UI_MIN, current - ZOOM_UI_STEP)
+  emit('update-zoom', next)
+}
+
+function incrementZoom() {
+  const current = Number(props.zoomPxPerBlock) || 50
+  const next = Math.min(ZOOM_UI_MAX, current + ZOOM_UI_STEP)
+  emit('update-zoom', next)
+}
+
 watch(
   () => [props.playhead, props.isPlaying, props.totalDuration, props.totalBlocks, zoomPx.value],
   () => {
@@ -1106,6 +985,11 @@ const barBeatLabel = computed(() => {
   margin-left: auto;
   display: flex;
   align-items: center;
+  gap: 6px;
+}
+
+.timeline-top-zoom {
+  margin-right: 2px;
 }
 
 .count-in-lightbox {
@@ -1151,9 +1035,7 @@ const barBeatLabel = computed(() => {
 }
 
 .secondary-menu-shell {
-  height: calc(
-    100vh - var(--top-bars-h) - (2 * var(--main-menu-v-pad))
-  );
+  height: calc(100vh - var(--top-bars-h) - (2 * var(--main-menu-v-pad)));
 }
 
 .secondary-menu {
@@ -1270,15 +1152,31 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-scroll {
+  position: relative;
   flex: 1 1 auto;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+}
+
+.timeline-scroll::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow:
+    inset 0 4px 12px -5px rgb(0 0 0 / 52%),
+    inset 0 -4px 12px -5px rgb(0 0 0 / 48%),
+    inset 18px 0 18px -11px rgb(0 0 0 / 54%),
+    inset -18px 0 18px -11px rgb(0 0 0 / 50%);
+}
+
+.timeline-scroll-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
-  box-shadow:
-    inset 0 3px 10px -5px rgb(0 0 0 / 40%),
-    inset 0 -3px 10px -5px rgb(0 0 0 / 36%),
-    inset 14px 0 16px -11px rgb(0 0 0 / 42%),
-    inset -14px 0 16px -11px rgb(0 0 0 / 38%);
 }
 
 .timeline-columns {
@@ -1292,16 +1190,6 @@ const barBeatLabel = computed(() => {
   border: 1px solid var(--color-border);
   border-radius: 0;
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
-}
-
-.timeline-tools {
-  flex: 0 0 54px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 3px;
-  border: 0;
-  background: color-mix(in srgb, var(--color-surface-2) 82%, var(--color-surface) 18%);
 }
 
 .timeline-string-names {
@@ -1358,11 +1246,15 @@ const barBeatLabel = computed(() => {
   height: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface-2) 78%, var(--color-surface) 22%);
   cursor: pointer;
   user-select: none;
   padding: 0;
-  transition: border-color var(--ui-fast), box-shadow var(--ui-fast), background-color var(--ui-fast), transform var(--ui-fast);
+  transition:
+    border-color var(--ui-fast),
+    box-shadow var(--ui-fast),
+    background-color var(--ui-fast),
+    transform var(--ui-fast);
 }
 
 .timeline-tool-text {
@@ -1372,7 +1264,7 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-tool:hover {
-  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-primary) 12%);
+  background: color-mix(in srgb, var(--color-surface-2) 64%, var(--color-surface) 36%);
 }
 
 .timeline-tool.is-active {
@@ -1534,6 +1426,11 @@ const barBeatLabel = computed(() => {
   min-height: 28px;
 }
 
+.timeline-info-tools {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .status-chip {
   width: 133px;
   justify-content: center;
@@ -1541,18 +1438,21 @@ const barBeatLabel = computed(() => {
   font-weight: 600;
 }
 
-.zoom-status {
-  min-width: 320px;
-}
-
 .zoom-label {
   color: var(--color-text-muted);
   font-weight: 600;
 }
 
-.zoom-slider {
-  width: 240px;
-  max-width: 40vw;
+.zoom-value {
+  min-width: 28px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-adjust-btn {
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
 }
 
 .bars-input-wrap {
@@ -1579,24 +1479,6 @@ const barBeatLabel = computed(() => {
   min-height: 24px;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-.timeline-info :deep(.v-slider-track) {
-  --v-slider-track-size: 3px;
-}
-
-.timeline-info :deep(.v-slider-track__background) {
-  opacity: 1;
-  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface-2));
-}
-
-.timeline-info :deep(.v-slider-track__fill) {
-  background: var(--color-primary);
-}
-
-.timeline-info :deep(.v-slider-thumb__surface) {
-  border: 2px solid color-mix(in srgb, var(--color-primary) 70%, var(--color-surface));
-  box-shadow: 0 1px 7px rgb(0 0 0 / 22%);
 }
 
 .marquee {
@@ -1643,13 +1525,8 @@ const barBeatLabel = computed(() => {
     min-width: 132px;
   }
 
-  .zoom-status {
-    min-width: 100%;
-  }
-
-  .zoom-slider {
-    width: 100%;
-    max-width: none;
+  .zoom-value {
+    min-width: 24px;
   }
 }
 </style>

@@ -255,6 +255,7 @@ function getNoteColor(fret) {
   flex: 0 0 auto;
   height: 44px;
   margin-left: 6px;
+  background: color-mix(in srgb, #d8ecff 38%, var(--color-surface) 62%);
 }
 
 .timeline-track::after {
