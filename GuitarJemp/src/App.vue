@@ -1,5 +1,5 @@
 <script setup>
-import FretboardEdit from '@/components/Fretboards/FretboardEdit/FretboardEdit.vue'
+import FretboardShow from '@/components/Fretboards/FretboardShow.vue'
 import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
 import Timeline from '@/components/Timeline/Timeline.vue'
 import ChordMenu from '@/components/ChordMenu.vue'
@@ -564,7 +564,8 @@ function triggerRedo() {
                 </v-alert>
 
                 <v-card v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
-                  <FretboardEdit class="fretboard" :num-frets="numFrets" @update-frets="(n) => (numFrets = n)" />
+                  <FretboardShow class="fretboard" :num-frets="numFrets" :editable="true"
+                    @update-frets="(n) => (numFrets = n)" />
                 </v-card>
               </v-col>
               <v-col v-if="activeNotesVisible" md="3" class="d-none d-md-flex fretboard-align-spacer" />

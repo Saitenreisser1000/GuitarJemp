@@ -306,7 +306,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import RealisticFretboardBackground from './RealisticFretboardBackground.vue'
-import ColorPalette from '../FretboardEdit/controls/ColorPalette.vue'
+import ColorPalette from './ColorPalette.vue'
 import { storeToRefs } from 'pinia'
 import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
