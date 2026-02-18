@@ -80,6 +80,16 @@
         >
           {{ t('playback.click') }}
         </v-btn>
+        <v-btn
+          class="count-in-btn"
+          size="small"
+          :variant="countInEnabled ? 'flat' : 'tonal'"
+          :color="countInEnabled ? 'primary' : undefined"
+          :title="countInEnabled ? t('playback.disableCountIn') : t('playback.enableCountIn')"
+          @click="emit('update-count-in-enabled', !countInEnabled)"
+        >
+          {{ t('playback.countIn') }}
+        </v-btn>
         <v-btn class="tap-btn" size="small" variant="tonal" :title="t('playback.tapTempoHint')" @click="onTapTempo">
           TAB
         </v-btn>
@@ -102,6 +112,7 @@ const props = defineProps({
   isPlaying: { type: Boolean, required: true },
   tempo: { type: Number, required: true },
   clickEnabled: { type: Boolean, default: false },
+  countInEnabled: { type: Boolean, default: true },
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   playhead: { type: Number, required: true },
@@ -121,6 +132,7 @@ const emit = defineEmits([
   'seek-playhead',
   'update-tempo',
   'update-click',
+  'update-count-in-enabled',
   'update-auto-follow',
   'update-loop',
   'toggle-practice',
@@ -215,6 +227,10 @@ function formatPlayheadMs(valueMs) {
 
 .click-btn {
   min-width: 68px;
+}
+
+.count-in-btn {
+  min-width: 84px;
 }
 
 .follow-btn {

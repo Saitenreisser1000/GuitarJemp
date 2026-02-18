@@ -207,6 +207,7 @@ function applySnapshot(item) {
         if (s.soundPreviewEnabled != null)
             timelineSettings.setSoundPreviewEnabled(s.soundPreviewEnabled)
         if (s.clickEnabled != null) timelineSettings.setClickEnabled(s.clickEnabled)
+        if (s.countInEnabled != null) timelineSettings.setCountInEnabled(s.countInEnabled)
         if (s.loopEnabled != null) timelineSettings.setLoopEnabled(s.loopEnabled)
         if (s.loopStartBlock != null) timelineSettings.setLoopStartBlock(s.loopStartBlock)
         if (s.loopEndBlock != null) timelineSettings.setLoopEndBlock(s.loopEndBlock)

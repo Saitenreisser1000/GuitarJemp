@@ -161,6 +161,9 @@ export default {
     disableClick: 'Desactivar clic',
     enableClick: 'Activar clic',
     click: 'Clic',
+    disableCountIn: 'Desactivar cuenta previa',
+    enableCountIn: 'Activar cuenta previa',
+    countIn: 'Count In',
     tapTempoHint: 'Pulsa TAB para marcar el BPM',
   },
   recordingSelector: {

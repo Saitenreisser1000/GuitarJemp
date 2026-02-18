@@ -3,21 +3,101 @@
     <div v-if="countInVisible" class="count-in-lightbox" aria-live="polite" aria-atomic="true">
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
-    <div v-if="transportVisible || timelineVisible" class="timeline-collapse-btn-wrap">
-      <v-btn
-        size="x-small"
-        variant="tonal"
-        :title="timelineVisible ? 'Collapse' : 'Expand'"
-        :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
-        @click="emit('update-timeline-visible', !timelineVisible)"
-      >
-        {{ timelineVisible ? 'Collapse' : 'Expand' }}
-      </v-btn>
-    </div>
 
     <div class="timeline-layout">
 
       <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
+        <div class="timeline-top-row">
+          <div v-if="transportVisible || timelineVisible" class="timeline-collapse-btn-wrap">
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              :title="timelineVisible ? 'Collapse' : 'Expand'"
+              :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
+              @click="emit('update-timeline-visible', !timelineVisible)"
+            >
+              {{ timelineVisible ? 'Collapse' : 'Expand' }}
+            </v-btn>
+          </div>
+          <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap">
+            <v-menu location="bottom end" :close-on-content-click="false">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  size="x-small"
+                  variant="tonal"
+                  class="timeline-options-btn"
+                  :title="t('modeSelector.options')"
+                >
+                  <v-icon icon="mdi-cog-outline" size="16" />
+                </v-btn>
+              </template>
+
+              <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
+                <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
+                <div class="d-flex ga-2">
+                  <v-text-field
+                    density="compact"
+                    hide-details
+                    type="number"
+                    min="1"
+                    step="1"
+                    style="width: 84px"
+                    :model-value="beatTop"
+                    @update:model-value="updateBeatTopFromOptions"
+                  />
+                  <v-select
+                    density="compact"
+                    hide-details
+                    style="width: 84px"
+                    :items="beatBottomItems"
+                    :model-value="beatBottom"
+                    @update:model-value="updateBeatBottomFromOptions"
+                  />
+                </div>
+                <div class="d-flex align-center ga-2">
+                  <v-switch
+                    density="compact"
+                    hide-details
+                    inset
+                    :label="t('modeSelector.pickup')"
+                    :model-value="pickupEnabled"
+                    @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))"
+                  />
+                  <v-text-field
+                    density="compact"
+                    hide-details
+                    type="number"
+                    min="1"
+                    :max="pickupMax"
+                    step="1"
+                    style="width: 84px"
+                    :label="t('modeSelector.beats')"
+                    :disabled="!pickupEnabled"
+                    :model-value="pickupBeats"
+                    @update:model-value="updatePickupBeatsFromOptions"
+                  />
+                </div>
+                <v-switch
+                  density="compact"
+                  hide-details
+                  inset
+                  :label="t('modeSelector.snap')"
+                  :model-value="snapEnabled"
+                  @update:model-value="(v) => emit('update-snap', Boolean(v))"
+                />
+                <v-switch
+                  density="compact"
+                  hide-details
+                  inset
+                  :label="t('modeSelector.collapseStrings')"
+                  :model-value="stringsCollapsed"
+                  @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))"
+                />
+              </v-card>
+            </v-menu>
+          </div>
+        </div>
         <div v-if="timelineVisible || transportVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
           <div v-if="timelineVisible" class="timeline-columns">
             <div
@@ -179,82 +259,6 @@
               </div>
             </div>
 
-            <div class="timeline-options timeline-column-card" :aria-label="t('modeSelector.options')">
-              <v-menu location="bottom end" :close-on-content-click="false">
-                <template #activator="{ props: menuProps }">
-                  <v-btn
-                    v-bind="menuProps"
-                    icon="mdi-cog-outline"
-                    size="x-small"
-                    variant="tonal"
-                    :title="t('modeSelector.options')"
-                  />
-                </template>
-
-                <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
-                  <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
-                  <div class="d-flex ga-2">
-                    <v-text-field
-                      density="compact"
-                      hide-details
-                      type="number"
-                      min="1"
-                      step="1"
-                      style="width: 84px"
-                      :model-value="beatTop"
-                      @update:model-value="updateBeatTopFromOptions"
-                    />
-                    <v-select
-                      density="compact"
-                      hide-details
-                      style="width: 84px"
-                      :items="beatBottomItems"
-                      :model-value="beatBottom"
-                      @update:model-value="updateBeatBottomFromOptions"
-                    />
-                  </div>
-                  <div class="d-flex align-center ga-2">
-                    <v-switch
-                      density="compact"
-                      hide-details
-                      inset
-                      :label="t('modeSelector.pickup')"
-                      :model-value="pickupEnabled"
-                      @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))"
-                    />
-                    <v-text-field
-                      density="compact"
-                      hide-details
-                      type="number"
-                      min="1"
-                      :max="pickupMax"
-                      step="1"
-                      style="width: 84px"
-                      :label="t('modeSelector.beats')"
-                      :disabled="!pickupEnabled"
-                      :model-value="pickupBeats"
-                      @update:model-value="updatePickupBeatsFromOptions"
-                    />
-                  </div>
-                  <v-switch
-                    density="compact"
-                    hide-details
-                    inset
-                    :label="t('modeSelector.snap')"
-                    :model-value="snapEnabled"
-                    @update:model-value="(v) => emit('update-snap', Boolean(v))"
-                  />
-                  <v-switch
-                    density="compact"
-                    hide-details
-                    inset
-                    :label="t('modeSelector.collapseStrings')"
-                    :model-value="stringsCollapsed"
-                    @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))"
-                  />
-                </v-card>
-              </v-menu>
-            </div>
           </div>
           <v-card v-if="timelineVisible" class="timeline-info ui-panel" variant="flat">
             <div class="d-flex align-center ga-2 flex-wrap pa-1">
@@ -301,7 +305,7 @@
 
           <div v-if="transportVisible" class="timeline-transport" :aria-label="t('timelineView.transport')">
             <div class="timeline-transport-inner">
-              <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
+              <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled" :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled" :playhead="playhead"
                 :total-duration="totalDuration"
                 :practice-active="practiceActive"
                 :practice-available="practiceAvailable"
@@ -313,6 +317,7 @@
                 @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
                 @update-click="(v) => emit('update-click', v)"
+                @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
                 @update-auto-follow="(v) => emit('update-auto-follow', v)"
                 @update-loop="(v) => emit('update-loop', v)"
                 @toggle-practice="emit('toggle-practice')"
@@ -398,6 +403,7 @@ const props = defineProps({
   snapEnabled: { type: Boolean, default: true },
   soundPreviewEnabled: { type: Boolean, default: true },
   clickEnabled: { type: Boolean, default: false },
+  countInEnabled: { type: Boolean, default: true },
   autoFollowEnabled: { type: Boolean, default: true },
   countInVisible: { type: Boolean, default: false },
   countInBeat: { type: Number, default: 0 },
@@ -456,6 +462,7 @@ const emit = defineEmits([
   'update-snap',
   'update-sound-preview',
   'update-click',
+  'update-count-in-enabled',
   'update-auto-follow',
   'update-sound-duration-scale',
   'update-active-string',
@@ -1090,10 +1097,15 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-collapse-btn-wrap {
-  position: absolute;
-  top: var(--space-2);
-  right: calc(var(--secondary-menu-w) + var(--space-4));
-  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timeline-options-btn-wrap {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
 }
 
 .count-in-lightbox {
@@ -1206,9 +1218,17 @@ const barBeatLabel = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
   padding-right: calc(var(--secondary-menu-w) + var(--space-4));
   overflow: visible;
+}
+
+.timeline-top-row {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .timeline-transport {
@@ -1264,7 +1284,7 @@ const barBeatLabel = computed(() => {
 .timeline-columns {
   display: flex;
   width: 100%;
-  column-gap: 6px;
+  column-gap: var(--panel-side-gap, 6px);
   align-items: stretch;
 }
 
@@ -1387,12 +1407,17 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-options {
-  flex: 0 0 36px;
+  flex: 0 0 var(--panel-side-col-w, 36px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 4px;
   border: 0;
+}
+
+.timeline-options-btn {
+  min-width: 26px;
+  padding-inline: 0;
 }
 
 .marker-layer {

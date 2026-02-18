@@ -1,14 +1,15 @@
 <template>
   <div ref="rootEl" class="fretboard-js">
-    <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
-      <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
-        :fret-count="props.numFrets" :string-count="instrument.numStrings" />
+    <div class="fb-main-column">
+      <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
+        <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
+          :fret-count="props.numFrets" :string-count="instrument.numStrings" />
 
-      <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
-        preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
-        @click="onClick">
-        <!-- transparent hit-area -->
-        <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
+        <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
+          preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
+          @click="onClick">
+          <!-- transparent hit-area -->
+          <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
 
         <!-- String numbers -->
         <g class="fb-string-labels">
@@ -149,127 +150,127 @@
           <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
           <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
         </g>
-      </svg>
-    </div>
-
-    <div class="fb-fret-numbers" aria-hidden="true">
-      <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-        :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
-        :style="{ left: `${l.xPct}%` }">
-        {{ l.fret }}
-      </span>
-    </div>
-    <div class="fb-fret-actions">
-      <v-menu location="bottom start" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn
-            v-bind="menuProps"
-            size="small"
-            variant="tonal"
-            class="fb-top-control fb-note-value-btn"
-            :title="t('modeSelector.noteValues')"
-          >
-            <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-            <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-          </v-btn>
-        </template>
-
-        <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-          <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-          <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-            <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-              :title="item.title">
-              <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+        </svg>
+      </div>
+      <div class="fb-fret-numbers" aria-hidden="true">
+        <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+          :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
+          :style="{ left: `${l.xPct}%` }">
+          {{ l.fret }}
+        </span>
+      </div>
+      <div class="fb-fret-actions">
+        <v-menu location="bottom start" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              size="small"
+              variant="tonal"
+              class="fb-top-control fb-note-value-btn"
+              :title="t('modeSelector.noteValues')"
+            >
+              <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
+              <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
             </v-btn>
-          </v-btn-toggle>
+          </template>
 
-          <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-          <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-            <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-            <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-          </v-btn-toggle>
-        </v-card>
-      </v-menu>
+          <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
+            <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
+            <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
+              <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
+                :title="item.title">
+                <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+              </v-btn>
+            </v-btn-toggle>
 
-      <v-btn
-        size="small"
-        variant="tonal"
-        class="fb-top-control"
-        :active="Boolean(isSimOn)"
-        :color="isSimOn ? 'primary' : undefined"
-        :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-        :aria-pressed="String(isSimOn)"
-        @click="toggleSim"
-      >
-        CH
-      </v-btn>
+            <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
+            <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+              <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+              <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+            </v-btn-toggle>
+          </v-card>
+        </v-menu>
 
-      <v-menu location="bottom start" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn
-            v-bind="menuProps"
-            size="small"
-            variant="tonal"
-            class="fb-top-control fb-color-btn"
-            :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-          >
-            <v-icon icon="mdi-palette-outline" size="18" />
-            <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-          </v-btn>
-        </template>
-
-        <v-card class="pa-2" min-width="260" variant="flat" border>
-          <ColorPalette orientation="horizontal" />
-        </v-card>
-      </v-menu>
-
-      <div class="fb-fret-actions-erase">
-        <button
-          class="fb-shape-btn"
-          :class="{ 'is-active': settings.eraseMode }"
-          type="button"
-          @click="settings.setEraseMode(!settings.eraseMode)"
+        <v-btn
+          size="small"
+          variant="tonal"
+          class="fb-top-control"
+          :active="Boolean(isSimOn)"
+          :color="isSimOn ? 'primary' : undefined"
+          :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+          :aria-pressed="String(isSimOn)"
+          @click="toggleSim"
         >
-          Erase
+          CH
+        </v-btn>
+
+        <v-menu location="bottom start" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              size="small"
+              variant="tonal"
+              class="fb-top-control fb-color-btn"
+              :title="t('modeSelector.symbols', { color: settings.selectedColor })"
+            >
+              <v-icon icon="mdi-palette-outline" size="18" />
+              <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
+            </v-btn>
+          </template>
+
+          <v-card class="pa-2" min-width="260" variant="flat" border>
+            <ColorPalette orientation="horizontal" />
+          </v-card>
+        </v-menu>
+
+        <div class="fb-fret-actions-erase">
+          <button
+            class="fb-shape-btn"
+            :class="{ 'is-active': settings.eraseMode }"
+            type="button"
+            @click="settings.setEraseMode(!settings.eraseMode)"
+          >
+            Erase
+          </button>
+          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
+            Erase All
+          </button>
+        </div>
+      </div>
+      <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
+        <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
+        <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
+      </div>
+      <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
+        <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
+        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
+          {{ t('fretboardShow.plusFret') }}
         </button>
-        <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-          Erase All
+        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
+          {{ t('fretboardShow.minusFret') }}
+        </button>
+        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
+          {{ t('fretboardShow.stringUp') }}
+        </button>
+        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
+          {{ t('fretboardShow.stringDown') }}
+        </button>
+        <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
+          {{ t('fretboardShow.saveShape') }}
+        </button>
+        <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
+          <option value="">{{ t('fretboardShow.selectShape') }}</option>
+          <option v-for="s in savedShapes" :key="s.id" :value="s.id">
+            {{ s.name }}
+          </option>
+        </select>
+        <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
+          {{ t('fretboardShow.loadShape') }}
+        </button>
+        <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
+          {{ t('fretboardShow.delete') }}
         </button>
       </div>
-    </div>
-    <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
-      <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
-      <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
-    </div>
-    <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
-      <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
-      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
-        {{ t('fretboardShow.plusFret') }}
-      </button>
-      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
-        {{ t('fretboardShow.minusFret') }}
-      </button>
-      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
-        {{ t('fretboardShow.stringUp') }}
-      </button>
-      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
-        {{ t('fretboardShow.stringDown') }}
-      </button>
-      <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
-        {{ t('fretboardShow.saveShape') }}
-      </button>
-      <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
-        <option value="">{{ t('fretboardShow.selectShape') }}</option>
-        <option v-for="s in savedShapes" :key="s.id" :value="s.id">
-          {{ s.name }}
-        </option>
-      </select>
-      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
-        {{ t('fretboardShow.loadShape') }}
-      </button>
-      <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
-        {{ t('fretboardShow.delete') }}
-      </button>
     </div>
 
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
@@ -299,112 +300,6 @@
       </div>
     </Teleport>
 
-    <div class="fb-options-menu">
-      <v-menu location="bottom end" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn
-            v-bind="menuProps"
-            icon="mdi-cog-outline"
-            size="x-small"
-            variant="tonal"
-            :title="t('modeSelector.options')"
-          />
-        </template>
-
-        <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
-          <v-select
-            v-model="fretViewMode"
-            density="compact"
-            hide-details
-            :items="fretViewModeItems"
-            item-title="title"
-            item-value="value"
-            label="Fret View"
-            variant="outlined"
-          />
-          <div v-if="fretViewMode === 'range'" class="d-flex ga-2">
-            <v-text-field
-              v-model="fretViewFromLocal"
-              density="compact"
-              hide-details
-              type="number"
-              min="0"
-              :max="numFretsLocal"
-              step="1"
-              style="width: 92px"
-              label="From"
-            />
-            <v-text-field
-              v-model="fretViewToLocal"
-              density="compact"
-              hide-details
-              type="number"
-              min="0"
-              :max="numFretsLocal"
-              step="1"
-              style="width: 92px"
-              label="To"
-            />
-          </div>
-          <div class="d-flex ga-2">
-            <v-text-field
-              v-model="numStringsLocal"
-              density="compact"
-              hide-details
-              type="number"
-              min="1"
-              max="12"
-              step="1"
-              style="width: 92px"
-              :label="t('modeSelector.strings')"
-            />
-            <v-text-field
-              v-model="numFretsLocal"
-              density="compact"
-              hide-details
-              type="number"
-              min="1"
-              max="24"
-              step="1"
-              style="width: 92px"
-              :label="t('modeSelector.frets')"
-            />
-          </div>
-          <v-switch
-            density="compact"
-            hide-details
-            inset
-            :label="t('modeSelector.chordShapePanel')"
-            :model-value="settings.showChordShapePanel"
-            @update:model-value="(v) => settings.setShowChordShapePanel(Boolean(v))"
-          />
-          <v-switch
-            density="compact"
-            hide-details
-            inset
-            :label="t('modeSelector.suggestedPosition')"
-            :model-value="settings.showSuggestedPosition"
-            @update:model-value="(v) => settings.setShowSuggestedPosition(Boolean(v))"
-          />
-          <v-switch
-            density="compact"
-            hide-details
-            inset
-            label="Show Chords"
-            :model-value="harmonyMenu.showChord"
-            @update:model-value="(v) => (harmonyMenu.showChord = Boolean(v))"
-          />
-          <v-switch
-            density="compact"
-            hide-details
-            inset
-            label="Show Scales"
-            :model-value="harmonyMenu.showScale"
-            @update:model-value="(v) => (harmonyMenu.showScale = Boolean(v))"
-          />
-        </v-card>
-      </v-menu>
-    </div>
   </div>
 </template>
 
@@ -2380,15 +2275,16 @@ watch(
 <style scoped>
 .fretboard-js {
   width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--panel-side-gap, 6px);
   position: relative;
   overflow: visible;
 }
 
-.fb-options-menu {
-  position: absolute;
-  top: -16px;
-  right: -34px;
-  z-index: 25;
+.fb-main-column {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fb-view-mask rect {

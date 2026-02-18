@@ -160,6 +160,9 @@ export default {
     disableClick: 'Disable click',
     enableClick: 'Enable click',
     click: 'Click',
+    disableCountIn: 'Disable count in',
+    enableCountIn: 'Enable count in',
+    countIn: 'Count In',
     tapTempoHint: 'Tap TAB to set BPM',
   },
   recordingSelector: {

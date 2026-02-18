@@ -1,9 +1,5 @@
 <template>
   <div class="fretboard-container">
-    <FretboardControls v-if="showControls" :show-setup="false" :num-frets="props.numFrets"
-      @update-frets="(n) => emit('update-frets', n)">
-    </FretboardControls>
-
     <div class="fretboard">
       <FretboardShow :num-frets="props.numFrets" :editable="true" @update-frets="(n) => emit('update-frets', n)" />
     </div>
@@ -12,7 +8,6 @@
 
 <script setup>
 defineOptions({ name: 'FretboardEdit' })
-import FretboardControls from './controls/FretboardControls.vue'
 import FretboardShow from '../FretboardShow/FretboardShow.vue'
 
 const props = defineProps({

@@ -137,6 +137,7 @@ function makeSnapshot() {
       snapEnabled: timelineSettings.snapEnabled,
       soundPreviewEnabled: timelineSettings.soundPreviewEnabled,
       clickEnabled: timelineSettings.clickEnabled,
+      countInEnabled: timelineSettings.countInEnabled,
       loopEnabled: timelineSettings.loopEnabled,
       loopStartBlock: timelineSettings.loopStartBlock,
       loopEndBlock: timelineSettings.loopEndBlock,
@@ -168,6 +169,7 @@ function applySnapshot(snap) {
     if (s.soundPreviewEnabled != null)
       timelineSettings.setSoundPreviewEnabled(s.soundPreviewEnabled)
     if (s.clickEnabled != null) timelineSettings.setClickEnabled(s.clickEnabled)
+    if (s.countInEnabled != null) timelineSettings.setCountInEnabled(s.countInEnabled)
     if (s.loopEnabled != null) timelineSettings.setLoopEnabled(s.loopEnabled)
     if (s.loopStartBlock != null) timelineSettings.setLoopStartBlock(s.loopStartBlock)
     if (s.loopEndBlock != null) timelineSettings.setLoopEndBlock(s.loopEndBlock)
@@ -742,7 +744,7 @@ function triggerRedo() {
 }
 
 .app-main-with-menubar {
-  padding-top: 40px;
+  padding-top: 78px;
 }
 
 .app-shell {
@@ -766,6 +768,8 @@ function triggerRedo() {
 }
 
 .fretboard-card {
+  --panel-side-col-w: 36px;
+  --panel-side-gap: 6px;
   width: 100%;
   margin-top: 20px;
   margin-right: 0;
@@ -784,6 +788,11 @@ function triggerRedo() {
 .active-tones {
   border-radius: var(--radius-lg);
   overflow: clip;
+}
+
+.timeline {
+  --panel-side-col-w: 36px;
+  --panel-side-gap: 6px;
 }
 
 .active-tones-col {

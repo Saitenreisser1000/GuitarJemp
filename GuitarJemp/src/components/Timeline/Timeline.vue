@@ -1,7 +1,7 @@
 <template>
   <TimelineView :is-playing="isPlaying" :tempo="tempo" :selected-mode="selectedMode" :snap-enabled="snapEnabled"
     :sound-preview-enabled="soundPreviewEnabled" :beat-top="beatTop" :beat-bottom="beatBottom"
-    :click-enabled="clickEnabled"
+    :click-enabled="clickEnabled" :count-in-enabled="countInEnabled"
     :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
     :count-in-visible="countInVisible" :count-in-beat="countInBeat"
     :loop-start-block="loopStartBlock" :loop-end-block="loopEndBlock"
@@ -25,7 +25,7 @@
     @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
-    @update-click="settings.setClickEnabled"
+    @update-click="settings.setClickEnabled" @update-count-in-enabled="settings.setCountInEnabled"
     @update-auto-follow="settings.setAutoFollowEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="handleUpdateBeatTop"
@@ -136,6 +136,7 @@ const {
   snapEnabled,
   soundPreviewEnabled,
   clickEnabled,
+  countInEnabled,
   soundDurationScale,
   activeString,
   activeTool,
@@ -663,8 +664,12 @@ function togglePlay() {
   const tempoValue = Number(transport.tempo) || 120
   const beatsPerBarRaw = Number.parseInt(String(beatTop.value), 10)
   const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 4
-  const countInMs = Math.max(0, (60000 / tempoValue) * beatsPerBar)
-  startCountInOverlay(tempoValue, beatsPerBar)
+  const shouldCountIn = Boolean(countInEnabled.value)
+  const countInMs = shouldCountIn
+    ? Math.max(0, (60000 / tempoValue) * beatsPerBar)
+    : 0
+  if (shouldCountIn) startCountInOverlay(tempoValue, beatsPerBar)
+  else clearCountInOverlay()
 
   playback.start(totalDuration.value, transport.tempo, { delayMs: countInMs })
 }

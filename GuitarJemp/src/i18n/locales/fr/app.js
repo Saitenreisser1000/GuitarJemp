@@ -161,6 +161,9 @@ export default {
     disableClick: 'Désactiver le clic',
     enableClick: 'Activer le clic',
     click: 'Clic',
+    disableCountIn: 'Désactiver le compte à rebours',
+    enableCountIn: 'Activer le compte à rebours',
+    countIn: 'Count In',
     tapTempoHint: 'Appuyez sur TAB pour définir le BPM',
   },
   recordingSelector: {

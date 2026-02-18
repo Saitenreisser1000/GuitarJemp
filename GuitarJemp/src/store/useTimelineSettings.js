@@ -18,6 +18,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     typeof stored.soundPreviewEnabled === 'boolean' ? stored.soundPreviewEnabled : true,
   )
   const clickEnabled = ref(typeof stored.clickEnabled === 'boolean' ? stored.clickEnabled : false)
+  const countInEnabled = ref(
+    typeof stored.countInEnabled === 'boolean' ? stored.countInEnabled : true,
+  )
   const soundDurationScale = ref(
     Number.isFinite(stored.soundDurationScale) && stored.soundDurationScale > 0
       ? stored.soundDurationScale
@@ -102,6 +105,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setClickEnabled(v) {
     clickEnabled.value = Boolean(v)
+  }
+
+  function setCountInEnabled(v) {
+    countInEnabled.value = Boolean(v)
   }
 
   function setSoundDurationScale(v) {
@@ -220,6 +227,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     snapEnabled,
     soundPreviewEnabled,
     clickEnabled,
+    countInEnabled,
     soundDurationScale,
     loopEnabled,
     loopStartBlock,
@@ -249,6 +257,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     snapEnabled,
     soundPreviewEnabled,
     clickEnabled,
+    countInEnabled,
     soundDurationScale,
     loopEnabled,
     loopStartBlock,
@@ -274,6 +283,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setSnapEnabled,
     setSoundPreviewEnabled,
     setClickEnabled,
+    setCountInEnabled,
     setSoundDurationScale,
     setLoopEnabled,
     setLoopStartBlock,

@@ -61,11 +61,11 @@
         <!-- Strings -->
         <g class="strings" opacity="0.9">
             <line v-for="(s, i) in strings" :key="`string-${i}`" :x1="-STRING_OVERHANG" :y1="s.y"
-                :x2="W + STRING_OVERHANG" :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w"
+                :x2="W" :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w"
                 stroke-linecap="round" />
             <!-- subtle shadow under strings -->
             <line v-for="(s, i) in strings" :key="`string-shadow-${i}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
-                :x2="W + STRING_OVERHANG" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)"
+                :x2="W" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)"
                 :stroke-width="Math.max(1, s.w - 0.6)" stroke-linecap="round" />
         </g>
 
