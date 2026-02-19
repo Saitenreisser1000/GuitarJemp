@@ -4,8 +4,8 @@ import ActiveTonesWindow from '@/features/activeTones'
 import Timeline from '@/features/timeline'
 import ChordMenu from '@/features/chord'
 import ScaleMenu from '@/features/scale'
-import { AuthDialog, LibraryDialog, ConnectionsDialog } from '@/features/cloud'
-import { computed, onMounted, ref } from 'vue'
+import { AuthDialog, LibraryDialog, ConnectionsDialog, LibraryPanel } from '@/features/cloud'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
 import { useNotesStore } from '@/store/useNotes'
@@ -48,6 +48,10 @@ const transportVisible = ref(true)
 const libraryPanelVisible = ref(false)
 const externalUndoTick = ref(0)
 const externalRedoTick = ref(0)
+const fretboardCardEl = ref(null)
+const fretboardCardHeightPx = ref(0)
+let fretboardCardResizeObserver = null
+let onWindowResize = null
 
 const saveBusy = ref(false)
 const saveError = ref('')
@@ -63,8 +67,11 @@ const importErrorOpen = ref(false)
 const importErrorTitle = ref('')
 const importErrorDetails = ref('')
 const preferencesOpen = ref(false)
+const topPanelMode = ref('timeline')
+const shareEmail = ref('')
 
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
+const TOP_PANEL_MODE_STORAGE_KEY = 'guitarjemp.topPanelMode'
 const theme = useTheme()
 const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark))
 const preferenceToneDuration = computed({
@@ -88,6 +95,18 @@ function applyTheme(name) {
 
 function toggleTheme() {
   applyTheme(isDarkTheme.value ? 'guitarjemp' : 'guitarjempDark')
+}
+
+function normalizeTopPanelMode(v) {
+  const next = String(v || '').toLowerCase()
+  if (next === 'timeline' || next === 'library' || next === 'share') return next
+  return 'timeline'
+}
+
+function setTopPanelMode(v) {
+  const next = normalizeTopPanelMode(v)
+  topPanelMode.value = next
+  localStorage.setItem(TOP_PANEL_MODE_STORAGE_KEY, next)
 }
 
 onMounted(() => {
@@ -413,6 +432,62 @@ function triggerUndo() {
 function triggerRedo() {
   externalRedoTick.value += 1
 }
+
+function resolveFretboardCardElement() {
+  const fromRef = fretboardCardEl.value?.$el || fretboardCardEl.value
+  if (fromRef instanceof HTMLElement) return fromRef
+  if (typeof document === 'undefined') return null
+  return document.querySelector('.fretboard-card')
+}
+
+function updateFretboardCardHeight() {
+  const el = resolveFretboardCardElement()
+  const rect = el?.getBoundingClientRect?.()
+  const h = Number(rect?.height) || 0
+  fretboardCardHeightPx.value = Math.max(0, Math.round(h))
+}
+
+function setupFretboardCardObserver() {
+  const el = resolveFretboardCardElement()
+  if (!el || typeof ResizeObserver === 'undefined') return
+  if (fretboardCardResizeObserver) fretboardCardResizeObserver.disconnect()
+  fretboardCardResizeObserver = new ResizeObserver(() => updateFretboardCardHeight())
+  fretboardCardResizeObserver.observe(el)
+  updateFretboardCardHeight()
+}
+
+const appShellStyle = computed(() => ({
+  '--fretboard-card-h': `${fretboardVisible.value ? fretboardCardHeightPx.value : 0}px`,
+}))
+
+onMounted(async () => {
+  await nextTick()
+  setupFretboardCardObserver()
+  updateFretboardCardHeight()
+  requestAnimationFrame(() => {
+    updateFretboardCardHeight()
+  })
+  onWindowResize = () => updateFretboardCardHeight()
+  window.addEventListener('resize', onWindowResize, { passive: true })
+  const storedTopPanelMode = localStorage.getItem(TOP_PANEL_MODE_STORAGE_KEY)
+  if (storedTopPanelMode) topPanelMode.value = normalizeTopPanelMode(storedTopPanelMode)
+})
+
+onBeforeUnmount(() => {
+  fretboardCardResizeObserver?.disconnect?.()
+  fretboardCardResizeObserver = null
+  if (onWindowResize) window.removeEventListener('resize', onWindowResize)
+  onWindowResize = null
+})
+
+watch(
+  () => fretboardVisible.value,
+  async () => {
+    await nextTick()
+    setupFretboardCardObserver()
+    updateFretboardCardHeight()
+  },
+)
 </script>
 
 <template>
@@ -553,7 +628,38 @@ function triggerRedo() {
       <LibraryDialog v-model="libraryOpen" />
 
       <v-main class="app-main-with-menubar">
-        <div class="app-shell">
+        <div class="app-shell" :style="appShellStyle">
+          <div class="timeline-mode-rail">
+            <div class="timeline-mode-buttons">
+              <v-btn
+                class="timeline-mode-btn"
+                size="small"
+                :variant="topPanelMode === 'timeline' ? 'flat' : 'tonal'"
+                :color="topPanelMode === 'timeline' ? 'primary' : undefined"
+                @click="setTopPanelMode('timeline')"
+              >
+                Timeline
+              </v-btn>
+              <v-btn
+                class="timeline-mode-btn"
+                size="small"
+                :variant="topPanelMode === 'library' ? 'flat' : 'tonal'"
+                :color="topPanelMode === 'library' ? 'primary' : undefined"
+                @click="setTopPanelMode('library')"
+              >
+                Library
+              </v-btn>
+              <v-btn
+                class="timeline-mode-btn"
+                size="small"
+                :variant="topPanelMode === 'share' ? 'flat' : 'tonal'"
+                :color="topPanelMode === 'share' ? 'primary' : undefined"
+                @click="setTopPanelMode('share')"
+              >
+                Share
+              </v-btn>
+            </div>
+          </div>
           <v-container fluid class="app-content with-main-menu py-3">
             <v-row class="mt-2" align="start" justify="center" dense>
               <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
@@ -561,7 +667,7 @@ function triggerRedo() {
                   {{ saveError }}
                 </v-alert>
 
-                <v-card v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
+                <v-card ref="fretboardCardEl" v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
                   <div class="fretboard-card-layout">
                     <div class="fretboard-card-rail fretboard-card-rail-left">
                       <div class="fretboard-rail-title">Toolbox</div>
@@ -675,31 +781,71 @@ function triggerRedo() {
               </v-dialog>
 
               <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
-                <Timeline class="timeline" :compact="false" :num-frets="numFrets"
-                  :library-enabled="auth.isSignedIn"
-                  :active-notes-visible="activeNotesVisible"
-                  :fretboard-visible="fretboardVisible"
-                  :chord-menu-visible="chordMenuVisible"
-                  :timeline-visible="timelineVisible"
-                  :transport-visible="transportVisible"
-                  :library-panel-visible="libraryPanelVisible"
-                  :external-undo-tick="externalUndoTick"
-                  :external-redo-tick="externalRedoTick"
-                  :is-dark-theme="isDarkTheme"
-                  @open-library="libraryOpen = true"
-                  @toggle-theme="toggleTheme"
-                  @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
-                  @update-fretboard-visible="(v) => (fretboardVisible = Boolean(v))"
-                  @update-chord-menu-visible="(v) => (chordMenuVisible = Boolean(v))"
-                  @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
-                  @update-transport-visible="(v) => (transportVisible = Boolean(v))"
-                  @update-library-panel-visible="(v) => (libraryPanelVisible = Boolean(v))"
-                  @update-frets="(n) => (numFrets = n)" />
-                <ChordMenu v-if="chordMenuVisible" class="mt-3" />
-                <ScaleMenu v-if="scaleMenuVisible" class="mt-3" />
+                <v-card class="top-panel-card ui-panel" variant="flat">
+                  <Timeline
+                    v-show="topPanelMode === 'timeline'"
+                    class="top-panel-timeline"
+                    :compact="false"
+                    :num-frets="numFrets"
+                    :library-enabled="auth.isSignedIn"
+                    :active-notes-visible="activeNotesVisible"
+                    :fretboard-visible="fretboardVisible"
+                    :chord-menu-visible="chordMenuVisible"
+                    :timeline-visible="timelineVisible"
+                    :transport-visible="transportVisible"
+                    :library-panel-visible="libraryPanelVisible"
+                    :external-undo-tick="externalUndoTick"
+                    :external-redo-tick="externalRedoTick"
+                    :is-dark-theme="isDarkTheme"
+                    @open-library="libraryOpen = true"
+                    @toggle-theme="toggleTheme"
+                    @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
+                    @update-fretboard-visible="(v) => (fretboardVisible = Boolean(v))"
+                    @update-chord-menu-visible="(v) => (chordMenuVisible = Boolean(v))"
+                    @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
+                    @update-transport-visible="(v) => (transportVisible = Boolean(v))"
+                    @update-library-panel-visible="(v) => (libraryPanelVisible = Boolean(v))"
+                    @update-frets="(n) => (numFrets = n)"
+                  />
+                  <div v-if="topPanelMode === 'library'" class="top-panel-content pa-2">
+                    <LibraryPanel />
+                  </div>
+                  <div v-if="topPanelMode === 'share'" class="top-panel-content pa-4">
+                    <div class="text-h6 mb-2">Share</div>
+                    <div class="text-body-2 mb-3">Export and share your current project.</div>
+                    <div class="d-flex flex-wrap ga-2">
+                      <v-btn prepend-icon="mdi-file-music-outline" variant="tonal" :disabled="!hasNotes" @click="onExportMusicXml">
+                        MusicXML
+                      </v-btn>
+                      <v-btn prepend-icon="mdi-file-music" variant="tonal" :disabled="!hasNotes" @click="onExportMidi">
+                        MIDI
+                      </v-btn>
+                      <v-btn prepend-icon="mdi-file-pdf-box" variant="tonal" :disabled="!hasNotes" @click="onExportPdf">
+                        PDF
+                      </v-btn>
+                    </div>
+                    <v-text-field
+                      v-model="shareEmail"
+                      class="mt-4"
+                      label="E-Mail"
+                      type="email"
+                      density="compact"
+                      variant="outlined"
+                      placeholder="name@example.com"
+                      hide-details
+                    />
+                    <div class="d-flex justify-end mt-3">
+                      <v-btn color="primary" variant="flat">
+                        Submit
+                      </v-btn>
+                    </div>
+                  </div>
+                </v-card>
+                <ChordMenu v-if="topPanelMode === 'timeline' && chordMenuVisible" class="mt-3" />
+                <ScaleMenu v-if="topPanelMode === 'timeline' && scaleMenuVisible" class="mt-3" />
               </v-col>
 
-              <v-col v-if="activeNotesVisible" cols="12" md="3" class="active-tones-col">
+              <v-col v-if="topPanelMode === 'timeline' && activeNotesVisible" cols="12" md="3" class="active-tones-col">
                 <ActiveTonesWindow class="active-tones integrated-active-tones" />
               </v-col>
             </v-row>
@@ -767,6 +913,8 @@ function triggerRedo() {
   --fixed-stack-gap: 8px;
   --fixed-panel-left: 0px;
   --fixed-panel-right: 0px;
+  --timeline-rail-w: 148px;
+  --timeline-rail-gap: 8px;
   --fretboard-inner-max-w: calc(1280px - (2 * (var(--main-menu-w) + var(--space-4))));
   min-height: 100vh;
   background:
@@ -795,12 +943,11 @@ function triggerRedo() {
   left: var(--fixed-panel-left);
   right: var(--fixed-panel-right);
   bottom: 0;
+  height: calc((100vh - 78px) / 2);
   width: auto;
   margin: 0;
   border-radius: 0;
-  box-shadow:
-    0 16px 36px rgb(0 0 0 / 22%),
-    0 3px 10px rgb(0 0 0 / 12%);
+  box-shadow: none;
   z-index: 30;
 }
 
@@ -875,15 +1022,66 @@ function triggerRedo() {
   z-index: 1;
 }
 
-.timeline,
+.top-panel-timeline,
 .active-tones {
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   overflow: clip;
 }
 
-.timeline {
+.timeline-mode-rail {
+  position: fixed;
+  top: 78px;
+  left: var(--fixed-panel-left);
+  width: var(--timeline-rail-w);
+  height: calc((100vh - 78px) / 2);
+  padding: 12px 8px;
+  border-right: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+}
+
+.timeline-mode-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-mode-btn {
+  width: 100%;
+  min-height: 38px;
+  justify-content: flex-start;
+  text-transform: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding-inline: 12px;
+}
+
+.top-panel-timeline {
   --panel-side-col-w: 36px;
   --panel-side-gap: 6px;
+  width: 100%;
+  height: 100%;
+}
+
+.top-panel-card {
+  position: fixed;
+  left: calc(var(--fixed-panel-left) + var(--timeline-rail-w) + var(--timeline-rail-gap));
+  right: var(--fixed-panel-right);
+  top: 78px;
+  height: calc((100vh - 78px) / 2);
+  overflow: hidden;
+  z-index: 31;
+}
+
+.top-panel-content {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
 }
 
 .active-tones-col {
@@ -913,6 +1111,8 @@ function triggerRedo() {
   .app-shell {
     --fixed-panel-left: var(--space-2);
     --fixed-panel-right: var(--space-2);
+    --timeline-rail-w: 124px;
+    --timeline-rail-gap: 6px;
   }
 
   .app-content.with-main-menu {
@@ -929,6 +1129,11 @@ function triggerRedo() {
     left: var(--fixed-panel-left);
     right: var(--fixed-panel-right);
     bottom: 0;
+  }
+
+  .top-panel-card {
+    left: calc(var(--fixed-panel-left) + var(--timeline-rail-w) + var(--timeline-rail-gap));
+    right: var(--fixed-panel-right);
   }
 }
 </style>

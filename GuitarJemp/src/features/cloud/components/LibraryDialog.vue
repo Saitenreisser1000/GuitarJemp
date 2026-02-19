@@ -280,22 +280,27 @@ function ownerDisplayNameFor(item) {
                                 <th>{{ t('libraryDialog.visibility') }}</th>
                                 <th>{{ t('libraryDialog.category') }}</th>
                                 <th>{{ t('libraryDialog.owner') }}</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="item in visibleItems" :key="item.id">
+                            <tr
+                                v-for="item in visibleItems"
+                                :key="item.id"
+                                class="library-row"
+                                role="button"
+                                tabindex="0"
+                                @click="onLoad(item)"
+                                @keydown.enter.prevent="onLoad(item)"
+                                @keydown.space.prevent="onLoad(item)"
+                            >
                                 <td class="library-ellipsis">{{ item.title }}</td>
                                 <td>{{ item.kind }}</td>
                                 <td>{{ item.visibility }}</td>
                                 <td class="library-ellipsis">{{ item.category || '—' }}</td>
                                 <td class="text-medium-emphasis library-ellipsis">{{ ownerDisplayNameFor(item) }}</td>
-                                <td class="text-right">
-                                    <v-btn size="x-small" variant="tonal" @click="onLoad(item)">{{ t('libraryDialog.load') }}</v-btn>
-                                </td>
                             </tr>
                             <tr v-if="visibleItems.length === 0">
-                                <td colspan="6" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
+                                <td colspan="5" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
                             </tr>
                         </tbody>
                     </v-table>
@@ -326,6 +331,19 @@ function ownerDisplayNameFor(item) {
 .library-table :deep(td) {
     padding-top: 6px !important;
     padding-bottom: 6px !important;
+}
+
+.library-table :deep(.library-row) {
+    cursor: pointer;
+}
+
+.library-table :deep(.library-row:hover) {
+    background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+}
+
+.library-table :deep(.library-row:focus-visible) {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+    outline-offset: -2px;
 }
 
 .library-ellipsis {
