@@ -24,6 +24,9 @@ import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { parseMidiToClip } from '@/domain/exchange/importMidi'
 import { getTuning } from '@/domain/music/tunings'
 import { useI18n } from '@/i18n/useI18n'
+import FretboardRail from '@/features/fretboard/components/FretboardRail.vue'
+import TopPanelModeRail from '@/components/app/TopPanelModeRail.vue'
+import SharePanel from '@/components/app/SharePanel.vue'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -629,229 +632,174 @@ watch(
 
       <v-main class="app-main-with-menubar">
         <div class="app-shell" :style="appShellStyle">
-          <div class="timeline-mode-rail">
-            <div class="timeline-mode-buttons">
-              <v-btn
-                class="timeline-mode-btn"
-                size="small"
-                :variant="topPanelMode === 'timeline' ? 'flat' : 'tonal'"
-                :color="topPanelMode === 'timeline' ? 'primary' : undefined"
-                @click="setTopPanelMode('timeline')"
-              >
-                Timeline
-              </v-btn>
-              <v-btn
-                class="timeline-mode-btn"
-                size="small"
-                :variant="topPanelMode === 'library' ? 'flat' : 'tonal'"
-                :color="topPanelMode === 'library' ? 'primary' : undefined"
-                @click="setTopPanelMode('library')"
-              >
-                Library
-              </v-btn>
-              <v-btn
-                class="timeline-mode-btn"
-                size="small"
-                :variant="topPanelMode === 'share' ? 'flat' : 'tonal'"
-                :color="topPanelMode === 'share' ? 'primary' : undefined"
-                @click="setTopPanelMode('share')"
-              >
-                Share
-              </v-btn>
+          <TopPanelModeRail :model-value="topPanelMode" @update:model-value="setTopPanelMode" />
+          <div class="app-content with-main-menu py-3">
+            <v-alert v-if="saveError" type="error" variant="tonal" class="mb-2">
+              {{ saveError }}
+            </v-alert>
+
+            <v-card ref="fretboardCardEl" v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
+              <div class="fretboard-card-layout">
+                <FretboardRail
+                  title="Toolbox"
+                  rail-class="fretboard-card-rail-left"
+                  host-id="fretboard-left-rail-host"
+                  host-class="fretboard-left-rail-host"
+                />
+                <div class="fretboard-card-center">
+                  <div class="fretboard-inner">
+                    <Fretboard class="fretboard" :num-frets="numFrets" :editable="true"
+                      @update-frets="(n) => (numFrets = n)" />
+                  </div>
+                  <div id="fretboard-transport-host" class="fretboard-transport-host" />
+                </div>
+                <FretboardRail
+                  title="Organize"
+                  rail-class="fretboard-card-rail-right"
+                  host-id="fretboard-right-rail-host"
+                  host-class="fretboard-right-rail-host"
+                />
+              </div>
+            </v-card>
+
+            <v-card class="top-panel-card ui-panel" variant="flat">
+              <Timeline
+                v-show="topPanelMode === 'timeline'"
+                class="top-panel-timeline"
+                :compact="false"
+                :num-frets="numFrets"
+                :library-enabled="auth.isSignedIn"
+                :active-notes-visible="activeNotesVisible"
+                :fretboard-visible="fretboardVisible"
+                :chord-menu-visible="chordMenuVisible"
+                :timeline-visible="timelineVisible"
+                :transport-visible="transportVisible"
+                :library-panel-visible="libraryPanelVisible"
+                :external-undo-tick="externalUndoTick"
+                :external-redo-tick="externalRedoTick"
+                :is-dark-theme="isDarkTheme"
+                @open-library="libraryOpen = true"
+                @toggle-theme="toggleTheme"
+                @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
+                @update-fretboard-visible="(v) => (fretboardVisible = Boolean(v))"
+                @update-chord-menu-visible="(v) => (chordMenuVisible = Boolean(v))"
+                @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
+                @update-transport-visible="(v) => (transportVisible = Boolean(v))"
+                @update-library-panel-visible="(v) => (libraryPanelVisible = Boolean(v))"
+                @update-frets="(n) => (numFrets = n)"
+              />
+              <div v-if="topPanelMode === 'library'" class="top-panel-library pa-2">
+                <LibraryPanel />
+              </div>
+              <SharePanel
+                v-if="topPanelMode === 'share'"
+                v-model="shareEmail"
+                :has-notes="hasNotes"
+                @export-musicxml="onExportMusicXml"
+                @export-midi="onExportMidi"
+                @export-pdf="onExportPdf"
+              />
+            </v-card>
+            <ChordMenu v-if="topPanelMode === 'timeline' && chordMenuVisible" class="mt-3" />
+            <ScaleMenu v-if="topPanelMode === 'timeline' && scaleMenuVisible" class="mt-3" />
+
+            <div v-if="topPanelMode === 'timeline' && activeNotesVisible" class="d-none d-md-flex active-tones-col">
+                <ActiveTonesWindow class="active-tones integrated-active-tones" />
             </div>
           </div>
-          <v-container fluid class="app-content with-main-menu py-3">
-            <v-row class="mt-2" align="start" justify="center" dense>
-              <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
-                <v-alert v-if="saveError" type="error" variant="tonal" class="mb-2">
-                  {{ saveError }}
-                </v-alert>
-
-                <v-card ref="fretboardCardEl" v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
-                  <div class="fretboard-card-layout">
-                    <div class="fretboard-card-rail fretboard-card-rail-left">
-                      <div class="fretboard-rail-title">Toolbox</div>
-                      <div id="fretboard-left-rail-host" class="fretboard-left-rail-host" />
-                    </div>
-                    <div class="fretboard-card-center">
-                      <div class="fretboard-inner">
-                        <Fretboard class="fretboard" :num-frets="numFrets" :editable="true"
-                          @update-frets="(n) => (numFrets = n)" />
-                      </div>
-                      <div id="fretboard-transport-host" class="fretboard-transport-host" />
-                    </div>
-                    <div class="fretboard-card-rail fretboard-card-rail-right">
-                      <div class="fretboard-rail-title">Organize</div>
-                      <div id="fretboard-right-rail-host" class="fretboard-right-rail-host" />
-                    </div>
-                  </div>
-                </v-card>
-              </v-col>
-              <v-col v-if="activeNotesVisible" md="3" class="d-none d-md-flex fretboard-align-spacer" />
-
-              <v-dialog v-model="saveAsNewOpen" max-width="520">
-                <v-card rounded="lg">
-                  <v-card-title class="d-flex align-center justify-space-between">
-                    <span>{{ t('app.saveAsNew') }}</span>
-                    <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
-                  </v-card-title>
-
-                  <v-card-text>
-                    <v-text-field v-model="saveAsNewTitle" :label="t('app.title')" density="compact" variant="outlined"
-                      autofocus />
-
-                    <v-select v-model="saveAsNewVisibility" :items="[
-                      { title: t('app.private'), value: 'private' },
-                      { title: t('app.connections'), value: 'connections' },
-                      { title: t('app.public'), value: 'public' },
-                    ]" :label="t('app.visibility')" density="compact" variant="outlined" />
-                  </v-card-text>
-
-                  <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="saveAsNewOpen = false">{{ t('app.cancel') }}</v-btn>
-                    <v-btn color="primary" variant="flat" :disabled="!canSaveAsNew || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy
-                      " @click="onSaveAsNewConfirm">
-                      {{ t('app.save') }}
-                    </v-btn>
-                  </v-card-actions>
-                </v-card>
-              </v-dialog>
-
-              <v-dialog v-model="importErrorOpen" max-width="700">
-                <v-card rounded="lg">
-                  <v-card-title class="d-flex align-center justify-space-between">
-                    <span>{{ t('app.importFailed') }}</span>
-                    <v-btn icon="mdi-close" variant="text" @click="importErrorOpen = false" />
-                  </v-card-title>
-                  <v-card-text>
-                    <p class="mb-2">{{ importErrorTitle }}</p>
-                    <v-sheet v-if="importErrorDetails" rounded="md" class="import-error-sheet pa-3">
-                      <pre class="import-error-details">{{ importErrorDetails }}</pre>
-                    </v-sheet>
-                  </v-card-text>
-                  <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="importErrorOpen = false">{{ t('app.close') }}</v-btn>
-                  </v-card-actions>
-                </v-card>
-              </v-dialog>
-
-              <v-dialog v-model="preferencesOpen" max-width="520">
-                <v-card rounded="lg">
-                  <v-card-title class="d-flex align-center justify-space-between">
-                    <span>Preferences</span>
-                    <v-btn icon="mdi-close" variant="text" @click="preferencesOpen = false" />
-                  </v-card-title>
-                  <v-card-text class="d-flex flex-column ga-3">
-                    <v-text-field
-                      v-model="preferenceToneDuration"
-                      :label="t('modeSelector.toneDuration')"
-                      density="compact"
-                      variant="outlined"
-                      type="number"
-                      min="0.1"
-                      step="0.1"
-                    />
-                    <v-switch
-                      v-model="preferenceSoundPreview"
-                      density="compact"
-                      hide-details
-                      inset
-                      :label="t('modeSelector.sound')"
-                    />
-                    <v-switch
-                      v-model="preferenceDarkMode"
-                      density="compact"
-                      hide-details
-                      inset
-                      :label="t('modeSelector.dark')"
-                    />
-                    <v-switch
-                      density="compact"
-                      hide-details
-                      inset
-                      :label="t('timelineView.handPosition')"
-                      :model-value="timelineSettings.handPositionVisible"
-                      @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))"
-                    />
-                  </v-card-text>
-                  <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="preferencesOpen = false">{{ t('app.close') }}</v-btn>
-                  </v-card-actions>
-                </v-card>
-              </v-dialog>
-
-              <v-col :cols="12" :md="activeNotesVisible ? 9 : 12">
-                <v-card class="top-panel-card ui-panel" variant="flat">
-                  <Timeline
-                    v-show="topPanelMode === 'timeline'"
-                    class="top-panel-timeline"
-                    :compact="false"
-                    :num-frets="numFrets"
-                    :library-enabled="auth.isSignedIn"
-                    :active-notes-visible="activeNotesVisible"
-                    :fretboard-visible="fretboardVisible"
-                    :chord-menu-visible="chordMenuVisible"
-                    :timeline-visible="timelineVisible"
-                    :transport-visible="transportVisible"
-                    :library-panel-visible="libraryPanelVisible"
-                    :external-undo-tick="externalUndoTick"
-                    :external-redo-tick="externalRedoTick"
-                    :is-dark-theme="isDarkTheme"
-                    @open-library="libraryOpen = true"
-                    @toggle-theme="toggleTheme"
-                    @update-active-notes-visible="(v) => (activeNotesVisible = Boolean(v))"
-                    @update-fretboard-visible="(v) => (fretboardVisible = Boolean(v))"
-                    @update-chord-menu-visible="(v) => (chordMenuVisible = Boolean(v))"
-                    @update-timeline-visible="(v) => (timelineVisible = Boolean(v))"
-                    @update-transport-visible="(v) => (transportVisible = Boolean(v))"
-                    @update-library-panel-visible="(v) => (libraryPanelVisible = Boolean(v))"
-                    @update-frets="(n) => (numFrets = n)"
-                  />
-                  <div v-if="topPanelMode === 'library'" class="top-panel-content pa-2">
-                    <LibraryPanel />
-                  </div>
-                  <div v-if="topPanelMode === 'share'" class="top-panel-content pa-4">
-                    <div class="text-h6 mb-2">Share</div>
-                    <div class="text-body-2 mb-3">Export and share your current project.</div>
-                    <div class="d-flex flex-wrap ga-2">
-                      <v-btn prepend-icon="mdi-file-music-outline" variant="tonal" :disabled="!hasNotes" @click="onExportMusicXml">
-                        MusicXML
-                      </v-btn>
-                      <v-btn prepend-icon="mdi-file-music" variant="tonal" :disabled="!hasNotes" @click="onExportMidi">
-                        MIDI
-                      </v-btn>
-                      <v-btn prepend-icon="mdi-file-pdf-box" variant="tonal" :disabled="!hasNotes" @click="onExportPdf">
-                        PDF
-                      </v-btn>
-                    </div>
-                    <v-text-field
-                      v-model="shareEmail"
-                      class="mt-4"
-                      label="E-Mail"
-                      type="email"
-                      density="compact"
-                      variant="outlined"
-                      placeholder="name@example.com"
-                      hide-details
-                    />
-                    <div class="d-flex justify-end mt-3">
-                      <v-btn color="primary" variant="flat">
-                        Submit
-                      </v-btn>
-                    </div>
-                  </div>
-                </v-card>
-                <ChordMenu v-if="topPanelMode === 'timeline' && chordMenuVisible" class="mt-3" />
-                <ScaleMenu v-if="topPanelMode === 'timeline' && scaleMenuVisible" class="mt-3" />
-              </v-col>
-
-              <v-col v-if="topPanelMode === 'timeline' && activeNotesVisible" cols="12" md="3" class="active-tones-col">
-                <ActiveTonesWindow class="active-tones integrated-active-tones" />
-              </v-col>
-            </v-row>
-          </v-container>
         </div>
       </v-main>
+
+      <v-dialog v-model="saveAsNewOpen" max-width="520">
+        <v-card rounded="lg">
+          <v-card-title class="d-flex align-center justify-space-between">
+            <span>{{ t('app.saveAsNew') }}</span>
+            <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
+          </v-card-title>
+
+          <v-card-text>
+            <v-text-field v-model="saveAsNewTitle" :label="t('app.title')" density="compact" variant="outlined"
+              autofocus />
+
+            <v-select v-model="saveAsNewVisibility" :items="[
+              { title: t('app.private'), value: 'private' },
+              { title: t('app.connections'), value: 'connections' },
+              { title: t('app.public'), value: 'public' },
+            ]" :label="t('app.visibility')" density="compact" variant="outlined" />
+          </v-card-text>
+
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="saveAsNewOpen = false">{{ t('app.cancel') }}</v-btn>
+            <v-btn color="primary" variant="flat" :disabled="!canSaveAsNew || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy
+              " @click="onSaveAsNewConfirm">
+              {{ t('app.save') }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-dialog v-model="importErrorOpen" max-width="700">
+        <v-card rounded="lg">
+          <v-card-title class="d-flex align-center justify-space-between">
+            <span>{{ t('app.importFailed') }}</span>
+            <v-btn icon="mdi-close" variant="text" @click="importErrorOpen = false" />
+          </v-card-title>
+          <v-card-text>
+            <p class="mb-2">{{ importErrorTitle }}</p>
+            <v-sheet v-if="importErrorDetails" rounded="md" class="import-error-sheet pa-3">
+              <pre class="import-error-details">{{ importErrorDetails }}</pre>
+            </v-sheet>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="importErrorOpen = false">{{ t('app.close') }}</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-dialog v-model="preferencesOpen" max-width="520">
+        <v-card rounded="lg">
+          <v-card-title class="d-flex align-center justify-space-between">
+            <span>Preferences</span>
+            <v-btn icon="mdi-close" variant="text" @click="preferencesOpen = false" />
+          </v-card-title>
+          <v-card-text class="d-flex flex-column ga-3">
+            <v-text-field
+              v-model="preferenceToneDuration"
+              :label="t('modeSelector.toneDuration')"
+              density="compact"
+              variant="outlined"
+              type="number"
+              min="0.1"
+              step="0.1"
+            />
+            <v-switch
+              v-model="preferenceSoundPreview"
+              density="compact"
+              hide-details
+              inset
+              :label="t('modeSelector.sound')"
+            />
+            <v-switch
+              v-model="preferenceDarkMode"
+              density="compact"
+              hide-details
+              inset
+              :label="t('modeSelector.dark')"
+            />
+            <v-switch
+              density="compact"
+              hide-details
+              inset
+              :label="t('timelineView.handPosition')"
+              :model-value="timelineSettings.handPositionVisible"
+              @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))"
+            />
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="preferencesOpen = false">{{ t('app.close') }}</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-layout>
   </v-app>
 </template>
@@ -1028,39 +976,6 @@ watch(
   overflow: clip;
 }
 
-.timeline-mode-rail {
-  position: fixed;
-  top: 78px;
-  left: var(--fixed-panel-left);
-  width: var(--timeline-rail-w);
-  height: calc((100vh - 78px) / 2);
-  padding: 12px 8px;
-  border-right: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
-  z-index: 40;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow: visible;
-}
-
-.timeline-mode-buttons {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.timeline-mode-btn {
-  width: 100%;
-  min-height: 38px;
-  justify-content: flex-start;
-  text-transform: none;
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding-inline: 12px;
-}
-
 .top-panel-timeline {
   --panel-side-col-w: 36px;
   --panel-side-gap: 6px;
@@ -1078,7 +993,7 @@ watch(
   z-index: 31;
 }
 
-.top-panel-content {
+.top-panel-library {
   width: 100%;
   height: 100%;
   overflow: auto;

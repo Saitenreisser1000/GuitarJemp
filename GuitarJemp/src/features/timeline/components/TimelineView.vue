@@ -4,8 +4,7 @@
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
 
-    <div class="timeline-layout">
-      <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
+    <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
         <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
           :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
           :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
@@ -19,10 +18,8 @@
           :class="{ 'is-collapsed': stringsCollapsed }">
           <div v-if="timelineVisible" class="timeline-columns">
             <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
+              :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
               :aria-label="t('timelineView.strings')">
-              <div v-if="loopEnabled" class="timeline-string-names-spacer" />
-              <div v-if="markerItems.length" class="timeline-string-names-spacer" />
-
               <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
                 <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
                   @click="() => emit('add-hand-position')">
@@ -154,9 +151,9 @@
             </div>
           </template>
         </div>
-      </section>
+    </section>
 
-      <aside v-if="libraryPanelVisible" class="secondary-menu-rail"
+    <aside v-if="libraryPanelVisible" class="secondary-menu-rail"
         :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
         :aria-label="t('libraryDialog.title')">
         <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
@@ -180,8 +177,7 @@
               :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
           </div>
         </v-card>
-      </aside>
-    </div>
+    </aside>
   </div>
 </template>
 
@@ -706,6 +702,13 @@ const markerItems = computed(() => {
     .filter(Boolean)
 })
 
+const stringHeaderOffsetPx = computed(() => {
+  let px = 0
+  if (props.loopEnabled) px += 18
+  if (markerItems.value.length) px += 18
+  return px
+})
+
 function onTimelineWheel(e) {
   if (!e?.ctrlKey) return
   const el = scrollEl.value
@@ -937,11 +940,6 @@ const barBeatLabel = computed(() => {
   box-shadow: 0 14px 40px rgb(0 0 0 / 30%);
 }
 
-.timeline-layout {
-  display: block;
-  padding: var(--space-2) var(--space-2) 0;
-}
-
 .secondary-menu-rail {
   position: fixed;
   right: 0;
@@ -1019,6 +1017,7 @@ const barBeatLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
+  padding: var(--space-2) var(--space-2) 0;
   padding-right: calc(var(--secondary-menu-w) + var(--space-4));
   overflow: visible;
 }
@@ -1121,13 +1120,9 @@ const barBeatLabel = computed(() => {
   flex-direction: column;
   align-items: stretch;
   padding: 0 1px;
+  padding-top: var(--timeline-string-header-offset, 0px);
   border: 0;
   background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
-}
-
-.timeline-string-names-spacer {
-  height: 18px;
-  flex: 0 0 18px;
 }
 
 .timeline-string-name {
@@ -1301,10 +1296,6 @@ const barBeatLabel = computed(() => {
 @media (max-width: 860px) {
   .timeline-main {
     margin-right: 0;
-  }
-
-  .timeline-layout {
-    display: block;
   }
 
   .secondary-menu-rail {
