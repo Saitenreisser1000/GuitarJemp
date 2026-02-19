@@ -5,7 +5,7 @@ import { normalizeNoteValue } from '@/config/noteValues'
 import { defaultLengthBlocksForMode, nextGridIndexFromNotes } from '@/domain/timelinePlacement'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
-import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
+import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 
 export const useNotesStore = defineStore('notes', () => {
   // Notes are objects.

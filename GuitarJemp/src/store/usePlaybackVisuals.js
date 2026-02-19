@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { PLAYBACK_VISUALS_PULSE_HISTORY_LIMIT } from '@/config/playbackVisuals'
+import { PLAYBACK_VISUALS_PULSE_HISTORY_LIMIT } from '@/features/timeline/config/playbackVisuals'
 
 export const usePlaybackVisualsStore = defineStore('playbackVisuals', () => {
   // Public, reactive list of highlighted note keys (currently "active" / playing)

@@ -1,4 +1,4 @@
-import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
+import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 
 export function safeTimePerBlockMs(timePerBlockMs) {
   const n = Number(timePerBlockMs)

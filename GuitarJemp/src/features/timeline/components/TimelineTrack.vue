@@ -34,7 +34,7 @@
 <script setup>
 import NoteEvent from './NoteEvent.vue'
 import { computed, ref } from 'vue'
-import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
+import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
 import { useI18n } from '@/i18n'
 

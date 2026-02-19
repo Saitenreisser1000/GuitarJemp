@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { DEFAULT_GRID_SIZE_PX, DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
+import { DEFAULT_GRID_SIZE_PX, DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 
 export function useGrid({
   gridSize = DEFAULT_GRID_SIZE_PX,

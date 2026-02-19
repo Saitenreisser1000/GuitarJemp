@@ -1,12 +1,10 @@
 <script setup>
-import FretboardShow from '@/components/Fretboards/FretboardShow.vue'
-import ActiveTonesWindow from '@/components/ActiveTonesWindow/ActiveTonesWindow.vue'
-import Timeline from '@/components/Timeline/Timeline.vue'
-import ChordMenu from '@/components/ChordMenu.vue'
-import ScaleMenu from '@/components/ScaleMenu.vue'
-import AuthDialog from '@/components/Cloud/AuthDialog.vue'
-import LibraryDialog from '@/components/Cloud/LibraryDialog.vue'
-import ConnectionsDialog from '@/components/Cloud/ConnectionsDialog.vue'
+import Fretboard from '@/features/fretboard'
+import ActiveTonesWindow from '@/features/activeTones'
+import Timeline from '@/features/timeline'
+import ChordMenu from '@/features/chord'
+import ScaleMenu from '@/features/scale'
+import { AuthDialog, LibraryDialog, ConnectionsDialog } from '@/features/cloud'
 import { computed, onMounted, ref } from 'vue'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
@@ -564,7 +562,7 @@ function triggerRedo() {
                 </v-alert>
 
                 <v-card v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
-                  <FretboardShow class="fretboard" :num-frets="numFrets" :editable="true"
+                  <Fretboard class="fretboard" :num-frets="numFrets" :editable="true"
                     @update-frets="(n) => (numFrets = n)" />
                 </v-card>
               </v-col>

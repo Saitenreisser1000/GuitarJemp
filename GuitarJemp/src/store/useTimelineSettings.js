@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { readJson } from '@/infra/storage/jsonStorage'
 import { persistRefs } from '@/infra/pinia/persistRefs'
-import { DEFAULT_GRID_SIZE_PX } from '@/config/grid'
+import { DEFAULT_GRID_SIZE_PX } from '@/features/timeline/config/grid'
 
 const STORAGE_KEY = 'guitarjemp.timelineSettings.v1'
 

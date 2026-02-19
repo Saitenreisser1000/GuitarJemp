@@ -1,4 +1,4 @@
-import { TIMELINE_SNAP_STEP_BLOCKS } from '@/config/grid'
+import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 import { normalizeNoteValue } from '@/config/noteValues'
 
 function safePositiveNumber(v, fallback) {

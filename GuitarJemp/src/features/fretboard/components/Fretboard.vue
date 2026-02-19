@@ -276,29 +276,16 @@
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
     </div>
-    <Teleport to="body">
-      <div
-        v-if="toneDotContextMenu.open"
-        class="fb-tone-dot-context-menu"
-        :style="{ left: `${toneDotContextMenu.x}px`, top: `${toneDotContextMenu.y}px` }"
-        @pointerdown.stop
-        @contextmenu.prevent
-      >
-        <div class="fb-tone-dot-context-title">
-          S{{ toneDotContextMenu.string }} F{{ toneDotContextMenu.fret }}
-        </div>
-        <button
-          v-for="item in toneDotContextMenu.items"
-          :key="`tone-dot-context-${item.noteKey}`"
-          class="fb-tone-dot-context-item"
-          type="button"
-          @click="onDeleteToneDotContextItem(item.noteKey)"
-        >
-          <span class="item-label">{{ item.label }}</span>
-          <span class="item-action">{{ t('fretboardShow.delete') }}</span>
-        </button>
-      </div>
-    </Teleport>
+    <FretboardToneDotContextMenu
+      :open="toneDotContextMenu.open"
+      :x="toneDotContextMenu.x"
+      :y="toneDotContextMenu.y"
+      :string="toneDotContextMenu.string"
+      :fret="toneDotContextMenu.fret"
+      :items="toneDotContextMenu.items"
+      :delete-label="t('fretboardShow.delete')"
+      @delete-item="onDeleteToneDotContextItem"
+    />
 
   </div>
 </template>
@@ -307,6 +294,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import RealisticFretboardBackground from './RealisticFretboardBackground.vue'
 import ColorPalette from './ColorPalette.vue'
+import FretboardToneDotContextMenu from './FretboardToneDotContextMenu.vue'
 import { storeToRefs } from 'pinia'
 import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
@@ -321,17 +309,17 @@ import {
   FRETBOARD_SHOW_DOT_PULSE_MS,
   FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR,
   FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD,
-} from '@/config/fretboardShow'
+} from '@/features/fretboard/config/fretboardShow'
 import { NOTE_VALUE_ITEMS, normalizeNoteValue, noteValueItem } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForFretString } from '@/domain/music/pitch'
 import { playMidi } from '@/domain/audio/simpleSynth'
-import { DEFAULT_TIME_PER_BLOCK_MS } from '@/config/grid'
+import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 import { gridIndexToStartMs, lengthBlocksToDurationMs } from '@/domain/timelineTime'
 import { useI18n } from '@/i18n'
 
-defineOptions({ name: 'FretboardShow' })
+defineOptions({ name: 'Fretboard' })
 
 const props = defineProps({
   numFrets: { type: Number, required: true },
@@ -2436,61 +2424,6 @@ watch(
   white-space: nowrap;
 
   transform: translateY(-2px);
-}
-
-.fb-tone-dot-context-menu {
-  position: fixed;
-  z-index: 1300;
-  min-width: 240px;
-  max-width: min(340px, calc(100vw - 16px));
-  max-height: min(50vh, 360px);
-  overflow: auto;
-  background: rgba(20, 24, 30, 0.96);
-  border: 1px solid rgba(220, 233, 248, 0.2);
-  border-radius: 10px;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
-  padding: 6px;
-}
-
-.fb-tone-dot-context-title {
-  font-size: 11px;
-  font-weight: 800;
-  color: rgba(210, 225, 242, 0.9);
-  padding: 4px 6px 6px;
-}
-
-.fb-tone-dot-context-item {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  border-radius: 7px;
-  padding: 7px 8px;
-  background: transparent;
-  color: rgba(236, 243, 250, 0.96);
-  text-align: left;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.fb-tone-dot-context-item:hover {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.fb-tone-dot-context-item .item-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fb-tone-dot-context-item .item-action {
-  color: rgba(255, 176, 176, 0.98);
-  font-weight: 700;
-  flex-shrink: 0;
 }
 
 .fb-fret-numbers {
