@@ -1,17 +1,5 @@
 <template>
   <div class="timeline-top-row">
-    <div v-if="transportVisible || timelineVisible" class="timeline-collapse-btn-wrap">
-      <v-btn
-        size="x-small"
-        variant="tonal"
-        :title="timelineVisible ? 'Collapse' : 'Expand'"
-        :prepend-icon="timelineVisible ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
-        @click="emit('update-timeline-visible', !timelineVisible)"
-      >
-        {{ timelineVisible ? 'Collapse' : 'Expand' }}
-      </v-btn>
-    </div>
-
     <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap">
       <div v-if="timelineVisible" class="timeline-top-zoom d-flex align-center ga-1">
         <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="emit('zoom-left')">
@@ -74,7 +62,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'update-timeline-visible',
   'update-beat-top',
   'update-beat-bottom',
   'update-pickup-enabled',
@@ -113,12 +100,6 @@ function updatePickupBeatsFromOptions(v) {
 </script>
 
 <style scoped>
-.timeline-collapse-btn-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .timeline-options-btn-wrap {
   margin-left: auto;
   display: flex;
@@ -161,10 +142,6 @@ function updatePickupBeatsFromOptions(v) {
 }
 
 @media (max-width: 860px) {
-  .timeline-collapse-btn-wrap {
-    right: var(--space-2);
-  }
-
   .zoom-value {
     min-width: 24px;
   }

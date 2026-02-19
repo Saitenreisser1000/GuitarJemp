@@ -191,6 +191,7 @@ const inlayDots = computed(() => {
     width: 100%;
     height: 100%;
     display: block;
+    filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.42)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.32));
     overflow: visible;
 }
 </style>

@@ -117,22 +117,42 @@
             @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)"
             @decrement-bars-no-pickup="decrementBarsNoPickup" @increment-bars-no-pickup="incrementBarsNoPickup" />
 
-          <div v-if="transportVisible" class="timeline-transport" :aria-label="t('timelineView.transport')">
-            <div class="timeline-transport-inner">
-              <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-                :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-                :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-                :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-                :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-                :practice-match-state="practiceMatchState" :record-active="recordActive"
-                @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-                @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-                @update-click="(v) => emit('update-click', v)"
-                @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-                @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
+          <template v-if="transportVisible">
+            <Teleport v-if="fretboardVisible && hasFretboardTransportHost" to="#fretboard-transport-host">
+              <div class="timeline-transport timeline-transport-in-fretboard" :aria-label="t('timelineView.transport')">
+                <div class="timeline-transport-inner">
+                  <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
+                    :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
+                    :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
+                    :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
+                    :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
+                    :practice-match-state="practiceMatchState" :record-active="recordActive"
+                    @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
+                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
+                    @update-click="(v) => emit('update-click', v)"
+                    @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
+                    @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
+                    @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
+                </div>
+              </div>
+            </Teleport>
+            <div v-else class="timeline-transport" :aria-label="t('timelineView.transport')">
+              <div class="timeline-transport-inner">
+                <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
+                  :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
+                  :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
+                  :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
+                  :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
+                  :practice-match-state="practiceMatchState" :record-active="recordActive"
+                  @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
+                  @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
+                  @update-click="(v) => emit('update-click', v)"
+                  @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
+                  @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
+                  @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </section>
 
@@ -170,7 +190,7 @@ import PlaybackControls from './controls/PlaybackControls.vue'
 import TimelineInfoBar from './TimelineInfoBar.vue'
 import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
 import { useI18n } from '@/i18n'
 
@@ -324,6 +344,7 @@ const timelineMainStyle = computed(() => {
 
 const scrollEl = ref(null)
 const secondaryMenuSize = ref('m')
+const hasFretboardTransportHost = ref(false)
 const marqueeActive = ref(false)
 const marqueeStart = ref({ x: 0, y: 0 })
 const marqueeEnd = ref({ x: 0, y: 0 })
@@ -347,6 +368,15 @@ function cycleSecondaryMenuSize() {
   const order = ['s', 'm', 'l']
   const current = order.indexOf(String(secondaryMenuSize.value || 'm'))
   secondaryMenuSize.value = order[(current + 1) % order.length]
+}
+
+async function syncFretboardTransportHost() {
+  if (typeof document === 'undefined') {
+    hasFretboardTransportHost.value = false
+    return
+  }
+  await nextTick()
+  hasFretboardTransportHost.value = Boolean(document.getElementById('fretboard-transport-host'))
 }
 
 function toContentCoords(clientX, clientY) {
@@ -738,6 +768,18 @@ watch(
   { flush: 'post' },
 )
 
+onMounted(() => {
+  syncFretboardTransportHost()
+})
+
+watch(
+  () => props.fretboardVisible,
+  () => {
+    syncFretboardTransportHost()
+  },
+  { immediate: true },
+)
+
 const timePerBlockMs = computed(() => {
   const total = Number(props.totalDuration) || 0
   const blocks = Number(props.totalBlocks) || 0
@@ -982,10 +1024,14 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-transport {
-  position: relative;
+  position: fixed;
+  left: var(--fixed-panel-left, calc(var(--main-menu-w, 84px) + var(--space-4)));
+  right: var(--fixed-panel-right, calc(var(--main-menu-w, 84px) + var(--space-4)));
+  bottom: var(--space-4);
+  z-index: 29;
   display: flex;
   justify-content: stretch;
-  margin-top: 6px;
+  margin-top: 0;
   padding: 0;
   pointer-events: auto;
 }
@@ -998,6 +1044,15 @@ const barBeatLabel = computed(() => {
   background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
   box-shadow: none;
   overflow: visible;
+}
+
+.timeline-transport-in-fretboard {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  margin-top: 0;
 }
 
 .timeline {
@@ -1267,6 +1322,12 @@ const barBeatLabel = computed(() => {
   .timeline-body {
     min-width: 0;
     padding-right: 0;
+  }
+
+  .timeline-transport {
+    left: var(--fixed-panel-left, var(--space-2));
+    right: var(--fixed-panel-right, var(--space-2));
+    bottom: var(--space-2);
   }
 
   .status-chip {

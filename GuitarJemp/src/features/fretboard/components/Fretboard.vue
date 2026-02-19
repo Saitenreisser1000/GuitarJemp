@@ -159,7 +159,74 @@
           {{ l.fret }}
         </span>
       </div>
+      <Teleport v-if="hasLeftRailHost" to="#fretboard-left-rail-host">
+        <div class="fb-rail-controls">
+          <v-menu location="right start" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                v-bind="menuProps"
+                size="small"
+                variant="tonal"
+                class="fb-top-control fb-note-value-btn"
+                :title="t('modeSelector.noteValues')"
+              >
+                <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
+                <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
+              </v-btn>
+            </template>
+
+            <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
+              <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
+              <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
+                <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
+                  :title="item.title">
+                  <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+                </v-btn>
+              </v-btn-toggle>
+
+              <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
+              <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+                <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+                <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+              </v-btn-toggle>
+            </v-card>
+          </v-menu>
+
+          <v-btn
+            size="small"
+            variant="tonal"
+            class="fb-top-control"
+            :active="Boolean(isSimOn)"
+            :color="isSimOn ? 'primary' : undefined"
+            :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+            :aria-pressed="String(isSimOn)"
+            @click="toggleSim"
+          >
+            CH
+          </v-btn>
+
+          <v-menu location="right start" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                v-bind="menuProps"
+                size="small"
+                variant="tonal"
+                class="fb-top-control fb-color-btn"
+                :title="t('modeSelector.symbols', { color: settings.selectedColor })"
+              >
+                <v-icon icon="mdi-palette-outline" size="18" />
+                <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
+              </v-btn>
+            </template>
+
+            <v-card class="pa-2" min-width="260" variant="flat" border>
+              <ColorPalette orientation="horizontal" />
+            </v-card>
+          </v-menu>
+        </div>
+      </Teleport>
       <div class="fb-fret-actions">
+        <template v-if="!hasLeftRailHost">
         <v-menu location="bottom start" :close-on-content-click="false">
           <template #activator="{ props: menuProps }">
             <v-btn
@@ -222,8 +289,9 @@
             <ColorPalette orientation="horizontal" />
           </v-card>
         </v-menu>
+        </template>
 
-        <div class="fb-fret-actions-erase">
+        <div v-if="!hasRightRailHost" class="fb-fret-actions-erase">
           <button
             class="fb-shape-btn"
             :class="{ 'is-active': settings.eraseMode }"
@@ -237,6 +305,21 @@
           </button>
         </div>
       </div>
+      <Teleport v-if="hasRightRailHost" to="#fretboard-right-rail-host">
+        <div class="fb-rail-controls fb-rail-controls-right">
+          <button
+            class="fb-shape-btn"
+            :class="{ 'is-active': settings.eraseMode }"
+            type="button"
+            @click="settings.setEraseMode(!settings.eraseMode)"
+          >
+            Erase
+          </button>
+          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
+            Erase All
+          </button>
+        </div>
+      </Teleport>
       <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
         <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
         <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
@@ -291,7 +374,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import RealisticFretboardBackground from './RealisticFretboardBackground.vue'
 import ColorPalette from './ColorPalette.vue'
 import FretboardToneDotContextMenu from './FretboardToneDotContextMenu.vue'
@@ -332,6 +415,8 @@ const FB_HEIGHT = 180
 const NUT_WIDTH = 12
 const rootEl = ref(null)
 const overlayEl = ref(null)
+const hasLeftRailHost = ref(false)
+const hasRightRailHost = ref(false)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -447,6 +532,24 @@ function toggleSim() {
     return
   }
   settings.setSelectedMode('sim')
+}
+
+async function syncLeftRailHost() {
+  if (typeof document === 'undefined') {
+    hasLeftRailHost.value = false
+    return
+  }
+  await nextTick()
+  hasLeftRailHost.value = Boolean(document.getElementById('fretboard-left-rail-host'))
+}
+
+async function syncRightRailHost() {
+  if (typeof document === 'undefined') {
+    hasRightRailHost.value = false
+    return
+  }
+  await nextTick()
+  hasRightRailHost.value = Boolean(document.getElementById('fretboard-right-rail-host'))
 }
 
 function isFretInView(fret) {
@@ -2230,6 +2333,12 @@ function previewR() {
 onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
+  syncLeftRailHost()
+  syncRightRailHost()
+  requestAnimationFrame(() => {
+    syncLeftRailHost()
+    syncRightRailHost()
+  })
 })
 
 onBeforeUnmount(() => {
@@ -2475,6 +2584,19 @@ watch(
   margin-bottom: 8px;
 }
 
+.fb-rail-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 30px;
+}
+
+.fb-rail-controls-right {
+  align-items: stretch;
+  padding-inline: 6px;
+}
+
 .fb-fret-actions-erase {
   margin-left: auto;
   display: flex;
@@ -2482,7 +2604,8 @@ watch(
   gap: 8px;
 }
 
-.fb-fret-actions :deep(.fb-top-control) {
+.fb-fret-actions :deep(.fb-top-control),
+.fb-rail-controls :deep(.fb-top-control) {
   --v-btn-height: 26px;
   min-height: 26px !important;
   height: 26px !important;
@@ -2493,7 +2616,8 @@ watch(
   font-weight: 700;
 }
 
-.fb-fret-actions :deep(.fb-note-value-btn) {
+.fb-fret-actions :deep(.fb-note-value-btn),
+.fb-rail-controls :deep(.fb-note-value-btn) {
   position: relative;
   padding-right: 22px;
 }
@@ -2516,7 +2640,8 @@ watch(
   flex-wrap: wrap;
 }
 
-.fb-fret-actions :deep(.fb-color-btn) {
+.fb-fret-actions :deep(.fb-color-btn),
+.fb-rail-controls :deep(.fb-color-btn) {
   position: relative;
   padding-right: 18px;
 }

@@ -562,8 +562,23 @@ function triggerRedo() {
                 </v-alert>
 
                 <v-card v-if="fretboardVisible" class="fretboard-card ui-panel pa-2" variant="flat">
-                  <Fretboard class="fretboard" :num-frets="numFrets" :editable="true"
-                    @update-frets="(n) => (numFrets = n)" />
+                  <div class="fretboard-card-layout">
+                    <div class="fretboard-card-rail fretboard-card-rail-left">
+                      <div class="fretboard-rail-title">Toolbox</div>
+                      <div id="fretboard-left-rail-host" class="fretboard-left-rail-host" />
+                    </div>
+                    <div class="fretboard-card-center">
+                      <div class="fretboard-inner">
+                        <Fretboard class="fretboard" :num-frets="numFrets" :editable="true"
+                          @update-frets="(n) => (numFrets = n)" />
+                      </div>
+                      <div id="fretboard-transport-host" class="fretboard-transport-host" />
+                    </div>
+                    <div class="fretboard-card-rail fretboard-card-rail-right">
+                      <div class="fretboard-rail-title">Organize</div>
+                      <div id="fretboard-right-rail-host" class="fretboard-right-rail-host" />
+                    </div>
+                  </div>
                 </v-card>
               </v-col>
               <v-col v-if="activeNotesVisible" md="3" class="d-none d-md-flex fretboard-align-spacer" />
@@ -748,6 +763,11 @@ function triggerRedo() {
 
 .app-shell {
   --main-menu-w: 84px;
+  --fixed-transport-h: 96px;
+  --fixed-stack-gap: 8px;
+  --fixed-panel-left: 0px;
+  --fixed-panel-right: 0px;
+  --fretboard-inner-max-w: calc(1280px - (2 * (var(--main-menu-w) + var(--space-4))));
   min-height: 100vh;
   background:
     radial-gradient(1200px 500px at 10% -5%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 60%),
@@ -759,6 +779,7 @@ function triggerRedo() {
 .app-content {
   max-width: 1280px;
   margin: 0 auto;
+  padding-bottom: calc(340px + var(--fixed-transport-h) + var(--fixed-stack-gap));
 }
 
 .app-content.with-main-menu {
@@ -767,12 +788,75 @@ function triggerRedo() {
 }
 
 .fretboard-card {
+  --fretboard-rail-w: 88px;
   --panel-side-col-w: 36px;
   --panel-side-gap: 6px;
+  position: fixed;
+  left: var(--fixed-panel-left);
+  right: var(--fixed-panel-right);
+  bottom: 0;
+  width: auto;
+  margin: 0;
+  border-radius: 0;
+  box-shadow:
+    0 16px 36px rgb(0 0 0 / 22%),
+    0 3px 10px rgb(0 0 0 / 12%);
+  z-index: 30;
+}
+
+.fretboard-card-layout {
+  display: grid;
+  grid-template-columns: var(--fretboard-rail-w) minmax(0, 1fr) var(--fretboard-rail-w);
+  align-items: stretch;
   width: 100%;
-  margin-top: 20px;
-  margin-right: 0;
-  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.fretboard-card-center {
+  min-width: 0;
+}
+
+.fretboard-card-rail {
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--color-surface-2) 74%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.fretboard-rail-title {
+  padding: 8px 8px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.fretboard-left-rail-host {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.fretboard-right-rail-host {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.fretboard-inner {
+  width: 100%;
+  max-width: var(--fretboard-inner-max-w);
+  margin: 0 auto;
+  padding-top: 26px;
 }
 
 .fretboard {
@@ -781,6 +865,14 @@ function triggerRedo() {
   margin-right: 0;
   border-radius: var(--radius-lg);
   overflow: visible;
+}
+
+.fretboard-transport-host {
+  width: 100%;
+  max-width: var(--fretboard-inner-max-w);
+  margin: 2px auto 0;
+  position: relative;
+  z-index: 1;
 }
 
 .timeline,
@@ -818,14 +910,25 @@ function triggerRedo() {
 }
 
 @media (max-width: 860px) {
+  .app-shell {
+    --fixed-panel-left: var(--space-2);
+    --fixed-panel-right: var(--space-2);
+  }
+
   .app-content.with-main-menu {
     padding-left: 0;
     padding-right: 0;
   }
 
+  .app-content {
+    padding-bottom: calc(320px + var(--fixed-transport-h) + var(--fixed-stack-gap));
+  }
+
   .fretboard-card {
-    width: 100%;
-    margin-right: 0;
+    --fretboard-rail-w: 56px;
+    left: var(--fixed-panel-left);
+    right: var(--fixed-panel-right);
+    bottom: 0;
   }
 }
 </style>
