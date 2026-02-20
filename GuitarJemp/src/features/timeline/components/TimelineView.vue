@@ -1,5 +1,5 @@
 <template>
-  <div class="timeline-main" :style="timelineMainStyle">
+  <div ref="timelineMainEl" class="timeline-main" :style="timelineMainStyle">
     <div v-if="countInVisible" class="count-in-lightbox" aria-live="polite" aria-atomic="true">
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
@@ -14,9 +14,9 @@
           @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
           @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
           @zoom-right="decrementZoom" />
-        <div v-if="timelineVisible || transportVisible" class="timeline ui-panel"
+        <div v-if="timelineVisible" class="timeline ui-panel"
           :class="{ 'is-collapsed': stringsCollapsed }">
-          <div v-if="timelineVisible" class="timeline-columns">
+          <div v-if="timelineVisible" ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
             <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
               :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
               :aria-label="t('timelineView.strings')">
@@ -35,11 +35,9 @@
               </button>
             </div>
 
-            <div class="timeline-scroll timeline-column-card">
-              <div ref="scrollEl" class="timeline-scroll-viewport" @wheel="onTimelineWheel"
-                @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
-                @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
-                <div class="timeline-content">
+            <div ref="scrollEl" class="timeline-scroll-viewport timeline-column-card" @wheel="onTimelineWheel"
+              @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
+              @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
                 <div v-if="loopEnabled" class="loop-bracket-layer">
                   <div class="loop-bracket" :style="loopBracketStyle">
                     <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
@@ -103,9 +101,7 @@
                   </div>
                 </div>
 
-                  <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
-                </div>
-              </div>
+                <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
             </div>
           </div>
           <TimelineInfoBar v-if="timelineVisible" :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
@@ -114,42 +110,6 @@
             @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)"
             @decrement-bars-no-pickup="decrementBarsNoPickup" @increment-bars-no-pickup="incrementBarsNoPickup" />
 
-          <template v-if="transportVisible">
-            <Teleport v-if="fretboardVisible && hasFretboardTransportHost" to="#fretboard-transport-host">
-              <div class="timeline-transport timeline-transport-in-fretboard" :aria-label="t('timelineView.transport')">
-                <div class="timeline-transport-inner">
-                  <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-                    :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-                    :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-                    :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-                    :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-                    :practice-match-state="practiceMatchState" :record-active="recordActive"
-                    @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-                    @update-click="(v) => emit('update-click', v)"
-                    @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                    @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-                    @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
-                </div>
-              </div>
-            </Teleport>
-            <div v-else class="timeline-transport" :aria-label="t('timelineView.transport')">
-              <div class="timeline-transport-inner">
-                <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-                  :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-                  :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-                  :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-                  :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-                  :practice-match-state="practiceMatchState" :record-active="recordActive"
-                  @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-                  @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-                  @update-click="(v) => emit('update-click', v)"
-                  @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                  @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-                  @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
-              </div>
-            </div>
-          </template>
         </div>
     </section>
 
@@ -182,11 +142,10 @@
 </template>
 
 <script setup>
-import PlaybackControls from './controls/PlaybackControls.vue'
 import TimelineInfoBar from './TimelineInfoBar.vue'
 import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
 import { useI18n } from '@/i18n'
 
@@ -339,8 +298,9 @@ const timelineMainStyle = computed(() => {
 })
 
 const scrollEl = ref(null)
+const timelineMainEl = ref(null)
+const timelineColumnsEl = ref(null)
 const secondaryMenuSize = ref('m')
-const hasFretboardTransportHost = ref(false)
 const marqueeActive = ref(false)
 const marqueeStart = ref({ x: 0, y: 0 })
 const marqueeEnd = ref({ x: 0, y: 0 })
@@ -359,6 +319,55 @@ const loopDrag = ref({
   kind: '',
   pointerId: null,
 })
+const columnsResizeDrag = ref({
+  active: false,
+  pointerId: null,
+  startClientY: 0,
+  startHeightPx: 0,
+  target: null,
+})
+const timelineColumnsHeightPx = ref(null)
+const timelineColumnsMeasuredHeightPx = ref(0)
+let timelineColumnsResizeObserver = null
+
+const timelineColumnsStyle = computed(() => {
+  const explicitHeight = Number(timelineColumnsHeightPx.value)
+  const measuredHeight = Number(timelineColumnsMeasuredHeightPx.value)
+  const hasExplicitHeight = explicitHeight > 0
+  const h = hasExplicitHeight ? explicitHeight : measuredHeight
+  if (!(h > 0)) return undefined
+
+  const hasLoopHeader = Boolean(props.loopEnabled)
+  const hasMarkerHeader = Array.isArray(props.markers) && props.markers.length > 0
+  const headerPx = (hasLoopHeader ? 18 : 0) + (hasMarkerHeader ? 18 : 0)
+  const rowCount = Math.max(1, Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0))
+  const availableRowsPx = Math.max(24, h - headerPx)
+  const rowPx = Math.max(12, Math.floor(availableRowsPx / rowCount))
+
+  const style = { '--timeline-row-h': `${rowPx}px` }
+  if (hasExplicitHeight) style.height = `${h}px`
+  return style
+})
+
+function measureTimelineColumnsHeight() {
+  const h = Number(timelineColumnsEl.value?.clientHeight) || 0
+  timelineColumnsMeasuredHeightPx.value = Math.max(0, Math.floor(h))
+}
+
+function attachTimelineColumnsResizeObserver() {
+  timelineColumnsResizeObserver?.disconnect?.()
+  timelineColumnsResizeObserver = null
+  const el = timelineColumnsEl.value
+  if (!el || typeof ResizeObserver === 'undefined') {
+    measureTimelineColumnsHeight()
+    return
+  }
+  timelineColumnsResizeObserver = new ResizeObserver(() => {
+    measureTimelineColumnsHeight()
+  })
+  timelineColumnsResizeObserver.observe(el)
+  measureTimelineColumnsHeight()
+}
 
 function cycleSecondaryMenuSize() {
   const order = ['s', 'm', 'l']
@@ -366,13 +375,76 @@ function cycleSecondaryMenuSize() {
   secondaryMenuSize.value = order[(current + 1) % order.length]
 }
 
-async function syncFretboardTransportHost() {
-  if (typeof document === 'undefined') {
-    hasFretboardTransportHost.value = false
-    return
+function columnsHeightBounds() {
+  const min = 140
+  const colsRect = timelineColumnsEl.value?.getBoundingClientRect?.()
+  if (!colsRect) return { min, max: min }
+
+  // Keep room for info bar + handle at the bottom.
+  // Use viewport as the upper bound so resizing remains reversible:
+  // shrinking the columns must not reduce future max-height.
+  const reservedBottomPx = 64
+  const viewportBottom = Number(window?.innerHeight) || 0
+  const rawMax = Math.floor(viewportBottom - colsRect.top - reservedBottomPx)
+  return { min, max: Math.max(min, rawMax) }
+}
+
+function clampColumnsHeight(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return columnsHeightBounds().min
+  const { min, max } = columnsHeightBounds()
+  return Math.max(min, Math.min(max, Math.round(n)))
+}
+
+function onColumnsResizePointerDown(e) {
+  if (e?.button != null && e.button !== 0) return
+  const target = e?.currentTarget
+  const pointerId = e?.pointerId
+  if (pointerId == null || !target) return
+
+  const currentHeight = Number(timelineColumnsEl.value?.offsetHeight) || 0
+  columnsResizeDrag.value = {
+    active: true,
+    pointerId,
+    startClientY: Number(e?.clientY) || 0,
+    startHeightPx: currentHeight > 0 ? currentHeight : clampColumnsHeight(320),
+    target,
   }
-  await nextTick()
-  hasFretboardTransportHost.value = Boolean(document.getElementById('fretboard-transport-host'))
+
+  target.setPointerCapture?.(pointerId)
+  target.addEventListener?.('pointermove', onColumnsResizePointerMove)
+  target.addEventListener?.('pointerup', onColumnsResizePointerUp)
+  target.addEventListener?.('pointercancel', onColumnsResizePointerUp)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+function onColumnsResizePointerMove(e) {
+  const drag = columnsResizeDrag.value
+  if (!drag.active) return
+  if (e?.pointerId !== drag.pointerId) return
+  const dy = (Number(e?.clientY) || 0) - drag.startClientY
+  timelineColumnsHeightPx.value = clampColumnsHeight(drag.startHeightPx + dy)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+function onColumnsResizePointerUp(e) {
+  const drag = columnsResizeDrag.value
+  if (!drag.active) return
+  if (e?.pointerId !== drag.pointerId) return
+  drag.target?.removeEventListener?.('pointermove', onColumnsResizePointerMove)
+  drag.target?.removeEventListener?.('pointerup', onColumnsResizePointerUp)
+  drag.target?.removeEventListener?.('pointercancel', onColumnsResizePointerUp)
+  columnsResizeDrag.value = {
+    active: false,
+    pointerId: null,
+    startClientY: 0,
+    startHeightPx: 0,
+    target: null,
+  }
+  e?.preventDefault?.()
+  e?.stopPropagation?.()
 }
 
 function toContentCoords(clientX, clientY) {
@@ -663,7 +735,38 @@ function onLoopHandlePointerUp(e) {
 
 onBeforeUnmount(() => {
   if (marqueeRaf) cancelAnimationFrame(marqueeRaf)
+  const drag = columnsResizeDrag.value
+  drag.target?.removeEventListener?.('pointermove', onColumnsResizePointerMove)
+  drag.target?.removeEventListener?.('pointerup', onColumnsResizePointerUp)
+  drag.target?.removeEventListener?.('pointercancel', onColumnsResizePointerUp)
+  timelineColumnsResizeObserver?.disconnect?.()
+  timelineColumnsResizeObserver = null
+  window.removeEventListener('resize', onWindowResizeColumns)
 })
+
+function onWindowResizeColumns() {
+  if (!(Number(timelineColumnsHeightPx.value) > 0)) return
+  timelineColumnsHeightPx.value = clampColumnsHeight(timelineColumnsHeightPx.value)
+  measureTimelineColumnsHeight()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', onWindowResizeColumns)
+  attachTimelineColumnsResizeObserver()
+})
+
+watch(timelineColumnsEl, () => {
+  attachTimelineColumnsResizeObserver()
+})
+
+watch(
+  () => props.timelineVisible,
+  () => {
+    requestAnimationFrame(() => {
+      attachTimelineColumnsResizeObserver()
+    })
+  },
+)
 
 const effectiveTotalBlocks = computed(() => {
   if (lengthDrag.value.active) {
@@ -769,18 +872,6 @@ watch(
     el.scrollLeft = Math.min(maxScrollLeft, Math.max(0, eased))
   },
   { flush: 'post' },
-)
-
-onMounted(() => {
-  syncFretboardTransportHost()
-})
-
-watch(
-  () => props.fretboardVisible,
-  () => {
-    syncFretboardTransportHost()
-  },
-  { immediate: true },
 )
 
 const timePerBlockMs = computed(() => {
@@ -905,8 +996,9 @@ const barBeatLabel = computed(() => {
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
-  position: relative;
   display: flex;
+  height: 100%;
+  position: relative;
   flex-direction: column;
   gap: var(--space-4);
   padding-bottom: var(--space-1);
@@ -1016,46 +1108,20 @@ const barBeatLabel = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 0;
   padding: var(--space-2) var(--space-2) 0;
   padding-right: calc(var(--secondary-menu-w) + var(--space-4));
   overflow: visible;
 }
 
-.timeline-transport {
-  position: fixed;
-  left: var(--fixed-panel-left, calc(var(--main-menu-w, 84px) + var(--space-4)));
-  right: var(--fixed-panel-right, calc(var(--main-menu-w, 84px) + var(--space-4)));
-  bottom: var(--space-4);
-  z-index: 29;
-  display: flex;
-  justify-content: stretch;
-  margin-top: 0;
-  padding: 0;
-  pointer-events: auto;
-}
-
-.timeline-transport-inner {
-  width: 100%;
-  max-width: none;
-  border: 1px solid var(--color-border);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
-  box-shadow: none;
-  overflow: visible;
-}
-
-.timeline-transport-in-fretboard {
-  position: static;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  z-index: auto;
-  margin-top: 0;
-}
-
 .timeline {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 0;
   border: 0;
   background: color-mix(in srgb, var(--color-surface) 93%, var(--color-surface-2) 7%);
@@ -1066,26 +1132,23 @@ const barBeatLabel = computed(() => {
 
 .timeline.is-collapsed :deep(.timeline-track) {
   /* Collapse height to one third of the normal row height (44px). */
-  height: calc(44px / 3);
+  height: calc(var(--timeline-row-h, 44px) / 3);
 }
 
 .timeline.is-collapsed :deep(.note-label) {
   display: none;
 }
 
-.timeline-scroll {
+.timeline-scroll-viewport {
   position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
-}
-
-.timeline-scroll::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
   box-shadow:
     inset 0 4px 12px -5px rgb(0 0 0 / 52%),
     inset 0 -4px 12px -5px rgb(0 0 0 / 48%),
@@ -1093,19 +1156,43 @@ const barBeatLabel = computed(() => {
     inset -18px 0 18px -11px rgb(0 0 0 / 50%);
 }
 
-.timeline-scroll-viewport {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
 .timeline-columns {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   column-gap: var(--panel-side-gap, 6px);
   align-items: stretch;
+}
+
+.timeline-main-resize-handle {
+  display: none;
+  width: calc(100% - (var(--secondary-menu-w) + var(--space-4)));
+  margin: 6px 0 0 var(--space-2);
+  height: 10px;
+  border: 0;
+  border-radius: 0;
+  position: relative;
+  background: transparent;
+  cursor: ns-resize;
+}
+
+.timeline-main-resize-handle::before,
+.timeline-main-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #000;
+}
+
+.timeline-main-resize-handle::before {
+  top: 3px;
+}
+
+.timeline-main-resize-handle::after {
+  top: 6px;
 }
 
 .timeline-column-card {
@@ -1126,10 +1213,14 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-string-name {
-  height: 44px;
+  height: var(--timeline-row-h, 44px);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.timeline :deep(.timeline-track) {
+  height: var(--timeline-row-h, 44px);
 }
 
 .timeline-string-name-aux {
@@ -1153,12 +1244,6 @@ const barBeatLabel = computed(() => {
 
 .timeline-string-name-btn.is-active {
   color: var(--color-text);
-}
-
-.timeline-content {
-  display: flex;
-  flex-direction: column;
-  position: relative;
 }
 
 .timeline-options {
@@ -1315,10 +1400,8 @@ const barBeatLabel = computed(() => {
     padding-right: 0;
   }
 
-  .timeline-transport {
-    left: var(--fixed-panel-left, var(--space-2));
-    right: var(--fixed-panel-right, var(--space-2));
-    bottom: var(--space-2);
+  .timeline-main-resize-handle {
+    width: calc(100% - (2 * var(--space-2)));
   }
 
   .status-chip {

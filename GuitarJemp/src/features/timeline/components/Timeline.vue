@@ -21,12 +21,9 @@
     :practice-hint-text="practiceHintText" :practice-match-state="practiceMatchState"
     :record-active="recordActive"
     :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
-    @toggle-play="togglePlay"
-    @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
+    @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
-    @update-click="settings.setClickEnabled" @update-count-in-enabled="settings.setCountInEnabled"
-    @update-auto-follow="settings.setAutoFollowEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="handleUpdateBeatTop"
     @update-beat-bottom="handleUpdateBeatBottom" @update-num-strings="instrument.setNumStrings"
@@ -54,15 +51,42 @@
     @redo="handleRedo" @add-marker-at-playhead="handleAddMarkerAtPlayhead"
     @loop-to-selection="handleLoopToSelection" @quantize-selection="handleQuantizeSelection"
     @scale-selection-length="handleScaleSelectionLength" @update-ghost-notes="settings.setGhostNotesEnabled"
+    :compact="compact" />
+  <TransportBar
+    :visible="transportVisible"
+    :is-playing="isPlaying"
+    :tempo="tempo"
+    :click-enabled="clickEnabled"
+    :count-in-enabled="countInEnabled"
+    :auto-follow-enabled="autoFollowEnabled"
+    :loop-enabled="loopEnabled"
+    :playhead="playhead"
+    :total-duration="totalDuration"
+    :practice-active="practiceActive"
+    :practice-available="practiceAvailable"
+    :practice-target-label="practiceTargetLabel"
+    :practice-detected-label="practiceDetectedLabel"
+    :practice-hint-text="practiceHintText"
+    :practice-match-state="practiceMatchState"
+    :record-active="recordActive"
+    @toggle-play="togglePlay"
+    @seek-start="seekStart"
+    @seek-playhead="seekPlayhead"
+    @update-tempo="transport.setTempo"
+    @update-click="settings.setClickEnabled"
+    @update-count-in-enabled="settings.setCountInEnabled"
+    @update-auto-follow="settings.setAutoFollowEnabled"
+    @update-loop="settings.setLoopEnabled"
     @toggle-practice="togglePractice"
     @toggle-record="toggleRecord"
-    :compact="compact" />
+  />
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import TimelineView from './TimelineView.vue'
+import { TransportBar } from '@/features/transport'
 import { useNotesStore } from '@/store/useNotes'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'

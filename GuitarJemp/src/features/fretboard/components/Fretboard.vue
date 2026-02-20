@@ -1,7 +1,6 @@
 <template>
   <div ref="rootEl" class="fretboard-js">
-    <div class="fb-main-column">
-      <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
+    <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
         <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
           :fret-count="props.numFrets" :string-count="instrument.numStrings" />
 
@@ -152,16 +151,16 @@
         </g>
         </svg>
       </div>
-      <div class="fb-fret-numbers" aria-hidden="true">
-        <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-          :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
-          :style="{ left: `${l.xPct}%` }">
-          {{ l.fret }}
-        </span>
-      </div>
-      <Teleport v-if="hasLeftRailHost" to="#fretboard-left-rail-host">
-        <div class="fb-rail-controls">
-          <v-menu location="right start" :close-on-content-click="false">
+    <div class="fb-fret-numbers" aria-hidden="true">
+      <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+        :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
+        :style="{ left: `${l.xPct}%` }">
+        {{ l.fret }}
+      </span>
+    </div>
+    <div class="fb-fret-actions">
+      <div class="fb-rail-controls fb-inline-controls">
+          <v-menu location="bottom start" :close-on-content-click="false">
             <template #activator="{ props: menuProps }">
               <v-btn
                 v-bind="menuProps"
@@ -205,7 +204,7 @@
             CH
           </v-btn>
 
-          <v-menu location="right start" :close-on-content-click="false">
+          <v-menu location="bottom start" :close-on-content-click="false">
             <template #activator="{ props: menuProps }">
               <v-btn
                 v-bind="menuProps"
@@ -223,75 +222,8 @@
               <ColorPalette orientation="horizontal" />
             </v-card>
           </v-menu>
-        </div>
-      </Teleport>
-      <div class="fb-fret-actions">
-        <template v-if="!hasLeftRailHost">
-        <v-menu location="bottom start" :close-on-content-click="false">
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              size="small"
-              variant="tonal"
-              class="fb-top-control fb-note-value-btn"
-              :title="t('modeSelector.noteValues')"
-            >
-              <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-              <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-            </v-btn>
-          </template>
-
-          <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-            <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-            <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-              <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-                :title="item.title">
-                <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
-              </v-btn>
-            </v-btn-toggle>
-
-            <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-            <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-              <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-              <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-            </v-btn-toggle>
-          </v-card>
-        </v-menu>
-
-        <v-btn
-          size="small"
-          variant="tonal"
-          class="fb-top-control"
-          :active="Boolean(isSimOn)"
-          :color="isSimOn ? 'primary' : undefined"
-          :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-          :aria-pressed="String(isSimOn)"
-          @click="toggleSim"
-        >
-          CH
-        </v-btn>
-
-        <v-menu location="bottom start" :close-on-content-click="false">
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              size="small"
-              variant="tonal"
-              class="fb-top-control fb-color-btn"
-              :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-            >
-              <v-icon icon="mdi-palette-outline" size="18" />
-              <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-            </v-btn>
-          </template>
-
-          <v-card class="pa-2" min-width="260" variant="flat" border>
-            <ColorPalette orientation="horizontal" />
-          </v-card>
-        </v-menu>
-        </template>
-
-        <div v-if="!hasRightRailHost" class="fb-fret-actions-erase">
+      </div>
+      <div class="fb-fret-actions-erase">
           <button
             class="fb-shape-btn"
             :class="{ 'is-active': settings.eraseMode }"
@@ -303,57 +235,41 @@
           <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
             Erase All
           </button>
-        </div>
       </div>
-      <Teleport v-if="hasRightRailHost" to="#fretboard-right-rail-host">
-        <div class="fb-rail-controls fb-rail-controls-right">
-          <button
-            class="fb-shape-btn"
-            :class="{ 'is-active': settings.eraseMode }"
-            type="button"
-            @click="settings.setEraseMode(!settings.eraseMode)"
-          >
-            Erase
-          </button>
-          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-            Erase All
-          </button>
-        </div>
-      </Teleport>
-      <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
-        <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
-        <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
-      </div>
-      <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
-        <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
-          {{ t('fretboardShow.plusFret') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
-          {{ t('fretboardShow.minusFret') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
-          {{ t('fretboardShow.stringUp') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
-          {{ t('fretboardShow.stringDown') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
-          {{ t('fretboardShow.saveShape') }}
-        </button>
-        <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
-          <option value="">{{ t('fretboardShow.selectShape') }}</option>
-          <option v-for="s in savedShapes" :key="s.id" :value="s.id">
-            {{ s.name }}
-          </option>
-        </select>
-        <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
-          {{ t('fretboardShow.loadShape') }}
-        </button>
-        <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
-          {{ t('fretboardShow.delete') }}
-        </button>
-      </div>
+    </div>
+    <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
+      <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
+      <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
+    </div>
+    <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
+      <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
+        {{ t('fretboardShow.plusFret') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
+        {{ t('fretboardShow.minusFret') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
+        {{ t('fretboardShow.stringUp') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
+        {{ t('fretboardShow.stringDown') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
+        {{ t('fretboardShow.saveShape') }}
+      </button>
+      <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
+        <option value="">{{ t('fretboardShow.selectShape') }}</option>
+        <option v-for="s in savedShapes" :key="s.id" :value="s.id">
+          {{ s.name }}
+        </option>
+      </select>
+      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
+        {{ t('fretboardShow.loadShape') }}
+      </button>
+      <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
+        {{ t('fretboardShow.delete') }}
+      </button>
     </div>
 
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
@@ -2373,14 +2289,11 @@ watch(
 .fretboard-js {
   width: 100%;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--panel-side-gap, 6px);
   position: relative;
   overflow: visible;
-}
-
-.fb-main-column {
-  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -2592,9 +2505,20 @@ watch(
   padding-top: 30px;
 }
 
+.fb-rail-controls.fb-inline-controls {
+  flex-direction: row;
+  align-items: center;
+  padding-top: 0;
+}
+
 .fb-rail-controls-right {
   align-items: stretch;
   padding-inline: 6px;
+}
+
+.fb-rail-controls-right.fb-fret-actions-erase {
+  align-items: center;
+  padding-inline: 0;
 }
 
 .fb-fret-actions-erase {

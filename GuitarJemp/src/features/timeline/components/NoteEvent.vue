@@ -555,7 +555,7 @@ onBeforeUnmount(() => {
   position: absolute;
   height: 100%;
   top: 0;
-  border-radius: 6px;
+  border-radius: 3px;
   border: 1px solid color-mix(in srgb, var(--note-base-color) 78%, var(--color-surface) 22%);
   display: flex;
   align-items: center;
@@ -639,8 +639,8 @@ onBeforeUnmount(() => {
   height: 100%;
   cursor: ew-resize;
   background: linear-gradient(to left, rgb(255 255 255 / 28%), rgb(255 255 255 / 5%));
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
 }
 
 .note-context-menu {
