@@ -164,7 +164,8 @@ async function loadStartupMusicXml() {
   transport.setPlayState('stopped')
   if (Number.isFinite(Number(clip?.tempo))) transport.setTempo(Number(clip.tempo))
   if (Number.isFinite(Number(clip?.beatTop))) timelineSettings.setBeatTop(Number(clip.beatTop))
-  if (Number.isFinite(Number(clip?.beatBottom))) timelineSettings.setBeatBottom(Number(clip.beatBottom))
+  if (Number.isFinite(Number(clip?.beatBottom)))
+    timelineSettings.setBeatBottom(Number(clip.beatBottom))
 }
 
 onMounted(async () => {
@@ -210,50 +211,28 @@ function onUpdateLibraryPanelVisible(v) {
 <template>
   <v-app class="minimal-shell">
     <v-main>
-      <section v-if="splitLayout.hasTimeline" class="timeline-panel" :style="timelinePanelStyle">
-        <Timeline
-          :num-frets="numFrets"
-          :active-notes-visible="activeNotesVisible"
-          :fretboard-visible="fretboardVisible"
-          :chord-menu-visible="chordMenuVisible"
-          :timeline-visible="timelineVisible"
-          :transport-visible="false"
-          :library-panel-visible="libraryPanelVisible"
-          :external-undo-tick="externalUndoTick"
-          :external-redo-tick="externalRedoTick"
-          :library-enabled="false"
-          @update-frets="onUpdateFrets"
-          @update-active-notes-visible="onUpdateActiveNotesVisible"
-          @update-fretboard-visible="onUpdateFretboardVisible"
-          @update-chord-menu-visible="onUpdateChordMenuVisible"
-          @update-timeline-visible="onUpdateTimelineVisible"
-          @update-library-panel-visible="onUpdateLibraryPanelVisible"
-        />
-      </section>
-
-      <button
-        v-if="splitLayout.showSplitHandle"
-        class="split-resize-handle"
-        type="button"
-        aria-label="Resize timeline and fretboard"
-        :style="splitHandleStyle"
-        @pointerdown="onResizePointerDown"
-      />
-
       <div id="transport-host" class="transport-host" />
 
-      <v-card
-        v-if="splitLayout.hasFretboard"
-        class="fretboard-card"
-        :style="fretboardCardStyle"
-        variant="flat"
-      >
+      <v-card v-if="splitLayout.hasFretboard" class="fretboard-card" :style="fretboardCardStyle" variant="flat">
         <div class="fretboard-card-layout">
           <div class="fretboard-inner">
             <Fretboard class="fretboard" :num-frets="numFrets" :editable="true" />
           </div>
         </div>
       </v-card>
+
+      <section v-if="splitLayout.hasTimeline" class="timeline-panel" :style="timelinePanelStyle">
+        <Timeline :num-frets="numFrets" :active-notes-visible="activeNotesVisible" :fretboard-visible="fretboardVisible"
+          :chord-menu-visible="chordMenuVisible" :timeline-visible="timelineVisible" :transport-visible="true"
+          :library-panel-visible="libraryPanelVisible" :external-undo-tick="externalUndoTick"
+          :external-redo-tick="externalRedoTick" :library-enabled="false" @update-frets="onUpdateFrets"
+          @update-active-notes-visible="onUpdateActiveNotesVisible" @update-fretboard-visible="onUpdateFretboardVisible"
+          @update-chord-menu-visible="onUpdateChordMenuVisible" @update-timeline-visible="onUpdateTimelineVisible"
+          @update-library-panel-visible="onUpdateLibraryPanelVisible" />
+      </section>
+
+      <button v-if="splitLayout.showSplitHandle" class="split-resize-handle" type="button"
+        aria-label="Resize timeline and fretboard" :style="splitHandleStyle" @pointerdown="onResizePointerDown" />
     </v-main>
   </v-app>
 </template>
@@ -281,15 +260,17 @@ function onUpdateLibraryPanelVisible(v) {
   border-radius: 0;
   box-shadow: none;
   z-index: 30;
+  overflow: visible;
 }
 
 .transport-host {
   position: fixed;
   left: var(--fixed-panel-left, calc(var(--main-menu-w, 84px) + var(--space-4)));
   right: var(--fixed-panel-right, calc(var(--main-menu-w, 84px) + var(--space-4)));
-  top: var(--space-4);
+  top: calc(var(--v-layout-top, 0px) + var(--space-2));
+  min-height: 64px;
   z-index: 35;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 @media (max-width: 860px) {
@@ -312,13 +293,18 @@ function onUpdateLibraryPanelVisible(v) {
 
 .fretboard-inner {
   --fretboard-aspect: calc(1100 / 180);
-  --fretboard-reserved-h: 140px;
+  --fretboard-reserved-h: 200px;
+  --fretboard-scale-damping: 0.95;
+  --fretboard-scale-anchor-h: 420px;
+  --fretboard-height-response: 0.6;
+  --fretboard-effective-h: calc(var(--fretboard-scale-anchor-h) + (var(--fretboard-layout-h, 420px) - var(--fretboard-scale-anchor-h)) * var(--fretboard-height-response));
   min-width: 0;
-  width: min(100%, calc((var(--fretboard-layout-h, 420px) - var(--fretboard-reserved-h)) * var(--fretboard-aspect)));
+  width: min(100%,
+      calc((var(--fretboard-effective-h) - var(--fretboard-reserved-h)) * var(--fretboard-aspect) * var(--fretboard-scale-damping)));
   max-width: 100%;
   height: auto;
   margin: 0 auto;
-  padding-top: 16px;
+  padding-top: 56px;
 }
 
 .fretboard {
@@ -334,17 +320,11 @@ function onUpdateLibraryPanelVisible(v) {
   left: 0;
   right: 0;
   width: 100%;
-  height: 12px;
+  height: 2px;
   margin: 0;
   border: 0;
   z-index: 40;
-  background: repeating-linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.35) 0,
-    rgba(0, 0, 0, 0.35) 14px,
-    transparent 14px,
-    transparent 20px
-  );
+  background: #000;
   cursor: ns-resize;
   touch-action: none;
 }

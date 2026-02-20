@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="#transport-host">
+  <Teleport to="#transport-host" defer>
     <div v-if="visible" class="timeline-transport" :aria-label="t('timelineView.transport')">
       <div class="timeline-transport-inner">
         <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
