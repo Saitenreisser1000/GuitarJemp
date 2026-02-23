@@ -1,18 +1,96 @@
 <template>
-  <div ref="rootEl" class="fretboard-js">
-    <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
-        <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
-          :fret-count="props.numFrets" :string-count="instrument.numStrings" />
-
-        <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
+  <div ref="rootEl" class="fretboard-main">
+    <div class="fb-core-pad">
+      <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
+        <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
           preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
           @click="onClick">
-          <!-- transparent hit-area -->
-          <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
+          <defs>
+            <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#5a3a1e" />
+              <stop offset="0.25" stop-color="#6a4222" />
+              <stop offset="0.55" stop-color="#4f311a" />
+              <stop offset="0.85" stop-color="#6a4222" />
+              <stop offset="1" stop-color="#4a2d17" />
+            </linearGradient>
+
+            <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="rgba(255,255,255,0.16)" />
+              <stop offset="0.35" stop-color="rgba(255,255,255,0)" />
+              <stop offset="0.72" stop-color="rgba(0,0,0,0.18)" />
+              <stop offset="1" stop-color="rgba(0,0,0,0.32)" />
+            </linearGradient>
+
+            <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
+              <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
+              <feComposite operator="in" in2="SourceGraphic" />
+            </filter>
+
+            <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f2f2f2" />
+              <stop offset="0.45" stop-color="#bdbdbd" />
+              <stop offset="1" stop-color="#f7f7f7" />
+            </linearGradient>
+
+            <radialGradient id="inlay" cx="50%" cy="40%" r="60%">
+              <stop offset="0" stop-color="rgba(255,255,255,0.65)" />
+              <stop offset="1" stop-color="rgba(255,255,255,0.18)" />
+            </radialGradient>
+
+            <clipPath id="fb-core-clip">
+              <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
+            </clipPath>
+          </defs>
+
+          <g class="fb-board-shell" data-part="board-shell">
+            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#wood)" />
+            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#shade)" />
+            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
+              opacity="0.9" />
+            <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
+              stroke="rgba(0,0,0,0.28)" stroke-width="2" />
+            <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" fill="rgba(245,245,245,0.92)" opacity="0.95" />
+            <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" fill="rgba(0,0,0,0.18)" opacity="0.9" />
+            <g class="fb-frets">
+              <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
+                <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
+                  stroke="rgba(0,0,0,0.28)" stroke-width="2" opacity="0.9" />
+                <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
+                  stroke="rgba(255,255,255,0.33)" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
+                <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
+                  :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
+                <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
+                  stroke="rgba(0,0,0,0.28)" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
+              </template>
+            </g>
+          </g>
+
+          <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
+            <g class="fb-inlays" opacity="0.95">
+              <template v-for="dot in inlayDots" :key="dot.key">
+                <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
+                <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" stroke="rgba(0,0,0,0.22)"
+                  stroke-width="1" />
+              </template>
+            </g>
+
+            <g class="fb-strings" opacity="0.9">
+              <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y"
+                :x2="FB_WIDTH" :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w"
+                stroke-linecap="round" />
+              <line v-for="s in strings" :key="`string-shadow-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
+                :x2="FB_WIDTH" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)"
+                :stroke-width="Math.max(1, s.w - 0.6)" stroke-linecap="round" />
+            </g>
+          </g>
+          <g class="fb-interaction-layer" data-part="interaction-layer">
+            <!-- transparent hit-area incl. fretboard overhang -->
+            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" />
 
         <!-- String numbers -->
         <g class="fb-string-labels">
-          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-6" :y="s.y + 4" text-anchor="end"
+          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
             font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
             paint-order="stroke">
             {{ stringLabelFor(s.string) }}
@@ -149,18 +227,21 @@
           <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
           <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
         </g>
+          </g>
         </svg>
       </div>
-    <div class="fb-fret-numbers" aria-hidden="true">
-      <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-        :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
-        :style="{ left: `${l.xPct}%` }">
-        {{ l.fret }}
-      </span>
     </div>
-    <teleport to="#fretboard-actions-host" :disabled="!hasFretActionsHost">
-      <div class="fb-fret-actions">
-        <div class="fb-rail-controls fb-inline-controls">
+    <div class="fb-labels-pad">
+      <div class="fb-fret-numbers" aria-hidden="true">
+        <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+          :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
+          :style="{ left: `${l.xPct}%` }">
+          {{ l.fret }}
+        </span>
+      </div>
+    </div>
+    <div class="fb-fret-actions">
+      <div class="fb-rail-controls fb-inline-controls">
             <v-menu location="bottom start" :close-on-content-click="false">
               <template #activator="{ props: menuProps }">
                 <v-btn
@@ -236,9 +317,8 @@
             <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
               Erase All
             </button>
-        </div>
       </div>
-    </teleport>
+    </div>
     <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
       <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
       <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
@@ -292,8 +372,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import RealisticFretboardBackground from './RealisticFretboardBackground.vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ColorPalette from './ColorPalette.vue'
 import FretboardToneDotContextMenu from './FretboardToneDotContextMenu.vue'
 import { storeToRefs } from 'pinia'
@@ -331,9 +410,10 @@ const emit = defineEmits(['update-frets'])
 const FB_WIDTH = 1100
 const FB_HEIGHT = 180
 const NUT_WIDTH = 12
+const BOARD_OVERHANG = 18
+const STRING_OVERHANG = 22
 const rootEl = ref(null)
 const overlayEl = ref(null)
-const hasFretActionsHost = ref(false)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -449,15 +529,6 @@ function toggleSim() {
     return
   }
   settings.setSelectedMode('sim')
-}
-
-async function syncFretActionsHost() {
-  if (typeof document === 'undefined') {
-    hasFretActionsHost.value = false
-    return
-  }
-  await nextTick()
-  hasFretActionsHost.value = Boolean(document.getElementById('fretboard-actions-host'))
 }
 
 function isFretInView(fret) {
@@ -1476,6 +1547,39 @@ const strings = computed(() => {
   return res
 })
 
+const boardY = computed(() => -BOARD_OVERHANG)
+const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
+
+function dotMidXForFret(fret) {
+  const f = Math.max(0, Math.min(Number(fret) || 0, fretsPct.value.length - 1))
+  if (f === 0) return 0
+  const a = fretsPct.value[f - 1] ?? 0
+  const b = fretsPct.value[f] ?? 0
+  const mid = b - (b - a) / 2
+  return (mid / 100) * FB_WIDTH
+}
+
+const inlayDots = computed(() => {
+  const inlays = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
+  const maxF = Math.max(0, Number(props.numFrets) || 0)
+  const inside = inlays.filter((f) => f <= maxF)
+
+  const out = []
+  const midY = FB_HEIGHT / 2
+  for (const f of inside) {
+    const x = dotMidXForFret(f)
+    const isDouble = f === 12 || f === 24
+    const r = 9
+    if (isDouble) {
+      out.push({ key: `inlay-${f}-a`, x, y: midY - 22, r })
+      out.push({ key: `inlay-${f}-b`, x, y: midY + 22, r })
+    } else {
+      out.push({ key: `inlay-${f}`, x, y: midY, r })
+    }
+  }
+  return out
+})
+
 const harmonyGuideDots = computed(() => {
   const useChord = Boolean(showChord.value)
   const useScale = Boolean(showScale.value)
@@ -1735,7 +1839,8 @@ function clientToSvgPoint(event) {
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null
 
   const x = ((clientX - rect.left) / rect.width) * FB_WIDTH
-  const y = ((clientY - rect.top) / rect.height) * FB_HEIGHT
+  const yRaw = boardY.value + ((clientY - rect.top) / rect.height) * boardH.value
+  const y = clamp(yRaw, 0, FB_HEIGHT)
   return { x, y }
 }
 
@@ -2241,10 +2346,6 @@ function previewR() {
 onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
-  syncFretActionsHost()
-  requestAnimationFrame(() => {
-    syncFretActionsHost()
-  })
 })
 
 onBeforeUnmount(() => {
@@ -2276,8 +2377,18 @@ watch(
 </script>
 
 <style scoped>
-.fretboard-js {
+.fretboard-main {
+  --fb-side-pad-left: 40px;
+  --fb-side-pad-right: 10px;
+  --fb-top-pad: 10px;
+  --fb-bottom-pad: 10px;
+  --fb-numbers-margin-top: 10px;
+  --fb-numbers-margin-bottom: 10px;
+  --fb-actions-margin-top: -2px;
+  --fb-actions-margin-bottom: 8px;
   width: 100%;
+  max-width: 1460px;
+  padding-bottom: var(--fb-bottom-pad);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -2291,6 +2402,16 @@ watch(
   fill: var(--color-surface);
 }
 
+.fb-core-pad {
+  width: 100%;
+  padding-left: var(--fb-side-pad-left);
+  padding-right: var(--fb-side-pad-right);
+  padding-top: var(--fb-top-pad);
+  padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
+  box-sizing: border-box;
+  overflow: visible;
+}
+
 .fb-stack {
   width: 100%;
   position: relative;
@@ -2302,13 +2423,8 @@ watch(
   inset: 0;
 }
 
-.fb-bg {
-  z-index: 1;
-  pointer-events: none;
-}
-
 .fb-overlay {
-  z-index: 2;
+  z-index: 1;
   width: 100%;
   height: 100%;
   display: block;
@@ -2438,13 +2554,21 @@ watch(
   transform: translateY(-2px);
 }
 
+.fb-labels-pad {
+  width: 100%;
+  padding-left: var(--fb-side-pad-left);
+  padding-right: var(--fb-side-pad-right);
+  box-sizing: border-box;
+  overflow: visible;
+}
+
 .fb-fret-numbers {
   position: relative;
   width: 100%;
   z-index: 6;
   height: 28px;
-  margin-top: 20px;
-  margin-bottom: 10px;
+  margin-top: var(--fb-numbers-margin-top);
+  margin-bottom: var(--fb-numbers-margin-bottom);
   padding-top: 6px;
   background: transparent;
   border-radius: 10px;
@@ -2483,8 +2607,10 @@ watch(
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: -2px;
-  margin-bottom: 8px;
+  padding-left: var(--fb-side-pad-left);
+  padding-right: var(--fb-side-pad-right);
+  margin-top: var(--fb-actions-margin-top);
+  margin-bottom: var(--fb-actions-margin-bottom);
 }
 
 .fb-rail-controls {
