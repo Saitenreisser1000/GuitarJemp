@@ -1,322 +1,261 @@
 <template>
   <div ref="rootEl" class="fretboard-main">
     <div class="fb-core-pad">
-      <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
-        <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
-          preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
-          @click="onClick">
-          <defs>
-            <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#5a3a1e" />
-              <stop offset="0.25" stop-color="#6a4222" />
-              <stop offset="0.55" stop-color="#4f311a" />
-              <stop offset="0.85" stop-color="#6a4222" />
-              <stop offset="1" stop-color="#4a2d17" />
-            </linearGradient>
+      <div class="fb-core-resizable" :style="coreResizableStyle">
+        <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
+          <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
+            preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
+            @click="onClick">
+            <defs>
+              <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#5a3a1e" />
+                <stop offset="0.25" stop-color="#6a4222" />
+                <stop offset="0.55" stop-color="#4f311a" />
+                <stop offset="0.85" stop-color="#6a4222" />
+                <stop offset="1" stop-color="#4a2d17" />
+              </linearGradient>
 
-            <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="rgba(255,255,255,0.16)" />
-              <stop offset="0.35" stop-color="rgba(255,255,255,0)" />
-              <stop offset="0.72" stop-color="rgba(0,0,0,0.18)" />
-              <stop offset="1" stop-color="rgba(0,0,0,0.32)" />
-            </linearGradient>
+              <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="rgba(255,255,255,0.16)" />
+                <stop offset="0.35" stop-color="rgba(255,255,255,0)" />
+                <stop offset="0.72" stop-color="rgba(0,0,0,0.18)" />
+                <stop offset="1" stop-color="rgba(0,0,0,0.32)" />
+              </linearGradient>
 
-            <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
-              <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
-              <feComposite operator="in" in2="SourceGraphic" />
-            </filter>
+              <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
+                <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
+                <feComposite operator="in" in2="SourceGraphic" />
+              </filter>
 
-            <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#f2f2f2" />
-              <stop offset="0.45" stop-color="#bdbdbd" />
-              <stop offset="1" stop-color="#f7f7f7" />
-            </linearGradient>
+              <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#f2f2f2" />
+                <stop offset="0.45" stop-color="#bdbdbd" />
+                <stop offset="1" stop-color="#f7f7f7" />
+              </linearGradient>
 
-            <radialGradient id="inlay" cx="50%" cy="40%" r="60%">
-              <stop offset="0" stop-color="rgba(255,255,255,0.65)" />
-              <stop offset="1" stop-color="rgba(255,255,255,0.18)" />
-            </radialGradient>
+              <radialGradient id="inlay" cx="50%" cy="40%" r="60%">
+                <stop offset="0" stop-color="rgba(255,255,255,0.65)" />
+                <stop offset="1" stop-color="rgba(255,255,255,0.18)" />
+              </radialGradient>
 
-            <clipPath id="fb-core-clip">
-              <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
-            </clipPath>
-          </defs>
+              <clipPath id="fb-core-clip">
+                <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
+              </clipPath>
+            </defs>
 
-          <g class="fb-board-shell" data-part="board-shell">
-            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#wood)" />
-            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#shade)" />
-            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
-              opacity="0.9" />
-            <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
-              stroke="rgba(0,0,0,0.28)" stroke-width="2" />
-            <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" fill="rgba(245,245,245,0.92)" opacity="0.95" />
-            <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" fill="rgba(0,0,0,0.18)" opacity="0.9" />
-            <g class="fb-frets">
-              <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
-                <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
-                  stroke="rgba(0,0,0,0.28)" stroke-width="2" opacity="0.9" />
-                <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
-                  stroke="rgba(255,255,255,0.33)" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
-                <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
-                  :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
-                <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
-                  stroke="rgba(0,0,0,0.28)" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
-              </template>
-            </g>
-          </g>
-
-          <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
-            <g class="fb-inlays" opacity="0.95">
-              <template v-for="dot in inlayDots" :key="dot.key">
-                <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
-                <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" stroke="rgba(0,0,0,0.22)"
-                  stroke-width="1" />
-              </template>
+            <g class="fb-board-shell" data-part="board-shell">
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#wood)" />
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#shade)" />
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
+                opacity="0.9" />
+              <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
+                stroke="rgba(0,0,0,0.28)" stroke-width="2" />
+              <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" fill="rgba(245,245,245,0.92)"
+                opacity="0.95" />
+              <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" fill="rgba(0,0,0,0.18)" opacity="0.9" />
+              <g class="fb-frets">
+                <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
+                  <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
+                    stroke="rgba(0,0,0,0.28)" stroke-width="2" opacity="0.9" />
+                  <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
+                    stroke="rgba(255,255,255,0.33)" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
+                  <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
+                    :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
+                  <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
+                    stroke="rgba(0,0,0,0.28)" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
+                </template>
+              </g>
             </g>
 
-            <g class="fb-strings" opacity="0.9">
-              <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y"
-                :x2="FB_WIDTH" :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w"
-                stroke-linecap="round" />
-              <line v-for="s in strings" :key="`string-shadow-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
-                :x2="FB_WIDTH" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)"
-                :stroke-width="Math.max(1, s.w - 0.6)" stroke-linecap="round" />
+            <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
+              <g class="fb-inlays" opacity="0.95">
+                <template v-for="dot in inlayDots" :key="dot.key">
+                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
+                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" stroke="rgba(0,0,0,0.22)"
+                    stroke-width="1" />
+                </template>
+              </g>
+
+              <g class="fb-strings" opacity="0.9">
+                <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y" :x2="FB_WIDTH"
+                  :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w" stroke-linecap="round" />
+                <line v-for="s in strings" :key="`string-shadow-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
+                  :x2="FB_WIDTH" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)" :stroke-width="Math.max(1, s.w - 0.6)"
+                  stroke-linecap="round" />
+              </g>
             </g>
-          </g>
-          <g class="fb-interaction-layer" data-part="interaction-layer">
-            <!-- transparent hit-area incl. fretboard overhang -->
-            <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" />
+            <g class="fb-interaction-layer" data-part="interaction-layer">
+              <!-- transparent hit-area incl. fretboard overhang -->
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" />
 
-        <!-- String numbers -->
-        <g class="fb-string-labels">
-          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
-            font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
-            paint-order="stroke">
-            {{ stringLabelFor(s.string) }}
-          </text>
-        </g>
+              <!-- String numbers -->
+              <g class="fb-string-labels">
+                <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
+                  font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)"
+                  stroke-width="2" paint-order="stroke">
+                  {{ stringLabelFor(s.string) }}
+                </text>
+              </g>
 
-        <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
-          <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y" :width="handPositionOverlayRect.width"
-            :height="handPositionOverlayRect.height" :rx="handPositionOverlayRect.rx" />
-        </g>
-        <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested" style="pointer-events: none">
-          <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
-            :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
-            :rx="suggestedHandPositionOverlayRect.rx" />
-          <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
-            {{ t('fretboardShow.suggestedPosition', { from: suggestedHandPositionOverlayRect.fromFret, to: suggestedHandPositionOverlayRect.toFret }) }}
-          </text>
-        </g>
+              <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
+                <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y"
+                  :width="handPositionOverlayRect.width" :height="handPositionOverlayRect.height"
+                  :rx="handPositionOverlayRect.rx" />
+              </g>
+              <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested"
+                style="pointer-events: none">
+                <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
+                  :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
+                  :rx="suggestedHandPositionOverlayRect.rx" />
+                <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
+                  {{
+                    t('fretboardShow.suggestedPosition', {
+                      from: suggestedHandPositionOverlayRect.fromFret,
+                      to: suggestedHandPositionOverlayRect.toFret,
+                    })
+                  }}
+                </text>
+              </g>
 
-        <!-- ToneDots -->
-        <g class="fb-tone-dots">
-          <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
-            <circle
-              v-for="d in harmonyGuideDots"
-              :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`"
-              :cx="toneDotX(d)"
-              :cy="toneDotY(d)"
-              :r="harmonyGuideRadius(d)"
-              :fill="harmonyGuideFill(d)"
-              :stroke="harmonyGuideStroke(d)"
-              :stroke-width="harmonyGuideStrokeWidth(d)"
-            />
-          </g>
-          <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
-            <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
-              :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color"
-              :style="{ strokeWidth: `${playbackTravelLine.strokeWidth}px`, filter: playbackTravelLine.filter }" />
-          </g>
-          <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
-            <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
-              <line
-                class="fb-now-string-line"
-                :x1="NUT_WIDTH"
-                :y1="m.y"
-                :x2="FB_WIDTH"
-                :y2="m.y"
-                :stroke="m.color"
-                :style="{ opacity: m.lineOpacity }"
-              />
-              <line
-                class="fb-now-cross"
-                :x1="m.x - m.crossHalf"
-                :y1="m.y"
-                :x2="m.x + m.crossHalf"
-                :y2="m.y"
-                :stroke="m.color"
-              />
-              <circle
-                class="fb-now-ring"
-                :cx="m.x"
-                :cy="m.y"
-                :r="m.ringR"
-                :stroke="m.color"
-              />
+              <!-- ToneDots -->
+              <g class="fb-tone-dots">
+                <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
+                  <circle v-for="d in harmonyGuideDots"
+                    :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`" :cx="toneDotX(d)"
+                    :cy="toneDotY(d)" :r="harmonyGuideRadius(d)" :fill="harmonyGuideFill(d)"
+                    :stroke="harmonyGuideStroke(d)" :stroke-width="harmonyGuideStrokeWidth(d)" />
+                </g>
+                <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
+                  <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
+                    :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" :style="{
+                      strokeWidth: `${playbackTravelLine.strokeWidth}px`,
+                      filter: playbackTravelLine.filter,
+                    }" />
+                </g>
+                <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
+                  <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
+                    <line class="fb-now-string-line" :x1="NUT_WIDTH" :y1="m.y" :x2="FB_WIDTH" :y2="m.y"
+                      :stroke="m.color" :style="{ opacity: m.lineOpacity }" />
+                    <line class="fb-now-cross" :x1="m.x - m.crossHalf" :y1="m.y" :x2="m.x + m.crossHalf" :y2="m.y"
+                      :stroke="m.color" />
+                    <circle class="fb-now-ring" :cx="m.x" :cy="m.y" :r="m.ringR" :stroke="m.color" />
+                  </g>
+                </g>
+                <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
+                  <circle class="self-loop-base" :cx="playbackSelfLoop.cx" :cy="playbackSelfLoop.cy"
+                    :r="playbackSelfLoop.r" fill="none" :stroke="playbackSelfLoop.color" />
+                  <line :x1="playbackSelfLoop.x1" :y1="playbackSelfLoop.y1" :x2="playbackSelfLoop.x2"
+                    :y2="playbackSelfLoop.y2" :stroke="playbackSelfLoop.color" />
+                  <circle class="self-loop-progress" :cx="playbackSelfLoop.cx" :cy="playbackSelfLoop.cy"
+                    :r="playbackSelfLoop.r" fill="none" :stroke="playbackSelfLoop.color"
+                    :stroke-dasharray="playbackSelfLoop.dasharray" :stroke-dashoffset="playbackSelfLoop.dashoffset" />
+                  <circle class="self-loop-head" :cx="playbackSelfLoop.headX" :cy="playbackSelfLoop.headY" :r="2.7"
+                    :fill="playbackSelfLoop.color" />
+                </g>
+
+                <!-- Hover preview for inactive positions (editor only) -->
+                <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)"
+                  :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()" fill="transparent"
+                  stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
+
+                <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
+                  <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)"
+                    :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
+                    @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
+                    @click="onToneDotClick(d, $event)" @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
+                    @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
+                    @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
+                  <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
+                    {{ toneDotSymbol(d) }}
+                  </text>
+                  <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
+                    {{ toneDotPitchLabel(d) }}
+                  </text>
+                </g>
+
+                <circle v-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
+                  :cy="toneDotY(nextNotePreviewDot)" :r="toneDotR(nextNotePreviewDot) + 7" />
+
+                <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
+                <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)"
+                  :r="toneDotR(dragPreviewToneDot)" fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4"
+                  style="pointer-events: none" />
+              </g>
+              <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
+                <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
+                <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
+              </g>
             </g>
-          </g>
-          <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
-            <circle
-              class="self-loop-base"
-              :cx="playbackSelfLoop.cx"
-              :cy="playbackSelfLoop.cy"
-              :r="playbackSelfLoop.r"
-              fill="none"
-              :stroke="playbackSelfLoop.color"
-            />
-            <line
-              :x1="playbackSelfLoop.x1"
-              :y1="playbackSelfLoop.y1"
-              :x2="playbackSelfLoop.x2"
-              :y2="playbackSelfLoop.y2"
-              :stroke="playbackSelfLoop.color"
-            />
-            <circle
-              class="self-loop-progress"
-              :cx="playbackSelfLoop.cx"
-              :cy="playbackSelfLoop.cy"
-              :r="playbackSelfLoop.r"
-              fill="none"
-              :stroke="playbackSelfLoop.color"
-              :stroke-dasharray="playbackSelfLoop.dasharray"
-              :stroke-dashoffset="playbackSelfLoop.dashoffset"
-            />
-            <circle
-              class="self-loop-head"
-              :cx="playbackSelfLoop.headX"
-              :cy="playbackSelfLoop.headY"
-              :r="2.7"
-              :fill="playbackSelfLoop.color"
-            />
-          </g>
-
-          <!-- Hover preview for inactive positions (editor only) -->
-          <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
-            fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
-
-          <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
-            <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)"
-              :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)"
-              @mouseleave="onToneDotLeave(d)" @click="onToneDotClick(d, $event)"
-              @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
-              @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
-              @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
-            <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
-              {{ toneDotSymbol(d) }}
-            </text>
-            <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
-              {{ toneDotPitchLabel(d) }}
-            </text>
-          </g>
-
-          <circle
-            v-if="nextNotePreviewDot"
-            class="fb-next-note-preview"
-            :cx="toneDotX(nextNotePreviewDot)"
-            :cy="toneDotY(nextNotePreviewDot)"
-            :r="toneDotR(nextNotePreviewDot) + 7"
-          />
-
-          <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
-          <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
-            fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4" style="pointer-events: none" />
-        </g>
-        <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
-          <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
-          <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
-        </g>
-          </g>
-        </svg>
-      </div>
-    </div>
-    <div class="fb-labels-pad">
-      <div class="fb-fret-numbers" aria-hidden="true">
-        <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-          :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
-          :style="{ left: `${l.xPct}%` }">
-          {{ l.fret }}
-        </span>
+          </svg>
+        </div>
+        <div class="fb-fret-numbers" aria-hidden="true">
+          <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+            :class="{ 'is-marker-fret': isMarkerFret(l.fret) }" :style="{ left: `${l.xPct}%` }">
+            {{ l.fret }}
+          </span>
+        </div>
       </div>
     </div>
     <div class="fb-fret-actions">
       <div class="fb-rail-controls fb-inline-controls">
-            <v-menu location="bottom start" :close-on-content-click="false">
-              <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  size="small"
-                  variant="tonal"
-                  class="fb-top-control fb-note-value-btn"
-                  :title="t('modeSelector.noteValues')"
-                >
-                  <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-                  <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-                </v-btn>
-              </template>
-
-              <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-                <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-                <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-                  <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-                    :title="item.title">
-                    <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
-                  </v-btn>
-                </v-btn-toggle>
-
-                <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-                <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-                  <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-                  <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-                </v-btn-toggle>
-              </v-card>
-            </v-menu>
-
-            <v-btn
-              size="small"
-              variant="tonal"
-              class="fb-top-control"
-              :active="Boolean(isSimOn)"
-              :color="isSimOn ? 'primary' : undefined"
-              :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-              :aria-pressed="String(isSimOn)"
-              @click="toggleSim"
-            >
-              CH
+        <v-menu location="bottom start" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" size="small" variant="tonal" class="fb-top-control fb-note-value-btn"
+              :title="t('modeSelector.noteValues')">
+              <span class="fb-note-glyph">{{
+                activeModeItem?.dotSymbol || activeModeItem?.label
+                }}</span>
+              <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
             </v-btn>
+          </template>
 
-            <v-menu location="bottom start" :close-on-content-click="false">
-              <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  size="small"
-                  variant="tonal"
-                  class="fb-top-control fb-color-btn"
-                  :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-                >
-                  <v-icon icon="mdi-palette-outline" size="18" />
-                  <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-                </v-btn>
-              </template>
+          <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
+            <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
+            <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
+              <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
+                :title="item.title">
+                <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+              </v-btn>
+            </v-btn-toggle>
 
-              <v-card class="pa-2" min-width="260" variant="flat" border>
-                <ColorPalette orientation="horizontal" />
-              </v-card>
-            </v-menu>
-        </div>
-        <div class="fb-fret-actions-erase">
-            <button
-              class="fb-shape-btn"
-              :class="{ 'is-active': settings.eraseMode }"
-              type="button"
-              @click="settings.setEraseMode(!settings.eraseMode)"
-            >
-              Erase
-            </button>
-            <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-              Erase All
-            </button>
+            <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
+            <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+              <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+              <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+            </v-btn-toggle>
+          </v-card>
+        </v-menu>
+
+        <v-btn size="small" variant="tonal" class="fb-top-control" :active="Boolean(isSimOn)"
+          :color="isSimOn ? 'primary' : undefined"
+          :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+          :aria-pressed="String(isSimOn)" @click="toggleSim">
+          CH
+        </v-btn>
+
+        <v-menu location="bottom start" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" size="small" variant="tonal" class="fb-top-control fb-color-btn"
+              :title="t('modeSelector.symbols', { color: settings.selectedColor })">
+              <v-icon icon="mdi-palette-outline" size="18" />
+              <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
+            </v-btn>
+          </template>
+
+          <v-card class="pa-2" min-width="260" variant="flat" border>
+            <ColorPalette orientation="horizontal" />
+          </v-card>
+        </v-menu>
+      </div>
+      <div class="fb-fret-actions-erase">
+        <button class="fb-shape-btn" :class="{ 'is-active': settings.eraseMode }" type="button"
+          @click="settings.setEraseMode(!settings.eraseMode)">
+          Erase
+        </button>
+        <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
+          Erase All
+        </button>
       </div>
     </div>
     <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
@@ -346,7 +285,8 @@
           {{ s.name }}
         </option>
       </select>
-      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
+      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable"
+        @click="applySelectedShape">
         {{ t('fretboardShow.loadShape') }}
       </button>
       <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
@@ -357,17 +297,9 @@
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
     </div>
-    <FretboardToneDotContextMenu
-      :open="toneDotContextMenu.open"
-      :x="toneDotContextMenu.x"
-      :y="toneDotContextMenu.y"
-      :string="toneDotContextMenu.string"
-      :fret="toneDotContextMenu.fret"
-      :items="toneDotContextMenu.items"
-      :delete-label="t('fretboardShow.delete')"
-      @delete-item="onDeleteToneDotContextItem"
-    />
-
+    <FretboardToneDotContextMenu :open="toneDotContextMenu.open" :x="toneDotContextMenu.x" :y="toneDotContextMenu.y"
+      :string="toneDotContextMenu.string" :fret="toneDotContextMenu.fret" :items="toneDotContextMenu.items"
+      :delete-label="t('fretboardShow.delete')" @delete-item="onDeleteToneDotContextItem" />
   </div>
 </template>
 
@@ -404,6 +336,7 @@ defineOptions({ name: 'Fretboard' })
 const props = defineProps({
   numFrets: { type: Number, required: true },
   editable: { type: Boolean, default: false },
+  coreResizePx: { type: Number, default: 0 },
 })
 const emit = defineEmits(['update-frets'])
 
@@ -412,6 +345,7 @@ const FB_HEIGHT = 180
 const NUT_WIDTH = 12
 const BOARD_OVERHANG = 18
 const STRING_OVERHANG = 22
+const CORE_RESIZE_SCALE_DIVISOR = 300 // higher = less sensitive
 const rootEl = ref(null)
 const overlayEl = ref(null)
 
@@ -427,7 +361,8 @@ const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
-const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } = storeToRefs(harmonyMenu)
+const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } =
+  storeToRefs(harmonyMenu)
 const isPlaying = computed(() => playState.value === 'playing')
 const numStringsLocal = computed({
   get: () => Number(instrument.numStrings) || 6,
@@ -498,7 +433,8 @@ watch(
   { immediate: true },
 )
 const noteValueLocal = computed({
-  get: () => (settings.selectedMode === 'sim' ? lastNonSimMode.value : String(settings.selectedMode || '1/4')),
+  get: () =>
+    settings.selectedMode === 'sim' ? lastNonSimMode.value : String(settings.selectedMode || '1/4'),
   set: (v) => {
     const mode = String(v || '1/4')
     if (mode !== 'sim') lastNonSimMode.value = mode
@@ -544,7 +480,8 @@ watch(
     const max = Math.max(0, Number(maxRaw) || 12)
     if (Number(fretViewFrom.value) > max) fretViewFrom.value = max
     if (Number(fretViewTo.value) > max) fretViewTo.value = max
-    if (Number(fretViewTo.value) < Number(fretViewFrom.value)) fretViewTo.value = Number(fretViewFrom.value)
+    if (Number(fretViewTo.value) < Number(fretViewFrom.value))
+      fretViewTo.value = Number(fretViewFrom.value)
   },
   { immediate: true },
 )
@@ -867,9 +804,7 @@ const notesAtPlayhead = computed(() => {
 const currentChordSourceNotes = computed(() => {
   const selected = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
   if (selected.length >= 2) {
-    return selected
-      .map((k) => noteByKey.value.get(String(k)))
-      .filter(Boolean)
+    return selected.map((k) => noteByKey.value.get(String(k))).filter(Boolean)
   }
   return notesAtPlayhead.value
 })
@@ -912,7 +847,10 @@ const detectedChordLabel = computed(() => {
   if (!Array.isArray(notes) || notes.length < 2) return '—'
   const pcs = new Set()
   for (const n of notes) {
-    const midi = midiForFretString({ fret: Number(n?.fret), string: Number(n?.string) }, tuning.value)
+    const midi = midiForFretString(
+      { fret: Number(n?.fret), string: Number(n?.string) },
+      tuning.value,
+    )
     if (!Number.isFinite(Number(midi))) continue
     pcs.add(Number(midi) % 12)
   }
@@ -938,8 +876,8 @@ function shapePositionsFromNotes(notes) {
 
 const currentShapePositions = computed(() => shapePositionsFromNotes(currentChordSourceNotes.value))
 const canSaveCurrentShape = computed(() => currentShapePositions.value.length >= 2)
-const selectedShape = computed(() =>
-  savedShapes.value.find((s) => String(s?.id) === String(selectedShapeId.value)) ?? null,
+const selectedShape = computed(
+  () => savedShapes.value.find((s) => String(s?.id) === String(selectedShapeId.value)) ?? null,
 )
 
 function persistChordShapes() {
@@ -962,9 +900,10 @@ function loadChordShapes() {
 
 function saveCurrentShape() {
   if (!canSaveCurrentShape.value) return
-  const chord = detectedChordLabel.value && detectedChordLabel.value !== '—'
-    ? detectedChordLabel.value
-    : t('fretboardShow.shape')
+  const chord =
+    detectedChordLabel.value && detectedChordLabel.value !== '—'
+      ? detectedChordLabel.value
+      : t('fretboardShow.shape')
   const stamp = new Date().toISOString().slice(11, 19)
   const id = `shape_${Date.now()}`
   const name = `${chord} ${stamp}`
@@ -1243,9 +1182,10 @@ const playbackTravelLine = computed(() => {
         ? 'rgba(255, 177, 77, 0.95)'
         : 'rgba(187, 247, 208, 0.95)'
   const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
-  const filter = absJump >= 4
-    ? 'drop-shadow(0 0 6px rgba(255, 215, 88, 0.85))'
-    : 'drop-shadow(0 0 3px rgba(255, 210, 50, 0.7))'
+  const filter =
+    absJump >= 4
+      ? 'drop-shadow(0 0 6px rgba(255, 215, 88, 0.85))'
+      : 'drop-shadow(0 0 3px rgba(255, 210, 50, 0.7))'
 
   return { x1, y1, x2, y2, color, strokeWidth, filter }
 })
@@ -1549,6 +1489,13 @@ const strings = computed(() => {
 
 const boardY = computed(() => -BOARD_OVERHANG)
 const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
+const coreResizeScale = computed(() => {
+  const px = Number(props.coreResizePx) || 0
+  return Math.max(0.65, Math.min(1.85, 1 + px / CORE_RESIZE_SCALE_DIVISOR))
+})
+const coreResizableStyle = computed(() => ({
+  transform: `scale(${coreResizeScale.value})`,
+}))
 
 function dotMidXForFret(fret) {
   const f = Math.max(0, Math.min(Number(fret) || 0, fretsPct.value.length - 1))
@@ -1585,11 +1532,17 @@ const harmonyGuideDots = computed(() => {
   const useScale = Boolean(showScale.value)
   if (!useChord && !useScale) return []
 
-  const chordSet = useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
-  const scaleSet = useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
+  const chordSet =
+    useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
+  const scaleSet =
+    useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
   if (!chordSet.size && !scaleSet.size) return []
 
-  const fromFret = Math.max(0, Number(patternFretRange.value?.fromFret) || 0, fretViewRange.value.from)
+  const fromFret = Math.max(
+    0,
+    Number(patternFretRange.value?.fromFret) || 0,
+    fretViewRange.value.from,
+  )
   const toFretRaw = Number(patternFretRange.value?.toFret)
   const toFretByPattern = Number.isFinite(toFretRaw) ? Math.max(fromFret, toFretRaw) : Infinity
   const toFret = Math.min(toFretByPattern, fretViewRange.value.to)
@@ -1762,7 +1715,8 @@ const suggestedHandPositionOverlayRect = computed(() => {
 
 const handModeInfoText = computed(() => {
   const range = settings.showSuggestedPosition ? suggestedHandPositionRange.value : null
-  if (range) return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
+  if (range)
+    return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
   const hp = activeHandPosition.value
   if (!hp) return ''
   return t('fretboardShow.activeHandPosition', { fret: String(hp?.fret ?? '') })
@@ -2126,10 +2080,11 @@ function onToneDotPointerUp(event) {
       const maxString = Math.max(1, Number(instrument.numStrings) || 6)
 
       const selectedItems = selectedMovableNotes({ includeKey: s.noteKey })
-      const useGroup = selectedItems.length > 1
-        && selectedItems.some((x) => String(x.key) === String(s.noteKey))
-        && Number.isFinite(srcFret)
-        && Number.isFinite(srcString)
+      const useGroup =
+        selectedItems.length > 1 &&
+        selectedItems.some((x) => String(x.key) === String(s.noteKey)) &&
+        Number.isFinite(srcFret) &&
+        Number.isFinite(srcString)
 
       if (useGroup) {
         const deltaFret = Number(target.fret) - srcFret
@@ -2373,7 +2328,6 @@ watch(
   },
   { immediate: true },
 )
-
 </script>
 
 <style scoped>
@@ -2395,7 +2349,7 @@ watch(
   gap: var(--panel-side-gap, 6px);
   position: relative;
   overflow: visible;
-  min-width: 0;
+  min-width: 1150px;
 }
 
 .fb-view-mask rect {
@@ -2408,7 +2362,14 @@ watch(
   padding-right: var(--fb-side-pad-right);
   padding-top: var(--fb-top-pad);
   padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
+  margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
   box-sizing: border-box;
+  overflow: visible;
+}
+
+.fb-core-resizable {
+  width: 100%;
+  transform-origin: top center;
   overflow: visible;
 }
 
@@ -2552,14 +2513,6 @@ watch(
   white-space: nowrap;
 
   transform: translateY(-2px);
-}
-
-.fb-labels-pad {
-  width: 100%;
-  padding-left: var(--fb-side-pad-left);
-  padding-right: var(--fb-side-pad-right);
-  box-sizing: border-box;
-  overflow: visible;
 }
 
 .fb-fret-numbers {
