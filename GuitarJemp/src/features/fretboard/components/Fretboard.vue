@@ -158,85 +158,87 @@
         {{ l.fret }}
       </span>
     </div>
-    <div class="fb-fret-actions">
-      <div class="fb-rail-controls fb-inline-controls">
-          <v-menu location="bottom start" :close-on-content-click="false">
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                v-bind="menuProps"
-                size="small"
-                variant="tonal"
-                class="fb-top-control fb-note-value-btn"
-                :title="t('modeSelector.noteValues')"
-              >
-                <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-                <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-              </v-btn>
-            </template>
-
-            <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-              <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-              <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-                <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-                  :title="item.title">
-                  <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+    <teleport to="#fretboard-actions-host" :disabled="!hasFretActionsHost">
+      <div class="fb-fret-actions">
+        <div class="fb-rail-controls fb-inline-controls">
+            <v-menu location="bottom start" :close-on-content-click="false">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  size="small"
+                  variant="tonal"
+                  class="fb-top-control fb-note-value-btn"
+                  :title="t('modeSelector.noteValues')"
+                >
+                  <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
+                  <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
                 </v-btn>
-              </v-btn-toggle>
+              </template>
 
-              <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-              <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-                <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-                <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-              </v-btn-toggle>
-            </v-card>
-          </v-menu>
+              <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
+                <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
+                <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
+                  <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
+                    :title="item.title">
+                    <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
+                  </v-btn>
+                </v-btn-toggle>
 
-          <v-btn
-            size="small"
-            variant="tonal"
-            class="fb-top-control"
-            :active="Boolean(isSimOn)"
-            :color="isSimOn ? 'primary' : undefined"
-            :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-            :aria-pressed="String(isSimOn)"
-            @click="toggleSim"
-          >
-            CH
-          </v-btn>
+                <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
+                <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+                  <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+                  <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+                </v-btn-toggle>
+              </v-card>
+            </v-menu>
 
-          <v-menu location="bottom start" :close-on-content-click="false">
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                v-bind="menuProps"
-                size="small"
-                variant="tonal"
-                class="fb-top-control fb-color-btn"
-                :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-              >
-                <v-icon icon="mdi-palette-outline" size="18" />
-                <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-              </v-btn>
-            </template>
+            <v-btn
+              size="small"
+              variant="tonal"
+              class="fb-top-control"
+              :active="Boolean(isSimOn)"
+              :color="isSimOn ? 'primary' : undefined"
+              :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+              :aria-pressed="String(isSimOn)"
+              @click="toggleSim"
+            >
+              CH
+            </v-btn>
 
-            <v-card class="pa-2" min-width="260" variant="flat" border>
-              <ColorPalette orientation="horizontal" />
-            </v-card>
-          </v-menu>
+            <v-menu location="bottom start" :close-on-content-click="false">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  size="small"
+                  variant="tonal"
+                  class="fb-top-control fb-color-btn"
+                  :title="t('modeSelector.symbols', { color: settings.selectedColor })"
+                >
+                  <v-icon icon="mdi-palette-outline" size="18" />
+                  <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
+                </v-btn>
+              </template>
+
+              <v-card class="pa-2" min-width="260" variant="flat" border>
+                <ColorPalette orientation="horizontal" />
+              </v-card>
+            </v-menu>
+        </div>
+        <div class="fb-fret-actions-erase">
+            <button
+              class="fb-shape-btn"
+              :class="{ 'is-active': settings.eraseMode }"
+              type="button"
+              @click="settings.setEraseMode(!settings.eraseMode)"
+            >
+              Erase
+            </button>
+            <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
+              Erase All
+            </button>
+        </div>
       </div>
-      <div class="fb-fret-actions-erase">
-          <button
-            class="fb-shape-btn"
-            :class="{ 'is-active': settings.eraseMode }"
-            type="button"
-            @click="settings.setEraseMode(!settings.eraseMode)"
-          >
-            Erase
-          </button>
-          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-            Erase All
-          </button>
-      </div>
-    </div>
+    </teleport>
     <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
       <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
       <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
@@ -331,8 +333,7 @@ const FB_HEIGHT = 180
 const NUT_WIDTH = 12
 const rootEl = ref(null)
 const overlayEl = ref(null)
-const hasLeftRailHost = ref(false)
-const hasRightRailHost = ref(false)
+const hasFretActionsHost = ref(false)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -450,22 +451,13 @@ function toggleSim() {
   settings.setSelectedMode('sim')
 }
 
-async function syncLeftRailHost() {
+async function syncFretActionsHost() {
   if (typeof document === 'undefined') {
-    hasLeftRailHost.value = false
+    hasFretActionsHost.value = false
     return
   }
   await nextTick()
-  hasLeftRailHost.value = Boolean(document.getElementById('fretboard-left-rail-host'))
-}
-
-async function syncRightRailHost() {
-  if (typeof document === 'undefined') {
-    hasRightRailHost.value = false
-    return
-  }
-  await nextTick()
-  hasRightRailHost.value = Boolean(document.getElementById('fretboard-right-rail-host'))
+  hasFretActionsHost.value = Boolean(document.getElementById('fretboard-actions-host'))
 }
 
 function isFretInView(fret) {
@@ -2249,11 +2241,9 @@ function previewR() {
 onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
-  syncLeftRailHost()
-  syncRightRailHost()
+  syncFretActionsHost()
   requestAnimationFrame(() => {
-    syncLeftRailHost()
-    syncRightRailHost()
+    syncFretActionsHost()
   })
 })
 
@@ -2509,16 +2499,6 @@ watch(
   flex-direction: row;
   align-items: center;
   padding-top: 0;
-}
-
-.fb-rail-controls-right {
-  align-items: stretch;
-  padding-inline: 6px;
-}
-
-.fb-rail-controls-right.fb-fret-actions-erase {
-  align-items: center;
-  padding-inline: 0;
 }
 
 .fb-fret-actions-erase {

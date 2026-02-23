@@ -34,11 +34,103 @@
             </radialGradient>
         </defs>
 
-        <!-- Board -->
-        <rect :x="0" :y="boardY" :width="W" :height="boardH" rx="0" fill="url(#wood)" />
-        <rect :x="0" :y="boardY" :width="W" :height="boardH" rx="0" fill="url(#shade)" />
-        <rect :x="0" :y="boardY" :width="W" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
-            opacity="0.9" />
+        <!-- Board (split for clearer DOM inspection) -->
+        <rect
+            class="fb-wood fb-wood-overhang-top"
+            data-part="wood-overhang-top"
+            :x="0"
+            :y="topOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="url(#wood)"
+        />
+        <rect
+            class="fb-wood fb-wood-core"
+            data-part="wood-core"
+            :x="0"
+            :y="coreY"
+            :width="W"
+            :height="coreHeight"
+            rx="0"
+            fill="url(#wood)"
+        />
+        <rect
+            class="fb-wood fb-wood-overhang-bottom"
+            data-part="wood-overhang-bottom"
+            :x="0"
+            :y="bottomOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="url(#wood)"
+        />
+        <rect
+            class="fb-wood-shade fb-wood-shade-overhang-top"
+            data-part="wood-shade-overhang-top"
+            :x="0"
+            :y="topOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="url(#shade)"
+        />
+        <rect
+            class="fb-wood-shade fb-wood-shade-core"
+            data-part="wood-shade-core"
+            :x="0"
+            :y="coreY"
+            :width="W"
+            :height="coreHeight"
+            rx="0"
+            fill="url(#shade)"
+        />
+        <rect
+            class="fb-wood-shade fb-wood-shade-overhang-bottom"
+            data-part="wood-shade-overhang-bottom"
+            :x="0"
+            :y="bottomOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="url(#shade)"
+        />
+        <rect
+            class="fb-wood-grain fb-wood-grain-overhang-top"
+            data-part="wood-grain-overhang-top"
+            :x="0"
+            :y="topOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="transparent"
+            filter="url(#grain)"
+            opacity="0.9"
+        />
+        <rect
+            class="fb-wood-grain fb-wood-grain-core"
+            data-part="wood-grain-core"
+            :x="0"
+            :y="coreY"
+            :width="W"
+            :height="coreHeight"
+            rx="0"
+            fill="transparent"
+            filter="url(#grain)"
+            opacity="0.9"
+        />
+        <rect
+            class="fb-wood-grain fb-wood-grain-overhang-bottom"
+            data-part="wood-grain-overhang-bottom"
+            :x="0"
+            :y="bottomOverhangY"
+            :width="W"
+            :height="overhangHeight"
+            rx="0"
+            fill="transparent"
+            filter="url(#grain)"
+            opacity="0.9"
+        />
 
         <!-- Slight edge vignette -->
         <rect :x="4" :y="boardY + 4" :width="W - 8" :height="boardH - 8" rx="0" fill="transparent"
@@ -111,6 +203,11 @@ const nutWidth = computed(() => Math.max(2, Number(props.nutWidth) || 7))
 const OVERHANG = 18
 const boardY = computed(() => -OVERHANG)
 const boardH = computed(() => H.value + OVERHANG * 2)
+const overhangHeight = computed(() => OVERHANG)
+const topOverhangY = computed(() => -OVERHANG)
+const coreY = computed(() => 0)
+const coreHeight = computed(() => H.value)
+const bottomOverhangY = computed(() => H.value)
 
 const STRING_OVERHANG = 22
 
