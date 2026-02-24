@@ -1,22 +1,20 @@
 <template>
-  <Teleport to="#transport-host" defer>
-    <div v-if="visible" class="timeline-transport" :aria-label="t('timelineView.transport')">
-      <div class="timeline-transport-inner">
-        <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-          :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-          :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-          :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-          :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-          :practice-match-state="practiceMatchState" :record-active="recordActive"
-          @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-          @seek-playhead="(v) => emit('seek-playhead', v)" @update-tempo="(v) => emit('update-tempo', v)"
-          @update-click="(v) => emit('update-click', v)"
-          @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-          @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-          @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
-      </div>
+  <div v-if="visible" class="timeline-transport" :aria-label="t('timelineView.transport')">
+    <div class="timeline-transport-inner">
+      <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
+        :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
+        :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
+        :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
+        :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
+        :practice-match-state="practiceMatchState" :record-active="recordActive"
+        @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
+        @seek-playhead="(v) => emit('seek-playhead', v)" @update-tempo="(v) => emit('update-tempo', v)"
+        @update-click="(v) => emit('update-click', v)"
+        @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
+        @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
+        @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
     </div>
-  </Teleport>
+  </div>
 </template>
 
 <script setup>

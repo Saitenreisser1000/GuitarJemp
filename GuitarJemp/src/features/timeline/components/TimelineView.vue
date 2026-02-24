@@ -3,140 +3,140 @@
     <div v-if="countInVisible" class="count-in-lightbox" aria-live="polite" aria-atomic="true">
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
+    <button class="timeline-main-resize-handle" type="button" :aria-label="t('timelineView.dragTimelineLength')"
+      @pointerdown="(e) => onColumnsResizePointerDown(e, -1)" />
 
     <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
-        <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
-          :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-          :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
-          @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
-          @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
-          @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
-          @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
-          @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
-          @zoom-right="decrementZoom" />
-        <div v-if="timelineVisible" class="timeline ui-panel"
-          :class="{ 'is-collapsed': stringsCollapsed }">
-          <div v-if="timelineVisible" ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
-            <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
-              :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
-              :aria-label="t('timelineView.strings')">
-              <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
-                <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
-                  @click="() => emit('add-hand-position')">
-                  ✋+
-                </button>
-              </div>
-
-              <button v-for="track in visibleTracks" :key="`string-name-${track.stringIdx}`"
-                class="timeline-string-name timeline-string-name-btn"
-                :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }" type="button"
-                :title="track.label" @click="() => emit('update-active-string', track.stringIdx)">
-                {{ track.label }}
+      <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
+        :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
+        :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
+        @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
+        @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+        @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
+        @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
+        @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
+        @zoom-right="decrementZoom" />
+      <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
+        <div ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
+          <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
+            :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
+            :aria-label="t('timelineView.strings')">
+            <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
+              <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
+                @click="() => emit('add-hand-position')">
+                ✋+
               </button>
             </div>
 
-            <div ref="scrollEl" class="timeline-scroll-viewport timeline-column-card" @wheel="onTimelineWheel"
-              @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
-              @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
-                <div v-if="loopEnabled" class="loop-bracket-layer">
-                  <div class="loop-bracket" :style="loopBracketStyle">
-                    <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
-                      @pointerdown="onLoopHandlePointerDown('start', $event)" />
-                    <div class="loop-bracket-bar" />
-                    <button class="loop-handle loop-handle-end" type="button" :title="t('timelineView.dragLoopEnd')"
-                      @pointerdown="onLoopHandlePointerDown('end', $event)" />
-                  </div>
-                </div>
-
-                <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
-                  <button v-for="marker in markerItems" :key="marker.id" class="timeline-marker" type="button"
-                    :style="{ left: `${marker.leftPx}px` }" :title="marker.title"
-                    @click="() => emit('seek-playhead', marker.timeMs)">
-                    <span class="timeline-marker-label">{{ marker.label }}</span>
-                  </button>
-                </div>
-
-                <div class="strings-timeline">
-                  <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
-                    :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
-                    :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
-                    :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
-                    :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
-                    :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
-                    :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
-                      (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
-                    " @update-note-length="
-                      (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
-                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
-                      (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
-                    " @group-resize-notes="
-                      (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
-                    " />
-
-                  <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
-                    :string-label="track.label" :active-string="activeString" :notes="track.notes"
-                    :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
-                    :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
-                    :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
-                    :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
-                    @update-active-string="(v) => emit('update-active-string', v)"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
-                      (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
-                    " @update-note-length="
-                      (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
-                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
-                      (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
-                    " @group-resize-notes="
-                      (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
-                    " />
-                </div>
-
-                <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
-                  <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
-                    :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
-                    <span class="timeline-length-marker-thin" />
-                    <span class="timeline-length-marker-thick" />
-                  </div>
-                </div>
-
-                <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
-            </div>
+            <button v-for="track in visibleTracks" :key="`string-name-${track.stringIdx}`"
+              class="timeline-string-name timeline-string-name-btn"
+              :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }" type="button"
+              :title="track.label" @click="() => emit('update-active-string', track.stringIdx)">
+              {{ track.label }}
+            </button>
           </div>
-          <TimelineInfoBar v-if="timelineVisible" :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
-            @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
-            @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
-            @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)"
-            @decrement-bars-no-pickup="decrementBarsNoPickup" @increment-bars-no-pickup="incrementBarsNoPickup" />
 
+          <div ref="scrollEl" class="timeline-scroll-viewport timeline-column-card" @wheel="onTimelineWheel"
+            @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
+            @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
+            <div v-if="loopEnabled" class="loop-bracket-layer">
+              <div class="loop-bracket" :style="loopBracketStyle">
+                <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
+                  @pointerdown="onLoopHandlePointerDown('start', $event)" />
+                <div class="loop-bracket-bar" />
+                <button class="loop-handle loop-handle-end" type="button" :title="t('timelineView.dragLoopEnd')"
+                  @pointerdown="onLoopHandlePointerDown('end', $event)" />
+              </div>
+            </div>
+
+            <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
+              <button v-for="marker in markerItems" :key="marker.id" class="timeline-marker" type="button"
+                :style="{ left: `${marker.leftPx}px` }" :title="marker.title"
+                @click="() => emit('seek-playhead', marker.timeMs)">
+                <span class="timeline-marker-label">{{ marker.label }}</span>
+              </button>
+            </div>
+
+            <div class="strings-timeline">
+              <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
+                :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
+                :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
+                :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
+                :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
+                :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
+                :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
+                @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                  (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                " @update-note-length="
+                  (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
+                  (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+                " @group-resize-notes="
+                  (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+                " />
+
+              <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
+                :string-label="track.label" :active-string="activeString" :notes="track.notes"
+                :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
+                :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
+                :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
+                :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
+                :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
+                @update-active-string="(v) => emit('update-active-string', v)"
+                @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                  (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                " @update-note-length="
+                  (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
+                  (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+                " @group-resize-notes="
+                  (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+                " />
+            </div>
+
+            <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
+              <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
+                :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
+                <span class="timeline-length-marker-thin" />
+                <span class="timeline-length-marker-thick" />
+              </div>
+            </div>
+
+            <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
+          </div>
         </div>
+        <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
+          @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
+          @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+          @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
+          @increment-bars-no-pickup="incrementBarsNoPickup" />
+      </div>
     </section>
 
-    <aside v-if="libraryPanelVisible" class="secondary-menu-rail"
-        :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
-        :aria-label="t('libraryDialog.title')">
-        <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
-          <div class="secondary-menu-head">
-            <div class="secondary-menu-head-row">
-              <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
-              <v-btn size="x-small" variant="text" class="secondary-menu-toggle" icon="mdi-arrow-left-right"
-                :title="'Sidebar width'" @click="cycleSecondaryMenuSize" />
-            </div>
-            <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
-              {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
-            </div>
+    <aside v-if="libraryEnabled && libraryPanelVisible" class="secondary-menu-rail"
+      :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
+      :aria-label="t('libraryDialog.title')">
+      <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
+        <div class="secondary-menu-head">
+          <div class="secondary-menu-head-row">
+            <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
+            <v-btn size="x-small" variant="text" class="secondary-menu-toggle" icon="mdi-arrow-left-right"
+              :title="'Sidebar width'" @click="cycleSecondaryMenuSize" />
           </div>
-          <div class="secondary-menu">
-            <v-btn v-if="secondaryMenuSize !== 's'" block prepend-icon="mdi-book-open-page-variant" size="default"
-              variant="tonal" class="secondary-menu-btn secondary-menu-link" :title="t('modeSelector.openLibrary')"
-              :disabled="!libraryEnabled" @click="emit('open-library')">
-              {{ t('modeSelector.openLibrary') }}
-            </v-btn>
-            <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
-              :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
+          <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
+            {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
           </div>
-        </v-card>
+        </div>
+        <div class="secondary-menu">
+          <v-btn v-if="secondaryMenuSize !== 's'" block prepend-icon="mdi-book-open-page-variant" size="default"
+            variant="tonal" class="secondary-menu-btn secondary-menu-link" :title="t('modeSelector.openLibrary')"
+            :disabled="!libraryEnabled" @click="emit('open-library')">
+            {{ t('modeSelector.openLibrary') }}
+          </v-btn>
+          <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
+            :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
+        </div>
+      </v-card>
     </aside>
   </div>
 </template>
@@ -179,13 +179,10 @@ const props = defineProps({
   numFrets: { type: Number, default: 12 },
 
   stringsCollapsed: { type: Boolean, default: false },
-  fretboardVisible: { type: Boolean, default: true },
-  chordMenuVisible: { type: Boolean, default: true },
   handPositionVisible: { type: Boolean, default: false },
   timelineVisible: { type: Boolean, default: true },
   transportVisible: { type: Boolean, default: true },
   libraryPanelVisible: { type: Boolean, default: true },
-  showChordShapePanel: { type: Boolean, default: false },
 
   zoomPxPerBlock: { type: Number, default: 50 },
 
@@ -206,7 +203,6 @@ const props = defineProps({
   markers: { type: Array, default: () => [] },
   ghostNotesEnabled: { type: Boolean, default: false },
   simGroupMode: { type: String, default: '' },
-  activeNotesVisible: { type: Boolean, default: true },
   libraryEnabled: { type: Boolean, default: true },
   isDarkTheme: { type: Boolean, default: false },
 })
@@ -234,9 +230,6 @@ const emit = defineEmits([
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
-  'update-fretboard-visible',
-  'update-chord-menu-visible',
-  'update-show-chord-shape-panel',
   'update-zoom',
   'seek-playhead',
   'update-note-grid-index',
@@ -253,7 +246,6 @@ const emit = defineEmits([
   'update-timeline-visible',
   'update-transport-visible',
   'update-library-panel-visible',
-  'update-active-notes-visible',
   'open-library',
   'toggle-theme',
   'update-total-blocks',
@@ -286,6 +278,7 @@ function isFirstVisibleTrack(track) {
 }
 
 const selection = useSelectionStore()
+const timelineMainHeightPx = ref(360)
 
 const timelineMainStyle = computed(() => {
   const widths = { s: 64, m: 224, l: 320 }
@@ -294,6 +287,7 @@ const timelineMainStyle = computed(() => {
     : 0
   return {
     '--secondary-menu-w': `${secondaryMenuWidthPx}px`,
+    height: `${Number(timelineMainHeightPx.value) || 360}px`,
   }
 })
 
@@ -324,6 +318,7 @@ const columnsResizeDrag = ref({
   pointerId: null,
   startClientY: 0,
   startHeightPx: 0,
+  direction: 1,
   target: null,
 })
 const timelineColumnsHeightPx = ref(null)
@@ -340,7 +335,10 @@ const timelineColumnsStyle = computed(() => {
   const hasLoopHeader = Boolean(props.loopEnabled)
   const hasMarkerHeader = Array.isArray(props.markers) && props.markers.length > 0
   const headerPx = (hasLoopHeader ? 18 : 0) + (hasMarkerHeader ? 18 : 0)
-  const rowCount = Math.max(1, Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0))
+  const rowCount = Math.max(
+    1,
+    Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0),
+  )
   const availableRowsPx = Math.max(24, h - headerPx)
   const rowPx = Math.max(12, Math.floor(availableRowsPx / rowCount))
 
@@ -396,25 +394,38 @@ function clampColumnsHeight(v) {
   return Math.max(min, Math.min(max, Math.round(n)))
 }
 
-function onColumnsResizePointerDown(e) {
-  if (e?.button != null && e.button !== 0) return
-  const target = e?.currentTarget
-  const pointerId = e?.pointerId
-  if (pointerId == null || !target) return
+function mainHeightBounds() {
+  const min = 180
+  const viewport = Number(window?.innerHeight) || 0
+  const max = Math.max(min, viewport - 40)
+  return { min, max }
+}
 
-  const currentHeight = Number(timelineColumnsEl.value?.offsetHeight) || 0
+function clampMainHeight(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return mainHeightBounds().min
+  const { min, max } = mainHeightBounds()
+  return Math.max(min, Math.min(max, Math.round(n)))
+}
+
+function onColumnsResizePointerDown(e, direction = 1) {
+  if (e?.button != null && e.button !== 0) return
+  const pointerId = e?.pointerId
+  if (pointerId == null) return
+
+  const currentHeight = Number(timelineMainEl.value?.offsetHeight) || 0
   columnsResizeDrag.value = {
     active: true,
     pointerId,
     startClientY: Number(e?.clientY) || 0,
-    startHeightPx: currentHeight > 0 ? currentHeight : clampColumnsHeight(320),
-    target,
+    startHeightPx: currentHeight > 0 ? currentHeight : clampMainHeight(360),
+    direction: Number(direction) === -1 ? -1 : 1,
+    target: null,
   }
 
-  target.setPointerCapture?.(pointerId)
-  target.addEventListener?.('pointermove', onColumnsResizePointerMove)
-  target.addEventListener?.('pointerup', onColumnsResizePointerUp)
-  target.addEventListener?.('pointercancel', onColumnsResizePointerUp)
+  window.addEventListener('pointermove', onColumnsResizePointerMove, { passive: false })
+  window.addEventListener('pointerup', onColumnsResizePointerUp)
+  window.addEventListener('pointercancel', onColumnsResizePointerUp)
   e.preventDefault()
   e.stopPropagation()
 }
@@ -424,7 +435,7 @@ function onColumnsResizePointerMove(e) {
   if (!drag.active) return
   if (e?.pointerId !== drag.pointerId) return
   const dy = (Number(e?.clientY) || 0) - drag.startClientY
-  timelineColumnsHeightPx.value = clampColumnsHeight(drag.startHeightPx + dy)
+  timelineMainHeightPx.value = clampMainHeight(drag.startHeightPx + dy * drag.direction)
   e.preventDefault()
   e.stopPropagation()
 }
@@ -433,14 +444,15 @@ function onColumnsResizePointerUp(e) {
   const drag = columnsResizeDrag.value
   if (!drag.active) return
   if (e?.pointerId !== drag.pointerId) return
-  drag.target?.removeEventListener?.('pointermove', onColumnsResizePointerMove)
-  drag.target?.removeEventListener?.('pointerup', onColumnsResizePointerUp)
-  drag.target?.removeEventListener?.('pointercancel', onColumnsResizePointerUp)
+  window.removeEventListener('pointermove', onColumnsResizePointerMove)
+  window.removeEventListener('pointerup', onColumnsResizePointerUp)
+  window.removeEventListener('pointercancel', onColumnsResizePointerUp)
   columnsResizeDrag.value = {
     active: false,
     pointerId: null,
     startClientY: 0,
     startHeightPx: 0,
+    direction: 1,
     target: null,
   }
   e?.preventDefault?.()
@@ -735,22 +747,27 @@ function onLoopHandlePointerUp(e) {
 
 onBeforeUnmount(() => {
   if (marqueeRaf) cancelAnimationFrame(marqueeRaf)
-  const drag = columnsResizeDrag.value
-  drag.target?.removeEventListener?.('pointermove', onColumnsResizePointerMove)
-  drag.target?.removeEventListener?.('pointerup', onColumnsResizePointerUp)
-  drag.target?.removeEventListener?.('pointercancel', onColumnsResizePointerUp)
+  window.removeEventListener('pointermove', onColumnsResizePointerMove)
+  window.removeEventListener('pointerup', onColumnsResizePointerUp)
+  window.removeEventListener('pointercancel', onColumnsResizePointerUp)
   timelineColumnsResizeObserver?.disconnect?.()
   timelineColumnsResizeObserver = null
   window.removeEventListener('resize', onWindowResizeColumns)
 })
 
 function onWindowResizeColumns() {
+  if (Number(timelineMainHeightPx.value) > 0) {
+    timelineMainHeightPx.value = clampMainHeight(timelineMainHeightPx.value)
+  }
   if (!(Number(timelineColumnsHeightPx.value) > 0)) return
   timelineColumnsHeightPx.value = clampColumnsHeight(timelineColumnsHeightPx.value)
   measureTimelineColumnsHeight()
 }
 
 onMounted(() => {
+  timelineMainHeightPx.value = clampMainHeight(
+    Number(timelineMainEl.value?.offsetHeight) || Number(timelineMainHeightPx.value) || 360,
+  )
   window.addEventListener('resize', onWindowResizeColumns)
   attachTimelineColumnsResizeObserver()
 })
@@ -1131,7 +1148,7 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline.is-collapsed :deep(.timeline-track) {
-  /* Collapse height to one third of the normal row height (44px). */
+  /* Collapse height to one third of the row height. */
   height: calc(var(--timeline-row-h, 44px) / 3);
 }
 
@@ -1166,9 +1183,9 @@ const barBeatLabel = computed(() => {
 }
 
 .timeline-main-resize-handle {
-  display: none;
+  display: block;
   width: calc(100% - (var(--secondary-menu-w) + var(--space-4)));
-  margin: 6px 0 0 var(--space-2);
+  margin: 0 0 6px var(--space-2);
   height: 10px;
   border: 0;
   border-radius: 0;
@@ -1408,6 +1425,5 @@ const barBeatLabel = computed(() => {
     width: auto;
     min-width: 132px;
   }
-
 }
 </style>

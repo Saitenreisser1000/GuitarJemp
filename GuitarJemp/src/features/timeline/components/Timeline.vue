@@ -9,13 +9,11 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
-    :fretboard-visible="fretboardVisible" :chord-menu-visible="chordMenuVisible"
     :timeline-visible="timelineVisible" :transport-visible="transportVisible"
     :library-panel-visible="libraryPanelVisible"
-    :show-chord-shape-panel="showChordShapePanel"
     :hand-position-visible="handPositionVisible"
     :auto-follow-enabled="autoFollowEnabled" :ghost-notes-enabled="ghostNotesEnabled" :markers="markers"
-    :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
+    :hand-position-notes="handPositionNotes"
     :practice-active="practiceActive" :practice-available="practiceAvailable"
     :practice-target-label="practiceTargetLabel" :practice-detected-label="practiceDetectedLabel"
     :practice-hint-text="practiceHintText" :practice-match-state="practiceMatchState"
@@ -32,13 +30,9 @@
     @update-pickup-enabled="handleUpdatePickupEnabled"
     @update-pickup-beats="handleUpdatePickupBeats"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
-    @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
-    @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
     @update-timeline-visible="(v) => emit('update-timeline-visible', Boolean(v))"
     @update-transport-visible="(v) => emit('update-transport-visible', Boolean(v))"
     @update-library-panel-visible="(v) => emit('update-library-panel-visible', Boolean(v))"
-    @update-show-chord-shape-panel="settings.setShowChordShapePanel"
-    @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
     @update-total-blocks="handleUpdateTotalBlocks"
     @open-library="emit('open-library')"
     @toggle-theme="emit('toggle-theme')"
@@ -52,41 +46,12 @@
     @loop-to-selection="handleLoopToSelection" @quantize-selection="handleQuantizeSelection"
     @scale-selection-length="handleScaleSelectionLength" @update-ghost-notes="settings.setGhostNotesEnabled"
     :compact="compact" />
-  <TransportBar
-    :visible="transportVisible"
-    :is-playing="isPlaying"
-    :tempo="tempo"
-    :click-enabled="clickEnabled"
-    :count-in-enabled="countInEnabled"
-    :auto-follow-enabled="autoFollowEnabled"
-    :loop-enabled="loopEnabled"
-    :playhead="playhead"
-    :total-duration="totalDuration"
-    :practice-active="practiceActive"
-    :practice-available="practiceAvailable"
-    :practice-target-label="practiceTargetLabel"
-    :practice-detected-label="practiceDetectedLabel"
-    :practice-hint-text="practiceHintText"
-    :practice-match-state="practiceMatchState"
-    :record-active="recordActive"
-    @toggle-play="togglePlay"
-    @seek-start="seekStart"
-    @seek-playhead="seekPlayhead"
-    @update-tempo="transport.setTempo"
-    @update-click="settings.setClickEnabled"
-    @update-count-in-enabled="settings.setCountInEnabled"
-    @update-auto-follow="settings.setAutoFollowEnabled"
-    @update-loop="settings.setLoopEnabled"
-    @toggle-practice="togglePractice"
-    @toggle-record="toggleRecord"
-  />
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import TimelineView from './TimelineView.vue'
-import { TransportBar } from '@/features/transport'
 import { useNotesStore } from '@/store/useNotes'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
@@ -119,9 +84,6 @@ import {
 const props = defineProps({
   compact: { type: Boolean, default: false },
   numFrets: { type: Number, default: 12 },
-  activeNotesVisible: { type: Boolean, default: true },
-  fretboardVisible: { type: Boolean, default: true },
-  chordMenuVisible: { type: Boolean, default: true },
   timelineVisible: { type: Boolean, default: true },
   transportVisible: { type: Boolean, default: true },
   libraryPanelVisible: { type: Boolean, default: true },
@@ -133,9 +95,6 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update-frets',
-  'update-active-notes-visible',
-  'update-fretboard-visible',
-  'update-chord-menu-visible',
   'update-timeline-visible',
   'update-transport-visible',
   'update-library-panel-visible',
@@ -166,7 +125,6 @@ const {
   activeString,
   activeTool,
   stringsCollapsed,
-  showChordShapePanel,
   handPositionVisible,
   simGroupMode,
   loopEnabled,
@@ -1407,4 +1365,22 @@ watch(
     if (practiceTargetIndex.value >= len) practiceTargetIndex.value = Math.max(0, len - 1)
   },
 )
+
+defineExpose({
+  isPlaying,
+  playhead,
+  totalDuration,
+  practiceActive,
+  practiceAvailable,
+  practiceTargetLabel,
+  practiceDetectedLabel,
+  practiceHintText,
+  practiceMatchState,
+  recordActive,
+  togglePlay,
+  seekStart,
+  seekPlayhead,
+  togglePractice,
+  toggleRecord,
+})
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="fretboard-main">
+  <div ref="rootEl" class="fretboard-body">
     <div class="fb-core-pad">
       <div class="fb-core-resizable" :style="coreResizableStyle">
         <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
@@ -2331,7 +2331,7 @@ watch(
 </script>
 
 <style scoped>
-.fretboard-main {
+.fretboard-body {
   --fb-side-pad-left: 40px;
   --fb-side-pad-right: 10px;
   --fb-top-pad: 10px;

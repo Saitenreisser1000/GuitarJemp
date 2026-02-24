@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
+import { TransportBar } from '@/features/transport'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { getTuning } from '@/domain/music/tunings'
 import { useInstrumentStore } from '@/store/useInstrument'
@@ -12,6 +13,10 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
 const numFrets = ref(12)
 const corePadResizePx = ref(0)
+const timelineRef = ref(null)
+const transportVisible = ref(true)
+const showFretboard = ref(false)
+const showTransportBar = ref(false)
 let resizeStartY = 0
 let resizeStartPad = 0
 let isResizing = false
@@ -90,6 +95,37 @@ const fretboardStyleVars = computed(() => ({
   '--fb-core-resize-margin-bottom': `${Math.min(0, Number(corePadResizePx.value) || 0)}px`,
 }))
 
+const timelineIsPlaying = computed(() => Boolean(timelineRef.value?.isPlaying))
+const timelinePlayhead = computed(() => Number(timelineRef.value?.playhead) || 0)
+const timelineTotalDuration = computed(() => Number(timelineRef.value?.totalDuration) || 0)
+const timelinePracticeActive = computed(() => Boolean(timelineRef.value?.practiceActive))
+const timelinePracticeAvailable = computed(() => Boolean(timelineRef.value?.practiceAvailable))
+const timelinePracticeTargetLabel = computed(() => String(timelineRef.value?.practiceTargetLabel || ''))
+const timelinePracticeDetectedLabel = computed(() => String(timelineRef.value?.practiceDetectedLabel || ''))
+const timelinePracticeHintText = computed(() => String(timelineRef.value?.practiceHintText || ''))
+const timelinePracticeMatchState = computed(() => String(timelineRef.value?.practiceMatchState || ''))
+const timelineRecordActive = computed(() => Boolean(timelineRef.value?.recordActive))
+
+function timelineTogglePlay() {
+  timelineRef.value?.togglePlay?.()
+}
+
+function timelineSeekStart() {
+  timelineRef.value?.seekStart?.()
+}
+
+function timelineSeekPlayhead(v) {
+  timelineRef.value?.seekPlayhead?.(v)
+}
+
+function timelineTogglePractice() {
+  timelineRef.value?.togglePractice?.()
+}
+
+function timelineToggleRecord() {
+  timelineRef.value?.toggleRecord?.()
+}
+
 onMounted(async () => {
   try {
     await loadStartupMusicXml()
@@ -105,12 +141,26 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-layout">
-    <div class="fretboard-root">
+    <div v-if="showFretboard" class="fretboard-main">
       <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
       <button type="button" class="fretboard-root-resize-handle" aria-label="Resize bottom edge"
         @pointerdown="onResizeStart" />
     </div>
-    <Timeline :num-frets="numFrets" :library-panel-visible="false" />
+    <Timeline ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
+      :transport-visible="transportVisible"
+      @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+    <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
+      :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
+      :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
+      :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
+      :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
+      :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
+      :practice-hint-text="timelinePracticeHintText" :practice-match-state="timelinePracticeMatchState"
+      :record-active="timelineRecordActive" @toggle-play="timelineTogglePlay" @seek-start="timelineSeekStart"
+      @seek-playhead="timelineSeekPlayhead" @update-tempo="transport.setTempo"
+      @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
+      @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
+      @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
   </div>
 </template>
 
@@ -119,9 +169,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 100vh;
 }
 
-.fretboard-root {
+.app-layout :deep(.timeline-main) {
+  margin-top: auto;
+}
+
+.fretboard-main {
   position: relative;
   width: 100%;
   overflow-x: auto;
