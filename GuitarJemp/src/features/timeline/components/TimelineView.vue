@@ -116,7 +116,7 @@
     <aside v-if="libraryEnabled && libraryPanelVisible" class="secondary-menu-rail"
       :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
       :aria-label="t('libraryDialog.title')">
-      <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
+      <div class="secondary-menu-shell ui-panel pa-2">
         <div class="secondary-menu-head">
           <div class="secondary-menu-head-row">
             <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
@@ -136,7 +136,7 @@
           <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
             :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
         </div>
-      </v-card>
+      </div>
     </aside>
   </div>
 </template>
@@ -147,6 +147,9 @@ import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { TIMELINE_BEHAVIOR } from '@/features/timeline/config/timelineBehavior'
+import { TIMELINE_THEME } from '@/features/timeline/config/timelineTheme'
 import { useI18n } from '@/i18n'
 
 const props = defineProps({
@@ -259,12 +262,14 @@ const emit = defineEmits([
 ])
 const { t } = useI18n()
 
-const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
-const ZOOM_UI_MIN = 12
-const ZOOM_UI_MAX = 120
-const ZOOM_UI_STEP = 2
+const zoomPx = computed(() =>
+  Math.max(TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock, Number(props.zoomPxPerBlock) || 50),
+)
+const ZOOM_UI_MIN = TIMELINE_LAYOUT.zoom.uiMinPxPerBlock
+const ZOOM_UI_MAX = TIMELINE_LAYOUT.zoom.uiMaxPxPerBlock
+const ZOOM_UI_STEP = TIMELINE_LAYOUT.zoom.uiStepPxPerBlock
 // Must match the visual left inset of `.timeline-track` (see TimelineTrack.vue: margin-left).
-const TRACK_START_OFFSET_PX = 6
+const TRACK_START_OFFSET_PX = TIMELINE_LAYOUT.tracks.startOffsetPx
 
 const visibleTracks = computed(() => {
   return Array.isArray(props.tracks) ? props.tracks : []
@@ -278,16 +283,37 @@ function isFirstVisibleTrack(track) {
 }
 
 const selection = useSelectionStore()
-const timelineMainHeightPx = ref(360)
+const timelineMainHeightPx = ref(TIMELINE_LAYOUT.main.defaultHeightPx)
 
 const timelineMainStyle = computed(() => {
-  const widths = { s: 64, m: 224, l: 320 }
+  const widths = TIMELINE_LAYOUT.secondaryMenu.sizes
   const secondaryMenuWidthPx = props.libraryPanelVisible
     ? widths[secondaryMenuSize.value] || widths.m
     : 0
   return {
     '--secondary-menu-w': `${secondaryMenuWidthPx}px`,
-    height: `${Number(timelineMainHeightPx.value) || 360}px`,
+    '--tl-main-bg': TIMELINE_THEME.main.mainBgMix,
+    '--tl-viewport-bg': TIMELINE_THEME.main.viewportBgMix,
+    '--tl-viewport-shadow': TIMELINE_THEME.main.viewportShadow,
+    '--tl-column-card-bg': TIMELINE_THEME.main.columnCardBgMix,
+    '--tl-string-names-bg': TIMELINE_THEME.main.stringNamesBgMix,
+    '--tl-aux-divider-color': TIMELINE_THEME.main.auxDividerColor,
+    '--tl-marker-color': TIMELINE_THEME.main.markerColor,
+    '--tl-loop-bar-color': TIMELINE_THEME.main.loopBarColor,
+    '--tl-loop-handle-bg': TIMELINE_THEME.main.loopHandleBg,
+    '--tl-resize-line-color': TIMELINE_THEME.main.resizeHandleLineColor,
+    '--tl-length-handle-color': TIMELINE_THEME.main.lengthHandleColor,
+    '--tl-marquee-bg': TIMELINE_THEME.main.marqueeBg,
+    '--tl-track-start-offset-px': `${TRACK_START_OFFSET_PX}px`,
+    '--tl-main-resize-handle-h': `${TIMELINE_LAYOUT.main.resizeHandleHeightPx}px`,
+    '--tl-string-name-col-w': `${TIMELINE_LAYOUT.tracks.stringNameColWidthPx}px`,
+    '--tl-row-h-default': `${TIMELINE_LAYOUT.tracks.defaultRowHeightPx}px`,
+    '--tl-loop-header-h': `${TIMELINE_LAYOUT.headers.loopHeaderPx}px`,
+    '--tl-marker-header-h': `${TIMELINE_LAYOUT.headers.markerHeaderPx}px`,
+    '--tl-marker-layer-h': `${TIMELINE_LAYOUT.headers.markerLayerHeightPx}px`,
+    '--tl-marker-layer-gap': `${TIMELINE_LAYOUT.headers.markerLayerBottomGapPx}px`,
+    '--tl-loop-layer-h': `${TIMELINE_LAYOUT.headers.loopBracketLayerHeightPx}px`,
+    height: `${Number(timelineMainHeightPx.value) || TIMELINE_LAYOUT.main.defaultHeightPx}px`,
   }
 })
 
@@ -334,13 +360,15 @@ const timelineColumnsStyle = computed(() => {
 
   const hasLoopHeader = Boolean(props.loopEnabled)
   const hasMarkerHeader = Array.isArray(props.markers) && props.markers.length > 0
-  const headerPx = (hasLoopHeader ? 18 : 0) + (hasMarkerHeader ? 18 : 0)
+  const headerPx =
+    (hasLoopHeader ? TIMELINE_LAYOUT.headers.loopHeaderPx : 0) +
+    (hasMarkerHeader ? TIMELINE_LAYOUT.headers.markerHeaderPx : 0)
   const rowCount = Math.max(
     1,
     Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0),
   )
-  const availableRowsPx = Math.max(24, h - headerPx)
-  const rowPx = Math.max(12, Math.floor(availableRowsPx / rowCount))
+  const availableRowsPx = Math.max(TIMELINE_LAYOUT.tracks.minRowsAreaPx, h - headerPx)
+  const rowPx = Math.max(TIMELINE_LAYOUT.tracks.minRowHeightPx, Math.floor(availableRowsPx / rowCount))
 
   const style = { '--timeline-row-h': `${rowPx}px` }
   if (hasExplicitHeight) style.height = `${h}px`
@@ -368,20 +396,20 @@ function attachTimelineColumnsResizeObserver() {
 }
 
 function cycleSecondaryMenuSize() {
-  const order = ['s', 'm', 'l']
+  const order = TIMELINE_LAYOUT.secondaryMenu.order
   const current = order.indexOf(String(secondaryMenuSize.value || 'm'))
   secondaryMenuSize.value = order[(current + 1) % order.length]
 }
 
 function columnsHeightBounds() {
-  const min = 140
+  const min = TIMELINE_LAYOUT.tracks.minColumnsHeightPx
   const colsRect = timelineColumnsEl.value?.getBoundingClientRect?.()
   if (!colsRect) return { min, max: min }
 
   // Keep room for info bar + handle at the bottom.
   // Use viewport as the upper bound so resizing remains reversible:
   // shrinking the columns must not reduce future max-height.
-  const reservedBottomPx = 64
+  const reservedBottomPx = TIMELINE_LAYOUT.tracks.columnsReservedBottomPx
   const viewportBottom = Number(window?.innerHeight) || 0
   const rawMax = Math.floor(viewportBottom - colsRect.top - reservedBottomPx)
   return { min, max: Math.max(min, rawMax) }
@@ -395,9 +423,9 @@ function clampColumnsHeight(v) {
 }
 
 function mainHeightBounds() {
-  const min = 180
+  const min = TIMELINE_LAYOUT.main.minHeightPx
   const viewport = Number(window?.innerHeight) || 0
-  const max = Math.max(min, viewport - 40)
+  const max = Math.max(min, viewport - TIMELINE_LAYOUT.main.maxViewportOffsetPx)
   return { min, max }
 }
 
@@ -408,7 +436,7 @@ function clampMainHeight(v) {
   return Math.max(min, Math.min(max, Math.round(n)))
 }
 
-function onColumnsResizePointerDown(e, direction = 1) {
+function onColumnsResizePointerDown(e, direction = TIMELINE_BEHAVIOR.resize.defaultDirection) {
   if (e?.button != null && e.button !== 0) return
   const pointerId = e?.pointerId
   if (pointerId == null) return
@@ -418,8 +446,11 @@ function onColumnsResizePointerDown(e, direction = 1) {
     active: true,
     pointerId,
     startClientY: Number(e?.clientY) || 0,
-    startHeightPx: currentHeight > 0 ? currentHeight : clampMainHeight(360),
-    direction: Number(direction) === -1 ? -1 : 1,
+    startHeightPx:
+      currentHeight > 0
+        ? currentHeight
+        : clampMainHeight(TIMELINE_LAYOUT.main.defaultHeightPx),
+    direction: Number(direction) === -1 ? -1 : TIMELINE_BEHAVIOR.resize.defaultDirection,
     target: null,
   }
 
@@ -526,7 +557,7 @@ function scheduleMarqueeUpdate() {
 }
 
 function onMarqueePointerDown(e) {
-  if (String(props.activeTool) !== 'select') return
+  if (String(props.activeTool) !== TIMELINE_BEHAVIOR.selection.marqueeTool) return
   if (e?.button != null && e.button !== 0) return
   if (e?.target?.closest?.('button, input, label, a')) return
   if (e?.target?.closest?.('.timeline-length-handle-wrap')) return
@@ -614,7 +645,7 @@ function onLengthHandlePointerMove(e) {
   const el = scrollEl.value
   if (el) {
     const handleX = TRACK_START_OFFSET_PX + rawNext * zoom
-    const margin = 56
+    const margin = TIMELINE_LAYOUT.marquee.autoScrollMarginPx
     const viewLeft = Number(el.scrollLeft) || 0
     const viewRight = viewLeft + (Number(el.clientWidth) || 0)
 
@@ -766,7 +797,9 @@ function onWindowResizeColumns() {
 
 onMounted(() => {
   timelineMainHeightPx.value = clampMainHeight(
-    Number(timelineMainEl.value?.offsetHeight) || Number(timelineMainHeightPx.value) || 360,
+    Number(timelineMainEl.value?.offsetHeight) ||
+      Number(timelineMainHeightPx.value) ||
+      TIMELINE_LAYOUT.main.defaultHeightPx,
   )
   window.addEventListener('resize', onWindowResizeColumns)
   attachTimelineColumnsResizeObserver()
@@ -824,8 +857,8 @@ const markerItems = computed(() => {
 
 const stringHeaderOffsetPx = computed(() => {
   let px = 0
-  if (props.loopEnabled) px += 18
-  if (markerItems.value.length) px += 18
+  if (props.loopEnabled) px += TIMELINE_LAYOUT.headers.loopHeaderPx
+  if (markerItems.value.length) px += TIMELINE_LAYOUT.headers.markerHeaderPx
   return px
 })
 
@@ -838,7 +871,16 @@ function onTimelineWheel(e) {
   const x = Number(e.clientX) - rect.left
   const anchorContentX = el.scrollLeft + x
   const current = zoomPx.value
-  const next = Math.max(8, Math.min(200, current + (Number(e.deltaY) < 0 ? 4 : -4)))
+  const next = Math.max(
+    TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock,
+    Math.min(
+      TIMELINE_LAYOUT.zoom.wheelMaxPxPerBlock,
+      current +
+        (Number(e.deltaY) < 0
+          ? TIMELINE_LAYOUT.zoom.wheelStepPxPerBlock
+          : -TIMELINE_LAYOUT.zoom.wheelStepPxPerBlock),
+    ),
+  )
   if (next === current) return
   emit('update-zoom', next)
   // Keep zoom anchored at cursor position.
@@ -947,7 +989,7 @@ const barsNoPickup = computed({
   set: (v) => {
     const n = Number.parseInt(String(v), 10)
     if (!Number.isFinite(n)) return
-    const nextBars = Math.max(1, Math.min(512, n))
+    const nextBars = Math.max(1, Math.min(TIMELINE_LAYOUT.bars.maxCount, n))
     const total = nextBars * Number(blocksPerBarSafe.value || 1)
     emit('update-total-blocks', Number(total.toFixed(3)))
   },
@@ -967,7 +1009,7 @@ function decrementBarsNoPickup() {
 }
 
 function incrementBarsNoPickup() {
-  barsNoPickup.value = Math.min(512, Number(barsNoPickup.value) + 1)
+  barsNoPickup.value = Math.min(TIMELINE_LAYOUT.bars.maxCount, Number(barsNoPickup.value) + 1)
 }
 
 const barBeatLabel = computed(() => {
@@ -1009,11 +1051,14 @@ const barBeatLabel = computed(() => {
 <style scoped>
 .timeline-main {
   --secondary-menu-w: 224px;
+  --tl-ui-scale: 1;
   --main-grow-right: 0px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
   display: flex;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
   position: relative;
   flex-direction: column;
@@ -1141,7 +1186,7 @@ const barBeatLabel = computed(() => {
   min-height: 0;
   border-radius: 0;
   border: 0;
-  background: color-mix(in srgb, var(--color-surface) 93%, var(--color-surface-2) 7%);
+  background: var(--tl-main-bg);
   box-shadow: none;
   overflow: hidden;
   padding: 6px;
@@ -1165,12 +1210,8 @@ const barBeatLabel = computed(() => {
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
-  box-shadow:
-    inset 0 4px 12px -5px rgb(0 0 0 / 52%),
-    inset 0 -4px 12px -5px rgb(0 0 0 / 48%),
-    inset 18px 0 18px -11px rgb(0 0 0 / 54%),
-    inset -18px 0 18px -11px rgb(0 0 0 / 50%);
+  background: var(--tl-viewport-bg);
+  box-shadow: var(--tl-viewport-shadow);
 }
 
 .timeline-columns {
@@ -1186,7 +1227,7 @@ const barBeatLabel = computed(() => {
   display: block;
   width: calc(100% - (var(--secondary-menu-w) + var(--space-4)));
   margin: 0 0 6px var(--space-2);
-  height: 10px;
+  height: var(--tl-main-resize-handle-h);
   border: 0;
   border-radius: 0;
   position: relative;
@@ -1201,7 +1242,7 @@ const barBeatLabel = computed(() => {
   left: 0;
   right: 0;
   height: 1px;
-  background: #000;
+  background: var(--tl-resize-line-color);
 }
 
 .timeline-main-resize-handle::before {
@@ -1215,33 +1256,33 @@ const barBeatLabel = computed(() => {
 .timeline-column-card {
   border: 1px solid var(--color-border);
   border-radius: 0;
-  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  background: var(--tl-column-card-bg);
 }
 
 .timeline-string-names {
-  flex: 0 0 17px;
+  flex: 0 0 var(--tl-string-name-col-w, 17px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   padding: 0 1px;
   padding-top: var(--timeline-string-header-offset, 0px);
   border: 0;
-  background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
+  background: var(--tl-string-names-bg);
 }
 
 .timeline-string-name {
-  height: var(--timeline-row-h, 44px);
+  height: var(--timeline-row-h, var(--tl-row-h-default));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .timeline :deep(.timeline-track) {
-  height: var(--timeline-row-h, 44px);
+  height: var(--timeline-row-h, var(--tl-row-h-default));
 }
 
 .timeline-string-name-aux {
-  border-bottom: 4px solid rgba(70, 70, 70, 0.75);
+  border-bottom: 4px solid var(--tl-aux-divider-color);
   margin-bottom: 4px;
 }
 
@@ -1252,7 +1293,7 @@ const barBeatLabel = computed(() => {
   border-radius: 0;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--tl-ui-scale));
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -1274,19 +1315,19 @@ const barBeatLabel = computed(() => {
 
 .marker-layer {
   position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  height: var(--tl-marker-layer-h);
+  margin-bottom: var(--tl-marker-layer-gap);
 }
 
 .timeline-marker {
   position: absolute;
   top: 0;
   width: 2px;
-  height: 16px;
+  height: var(--tl-marker-layer-h);
   transform: translateX(-50%);
   border: 0;
   padding: 0;
-  background: color-mix(in srgb, var(--color-primary) 65%, var(--color-text) 35%);
+  background: var(--tl-marker-color);
   cursor: pointer;
 }
 
@@ -1294,7 +1335,7 @@ const barBeatLabel = computed(() => {
   position: absolute;
   top: 0;
   left: 4px;
-  font-size: 9px;
+  font-size: calc(9px * var(--tl-ui-scale));
   font-weight: 700;
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -1302,8 +1343,8 @@ const barBeatLabel = computed(() => {
 
 .loop-bracket-layer {
   position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  height: var(--tl-loop-layer-h);
+  margin-bottom: var(--tl-marker-layer-gap);
 }
 
 .loop-bracket {
@@ -1319,7 +1360,7 @@ const barBeatLabel = computed(() => {
   flex: 1;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 70%, var(--color-surface) 30%);
+  background: var(--tl-loop-bar-color);
 }
 
 .loop-handle {
@@ -1327,7 +1368,7 @@ const barBeatLabel = computed(() => {
   height: 12px;
   border: 1px solid var(--color-border);
   border-radius: 3px;
-  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-surface) 20%);
+  background: var(--tl-loop-handle-bg);
   cursor: ew-resize;
   padding: 0;
 }
@@ -1359,7 +1400,7 @@ const barBeatLabel = computed(() => {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: calc(6px * var(--tl-ui-scale));
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -1371,12 +1412,12 @@ const barBeatLabel = computed(() => {
 
 .timeline-length-marker-thin {
   width: 1px;
-  background: #000;
+  background: var(--tl-length-handle-color);
 }
 
 .timeline-length-marker-thick {
   width: 3px;
-  background: #000;
+  background: var(--tl-length-handle-color);
 }
 
 .status-chip {
@@ -1389,14 +1430,23 @@ const barBeatLabel = computed(() => {
 .marquee {
   position: absolute;
   border: 2px dashed var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  background: var(--tl-marquee-bg);
   border-radius: 6px;
   pointer-events: none;
   z-index: 20;
 }
 
+@media (max-width: 1200px) {
+  .timeline-main {
+    --tl-ui-scale: 0.96;
+    width: 100%;
+  }
+}
+
 @media (max-width: 860px) {
   .timeline-main {
+    --tl-ui-scale: 0.92;
+    width: 100%;
     margin-right: 0;
   }
 

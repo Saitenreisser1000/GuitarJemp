@@ -35,6 +35,8 @@
 import NoteEvent from './NoteEvent.vue'
 import { computed, ref } from 'vue'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { TIMELINE_THEME } from '@/features/timeline/config/timelineTheme'
 import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
 import { useI18n } from '@/i18n'
 
@@ -77,7 +79,21 @@ const isScrubbing = ref(false)
 const trackStyle = computed(() => {
   const w = Number(props.trackMinWidthPx) || 0
   // Use a fixed width so zoom-in AND zoom-out are visible.
-  return w > 0 ? { width: `${w}px`, minWidth: `${w}px` } : {}
+  const base = {
+    '--timeline-track-start-offset-px': `${TIMELINE_LAYOUT.tracks.startOffsetPx}px`,
+    '--timeline-track-base-bg': TIMELINE_THEME.track.baseBg,
+    '--timeline-track-center-line': TIMELINE_THEME.track.centerLine,
+    '--timeline-track-bar-line': TIMELINE_THEME.track.barLine,
+    '--timeline-track-bar-line-start': TIMELINE_THEME.track.barLineStart,
+    '--timeline-track-bar-label': TIMELINE_THEME.track.barLineLabel,
+    '--timeline-track-bar-label-shadow': TIMELINE_THEME.track.barLineLabelShadow,
+    '--timeline-track-playhead': TIMELINE_THEME.track.playheadColor,
+    '--timeline-track-grid-sub': TIMELINE_THEME.track.gridSubLine,
+    '--timeline-track-grid-beat': TIMELINE_THEME.track.gridBeatLine,
+    '--timeline-track-aux-divider': TIMELINE_THEME.main.auxDividerColor,
+    '--timeline-row-h-default': `${TIMELINE_LAYOUT.tracks.defaultRowHeightPx}px`,
+  }
+  return w > 0 ? { ...base, width: `${w}px`, minWidth: `${w}px` } : base
 })
 
 const snapStepBlocks = computed(() =>
@@ -215,8 +231,14 @@ const gridBackgroundStyle = computed(() => {
   const subdivisionsPerBlock = Math.max(1, Math.round(1 / snapStep))
   const total = Math.max(1, Number(props.totalBlocks) || 1)
   const pxPerBlock = (Number(props.trackMinWidthPx) || 0) / total
-  const subOpacity = pxPerBlock >= 42 ? 0.35 : pxPerBlock >= 22 ? 0.2 : 0
-  const beatOpacity = pxPerBlock >= 12 ? 1 : 0.7
+  const grid = TIMELINE_LAYOUT.tracks.gridVisibility
+  const subOpacity =
+    pxPerBlock >= grid.subStrongMinPxPerBlock
+      ? grid.subStrongOpacity
+      : pxPerBlock >= grid.subWeakMinPxPerBlock
+        ? grid.subWeakOpacity
+        : 0
+  const beatOpacity = pxPerBlock >= grid.beatMinPxPerBlock ? 1 : grid.beatWeakOpacity
   return {
     '--total-blocks': String(props.totalBlocks),
     '--blocks-per-beat': String(blocksPerBeat.value),
@@ -234,7 +256,7 @@ const timePerBlockMs = computed(() => {
 })
 
 function getNoteColor(fret) {
-  const colors = ['#D5763D', '#2E7D6E', '#4A78B0', '#B85C4C', '#7F8F4E', '#6E66A9']
+  const colors = TIMELINE_THEME.track.defaultNoteColors
   return colors[fret % colors.length]
 }
 </script>
@@ -246,16 +268,16 @@ function getNoteColor(fret) {
 }
 
 .string-line.is-aux-track {
-  border-bottom: 4px solid rgba(70, 70, 70, 0.75);
+  border-bottom: 4px solid var(--timeline-track-aux-divider);
   margin-bottom: 4px;
 }
 
 .timeline-track {
   position: relative;
   flex: 0 0 auto;
-  height: 44px;
-  margin-left: 6px;
-  background: color-mix(in srgb, #d8ecff 38%, var(--color-surface) 62%);
+  height: var(--timeline-row-h, var(--timeline-row-h-default));
+  margin-left: var(--timeline-track-start-offset-px, 6px);
+  background: var(--timeline-track-base-bg);
 }
 
 .timeline-track::after {
@@ -265,7 +287,7 @@ function getNoteColor(fret) {
   right: 0;
   top: 50%;
   height: 1px;
-  background: rgba(70, 70, 70, 0.35);
+  background: var(--timeline-track-center-line);
   transform: translateY(-0.5px);
   pointer-events: none;
   z-index: 4;
@@ -289,13 +311,13 @@ function getNoteColor(fret) {
   --beat: calc(var(--cell) * var(--blocks-per-beat));
   background-image:
     repeating-linear-gradient(to right,
-      rgba(208, 208, 208, var(--sub-opacity, 0.35)) 0px,
-      rgba(208, 208, 208, var(--sub-opacity, 0.35)) 1px,
+      var(--timeline-track-grid-sub) 0px,
+      var(--timeline-track-grid-sub) 1px,
       transparent 1px,
       transparent var(--sub)),
     repeating-linear-gradient(to right,
-      rgba(208, 208, 208, var(--beat-opacity, 1)) 0px,
-      rgba(208, 208, 208, var(--beat-opacity, 1)) 2px,
+      var(--timeline-track-grid-beat) 0px,
+      var(--timeline-track-grid-beat) 2px,
       transparent 2px,
       transparent var(--beat));
 }
@@ -313,12 +335,12 @@ function getNoteColor(fret) {
   bottom: 0;
   width: 3px;
   transform: translateX(-50%);
-  background: rgba(70, 70, 70, 0.45);
+  background: var(--timeline-track-bar-line);
 }
 
 .bar-line.is-start {
   transform: translateX(0);
-  background: rgba(70, 70, 70, 0.6);
+  background: var(--timeline-track-bar-line-start);
 }
 
 .bar-line-label {
@@ -328,8 +350,8 @@ function getNoteColor(fret) {
   font-size: 9px;
   line-height: 1;
   font-weight: 700;
-  color: rgba(80, 80, 80, 0.82);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  color: var(--timeline-track-bar-label);
+  text-shadow: var(--timeline-track-bar-label-shadow);
   pointer-events: none;
   user-select: none;
 }
@@ -338,7 +360,7 @@ function getNoteColor(fret) {
   position: absolute;
   width: 3px;
   height: 100%;
-  background: rgba(211, 47, 47, 0.3);
+  background: var(--timeline-track-playhead);
   transform: translateX(-50%);
   z-index: 5;
   cursor: ew-resize;

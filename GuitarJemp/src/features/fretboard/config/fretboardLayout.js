@@ -1,0 +1,54 @@
+export const FRETBOARD_DIMENSIONS = {
+  width: 1100,
+  height: 180,
+  nutWidth: 12,
+  boardOverhang: 18,
+  stringOverhang: 22,
+}
+
+export const FRETBOARD_RESIZE = {
+  minScale: 0.65,
+  maxScale: 1.85,
+  coreScaleDivisor: 300,
+}
+
+export const FRETBOARD_LAYOUT_PRESETS = {
+  desktop: {
+    uiScale: 1,
+    sidePadLeft: 40,
+    sidePadRight: 10,
+    width: { minPx: 760, preferredVw: 92, maxPx: 1460 },
+  },
+  tablet: {
+    uiScale: 0.94,
+    sidePadLeft: 28,
+    sidePadRight: 10,
+    width: { minPx: 700, preferredVw: 95, maxPx: 1280 },
+  },
+  mobile: {
+    uiScale: 0.86,
+    sidePadLeft: 16,
+    sidePadRight: 8,
+    width: { minPx: 620, preferredVw: 98, maxPx: 1080 },
+  },
+}
+
+export const FRETBOARD_LAYOUT_BREAKPOINTS = {
+  tabletMax: 1200,
+  mobileMax: 900,
+}
+
+export const FRETBOARD_UI_TOKENS = {
+  gapPx: 8,
+  controlHeightPx: 26,
+  fontSmallPx: 12,
+  topPadPx: 10,
+  bottomPadPx: 10,
+  numbersHeightPx: 28,
+  numbersPadTopPx: 6,
+  numbersMarginTopPx: 10,
+  numbersMarginBottomPx: 10,
+  actionsMarginTopPx: -2,
+  actionsMarginBottomPx: 8,
+  railTopPadPx: 30,
+}

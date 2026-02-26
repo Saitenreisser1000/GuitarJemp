@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="fretboard-body">
+  <div ref="rootEl" class="fretboard-body" :style="fretboardCssVars">
     <div class="fb-core-pad">
       <div class="fb-core-resizable" :style="coreResizableStyle">
         <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
@@ -8,18 +8,13 @@
             @click="onClick">
             <defs>
               <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0" stop-color="#5a3a1e" />
-                <stop offset="0.25" stop-color="#6a4222" />
-                <stop offset="0.55" stop-color="#4f311a" />
-                <stop offset="0.85" stop-color="#6a4222" />
-                <stop offset="1" stop-color="#4a2d17" />
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.woodStops" :key="`wood-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
               </linearGradient>
 
               <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="rgba(255,255,255,0.16)" />
-                <stop offset="0.35" stop-color="rgba(255,255,255,0)" />
-                <stop offset="0.72" stop-color="rgba(0,0,0,0.18)" />
-                <stop offset="1" stop-color="rgba(0,0,0,0.32)" />
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.shadeStops" :key="`shade-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
               </linearGradient>
 
               <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
@@ -29,14 +24,13 @@
               </filter>
 
               <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#f2f2f2" />
-                <stop offset="0.45" stop-color="#bdbdbd" />
-                <stop offset="1" stop-color="#f7f7f7" />
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.metalStops" :key="`metal-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
               </linearGradient>
 
               <radialGradient id="inlay" cx="50%" cy="40%" r="60%">
-                <stop offset="0" stop-color="rgba(255,255,255,0.65)" />
-                <stop offset="1" stop-color="rgba(255,255,255,0.18)" />
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.inlayStops" :key="`inlay-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
               </radialGradient>
 
               <clipPath id="fb-core-clip">
@@ -50,20 +44,21 @@
               <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
                 opacity="0.9" />
               <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
-                stroke="rgba(0,0,0,0.28)" stroke-width="2" />
-              <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" fill="rgba(245,245,245,0.92)"
+                :stroke="FRETBOARD_THEME.svg.boardBorderStroke" stroke-width="2" />
+              <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" :fill="FRETBOARD_THEME.svg.nutFill"
                 opacity="0.95" />
-              <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" fill="rgba(0,0,0,0.18)" opacity="0.9" />
+              <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" :fill="FRETBOARD_THEME.svg.nutDividerFill"
+                opacity="0.9" />
               <g class="fb-frets">
                 <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
                   <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
-                    stroke="rgba(0,0,0,0.28)" stroke-width="2" opacity="0.9" />
+                    :stroke="FRETBOARD_THEME.svg.fretZeroStroke" stroke-width="2" opacity="0.9" />
                   <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
-                    stroke="rgba(255,255,255,0.33)" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
+                    :stroke="FRETBOARD_THEME.svg.fretGlowStroke" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
                   <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
                     :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
                   <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
-                    stroke="rgba(0,0,0,0.28)" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
+                    :stroke="FRETBOARD_THEME.svg.fretShadowStroke" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
                 </template>
               </g>
             </g>
@@ -72,16 +67,16 @@
               <g class="fb-inlays" opacity="0.95">
                 <template v-for="dot in inlayDots" :key="dot.key">
                   <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
-                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" stroke="rgba(0,0,0,0.22)"
+                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
                     stroke-width="1" />
                 </template>
               </g>
 
               <g class="fb-strings" opacity="0.9">
                 <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y" :x2="FB_WIDTH"
-                  :y2="s.y" stroke="rgba(240,240,240,0.82)" :stroke-width="s.w" stroke-linecap="round" />
+                  :y2="s.y" :stroke="FRETBOARD_THEME.svg.stringStroke" :stroke-width="s.w" stroke-linecap="round" />
                 <line v-for="s in strings" :key="`string-shadow-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
-                  :x2="FB_WIDTH" :y2="s.y + 0.9" stroke="rgba(0,0,0,0.14)" :stroke-width="Math.max(1, s.w - 0.6)"
+                  :x2="FB_WIDTH" :y2="s.y + 0.9" :stroke="FRETBOARD_THEME.svg.stringShadowStroke" :stroke-width="Math.max(1, s.w - 0.6)"
                   stroke-linecap="round" />
               </g>
             </g>
@@ -92,7 +87,7 @@
               <!-- String numbers -->
               <g class="fb-string-labels">
                 <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
-                  font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)"
+                  font-size="12" font-weight="800" :fill="FRETBOARD_THEME.svg.stringLabelFill" :stroke="FRETBOARD_THEME.svg.stringLabelStroke"
                   stroke-width="2" paint-order="stroke">
                   {{ stringLabelFor(s.string) }}
                 </text>
@@ -108,7 +103,7 @@
                 <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
                   :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
                   :rx="suggestedHandPositionOverlayRect.rx" />
-                <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
+                <text :x="suggestedHandPositionOverlayRect.labelX" :y="suggestedHandPositionOverlayRect.labelY">
                   {{
                     t('fretboardShow.suggestedPosition', {
                       from: suggestedHandPositionOverlayRect.fromFret,
@@ -157,7 +152,7 @@
                 <!-- Hover preview for inactive positions (editor only) -->
                 <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)"
                   :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()" fill="transparent"
-                  stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
+                  :stroke="FRETBOARD_THEME.svg.hoverPreviewStroke" stroke-width="3" style="pointer-events: none" />
 
                 <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
                   <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)"
@@ -179,7 +174,7 @@
 
                 <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
                 <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)"
-                  :r="toneDotR(dragPreviewToneDot)" fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4"
+                  :r="toneDotR(dragPreviewToneDot)" fill="transparent" :stroke="FRETBOARD_THEME.svg.dragPreviewStroke" stroke-width="4"
                   style="pointer-events: none" />
               </g>
               <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
@@ -321,7 +316,22 @@ import {
   FRETBOARD_SHOW_DOT_PULSE_MS,
   FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR,
   FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD,
-} from '@/features/fretboard/config/fretboardShow'
+} from '@/features/fretboard/config/fretboardVisuals'
+import {
+  FRETBOARD_DIMENSIONS,
+  FRETBOARD_LAYOUT_BREAKPOINTS,
+  FRETBOARD_LAYOUT_PRESETS,
+  FRETBOARD_RESIZE,
+  FRETBOARD_UI_TOKENS,
+} from '@/features/fretboard/config/fretboardLayout'
+import {
+  FRETBOARD_HAND_POSITION,
+  FRETBOARD_INLAYS,
+  FRETBOARD_INTERACTION,
+  FRETBOARD_SHAPES,
+  FRETBOARD_TONE_DOTS,
+} from '@/features/fretboard/config/fretboardBehavior'
+import { FRETBOARD_THEME } from '@/features/fretboard/config/fretboardTheme'
 import { NOTE_VALUE_ITEMS, normalizeNoteValue, noteValueItem } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -340,14 +350,15 @@ const props = defineProps({
 })
 const emit = defineEmits(['update-frets'])
 
-const FB_WIDTH = 1100
-const FB_HEIGHT = 180
-const NUT_WIDTH = 12
-const BOARD_OVERHANG = 18
-const STRING_OVERHANG = 22
-const CORE_RESIZE_SCALE_DIVISOR = 300 // higher = less sensitive
+const FB_WIDTH = FRETBOARD_DIMENSIONS.width
+const FB_HEIGHT = FRETBOARD_DIMENSIONS.height
+const NUT_WIDTH = FRETBOARD_DIMENSIONS.nutWidth
+const BOARD_OVERHANG = FRETBOARD_DIMENSIONS.boardOverhang
+const STRING_OVERHANG = FRETBOARD_DIMENSIONS.stringOverhang
+const CORE_RESIZE_SCALE_DIVISOR = FRETBOARD_RESIZE.coreScaleDivisor
 const rootEl = ref(null)
 const overlayEl = ref(null)
+const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -489,8 +500,8 @@ watch(
 const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
 const playedNoteKeys = ref(new Set())
 
-const LONG_PRESS_MS = 180
-const CLICK_SUPPRESS_MS = 250
+const LONG_PRESS_MS = FRETBOARD_INTERACTION.longPressMs
+const CLICK_SUPPRESS_MS = FRETBOARD_INTERACTION.clickSuppressMs
 
 const dragState = ref({
   active: false,
@@ -502,7 +513,7 @@ const dragState = ref({
 
 let longPressTimer = null
 let suppressClicksUntilMs = 0
-const CHORD_SHAPES_STORAGE_KEY = 'guitarjemp.fretboard.chordShapes.v1'
+const CHORD_SHAPES_STORAGE_KEY = FRETBOARD_SHAPES.storageKey
 const savedShapes = ref([])
 const selectedShapeId = ref('')
 
@@ -914,7 +925,7 @@ function saveCurrentShape() {
     positions: currentShapePositions.value,
     createdAt: Date.now(),
   }
-  savedShapes.value = [shape, ...savedShapes.value].slice(0, 64)
+  savedShapes.value = [shape, ...savedShapes.value].slice(0, FRETBOARD_SHAPES.maxSavedShapes)
   selectedShapeId.value = id
   persistChordShapes()
 }
@@ -1177,15 +1188,15 @@ const playbackTravelLine = computed(() => {
   const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
   const color =
     deltaFret > 0
-      ? 'rgba(67, 197, 255, 0.95)'
+      ? FRETBOARD_THEME.playbackTravel.upColor
       : deltaFret < 0
-        ? 'rgba(255, 177, 77, 0.95)'
-        : 'rgba(187, 247, 208, 0.95)'
+        ? FRETBOARD_THEME.playbackTravel.downColor
+        : FRETBOARD_THEME.playbackTravel.sameColor
   const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
   const filter =
     absJump >= 4
-      ? 'drop-shadow(0 0 6px rgba(255, 215, 88, 0.85))'
-      : 'drop-shadow(0 0 3px rgba(255, 210, 50, 0.7))'
+      ? FRETBOARD_THEME.playbackTravel.highJumpFilter
+      : FRETBOARD_THEME.playbackTravel.normalFilter
 
   return { x1, y1, x2, y2, color, strokeWidth, filter }
 })
@@ -1491,11 +1502,84 @@ const boardY = computed(() => -BOARD_OVERHANG)
 const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
 const coreResizeScale = computed(() => {
   const px = Number(props.coreResizePx) || 0
-  return Math.max(0.65, Math.min(1.85, 1 + px / CORE_RESIZE_SCALE_DIVISOR))
+  return Math.max(FRETBOARD_RESIZE.minScale, Math.min(FRETBOARD_RESIZE.maxScale, 1 + px / CORE_RESIZE_SCALE_DIVISOR))
 })
 const coreResizableStyle = computed(() => ({
   transform: `scale(${coreResizeScale.value})`,
 }))
+
+const fretboardLayoutPreset = computed(() => {
+  const vw = Number(viewportWidthPx.value) || 0
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.mobileMax) return FRETBOARD_LAYOUT_PRESETS.mobile
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.tabletMax) return FRETBOARD_LAYOUT_PRESETS.tablet
+  return FRETBOARD_LAYOUT_PRESETS.desktop
+})
+
+const fretboardCssVars = computed(() => {
+  const preset = fretboardLayoutPreset.value
+  const width = preset?.width || FRETBOARD_LAYOUT_PRESETS.desktop.width
+  return {
+    '--fb-ui-scale': String(preset?.uiScale ?? 1),
+    '--fb-side-pad-left': `${Number(preset?.sidePadLeft ?? 40)}px`,
+    '--fb-side-pad-right': `${Number(preset?.sidePadRight ?? 10)}px`,
+    '--fb-width-clamp': `clamp(${Number(width.minPx)}px, ${Number(width.preferredVw)}vw, ${Number(width.maxPx)}px)`,
+    '--fb-gap-px': `${Number(FRETBOARD_UI_TOKENS.gapPx)}px`,
+    '--fb-control-h-px': `${Number(FRETBOARD_UI_TOKENS.controlHeightPx)}px`,
+    '--fb-font-sm-px': `${Number(FRETBOARD_UI_TOKENS.fontSmallPx)}px`,
+    '--fb-top-pad': `${Number(FRETBOARD_UI_TOKENS.topPadPx)}px`,
+    '--fb-bottom-pad': `${Number(FRETBOARD_UI_TOKENS.bottomPadPx)}px`,
+    '--fb-numbers-height-px': `${Number(FRETBOARD_UI_TOKENS.numbersHeightPx)}px`,
+    '--fb-numbers-pad-top-px': `${Number(FRETBOARD_UI_TOKENS.numbersPadTopPx)}px`,
+    '--fb-numbers-margin-top': `${Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx)}px`,
+    '--fb-numbers-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx)}px`,
+    '--fb-actions-margin-top': `${Number(FRETBOARD_UI_TOKENS.actionsMarginTopPx)}px`,
+    '--fb-actions-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.actionsMarginBottomPx)}px`,
+    '--fb-rail-top-pad-px': `${Number(FRETBOARD_UI_TOKENS.railTopPadPx)}px`,
+    '--fb-playback-travel-line-shadow': FRETBOARD_THEME.css.playbackTravelLineShadow,
+    '--fb-now-cross-shadow': FRETBOARD_THEME.css.nowCrossShadow,
+    '--fb-now-ring-shadow': FRETBOARD_THEME.css.nowRingShadow,
+    '--fb-self-loop-shadow': FRETBOARD_THEME.css.selfLoopShadow,
+    '--fb-self-loop-head-shadow': FRETBOARD_THEME.css.selfLoopHeadShadow,
+    '--fb-tone-dot-symbol-fill': FRETBOARD_THEME.css.toneDotSymbolFill,
+    '--fb-tone-dot-symbol-stroke': FRETBOARD_THEME.css.toneDotSymbolStroke,
+    '--fb-tone-dot-pitch-fill': FRETBOARD_THEME.css.toneDotPitchFill,
+    '--fb-tone-dot-pitch-stroke': FRETBOARD_THEME.css.toneDotPitchStroke,
+    '--fb-next-note-preview-stroke': FRETBOARD_THEME.css.nextNotePreviewStroke,
+    '--fb-next-note-preview-shadow': FRETBOARD_THEME.css.nextNotePreviewShadow,
+    '--fb-fret-number-color': FRETBOARD_THEME.css.fretNumberColor,
+    '--fb-fret-number-shadow': FRETBOARD_THEME.css.fretNumberShadow,
+    '--fb-fret-number-marker-color': FRETBOARD_THEME.css.fretNumberMarkerColor,
+    '--fb-fret-number-marker-shadow': FRETBOARD_THEME.css.fretNumberMarkerShadow,
+    '--fb-tooltip-bg': FRETBOARD_THEME.css.tooltipBg,
+    '--fb-tooltip-text': FRETBOARD_THEME.css.tooltipText,
+    '--fb-hand-overlay-fill': FRETBOARD_THEME.css.handOverlayFill,
+    '--fb-hand-overlay-stroke': FRETBOARD_THEME.css.handOverlayStroke,
+    '--fb-hand-overlay-shadow': FRETBOARD_THEME.css.handOverlayShadow,
+    '--fb-hand-suggested-fill': FRETBOARD_THEME.css.handSuggestedFill,
+    '--fb-hand-suggested-stroke': FRETBOARD_THEME.css.handSuggestedStroke,
+    '--fb-hand-suggested-text-fill': FRETBOARD_THEME.css.handSuggestedTextFill,
+    '--fb-hand-suggested-text-stroke': FRETBOARD_THEME.css.handSuggestedTextStroke,
+    '--fb-hand-info-text': FRETBOARD_THEME.css.handInfoText,
+    '--fb-hand-info-warning-text': FRETBOARD_THEME.css.handInfoWarningText,
+    '--fb-chord-detected-text': FRETBOARD_THEME.css.chordDetectedText,
+    '--fb-chord-detected-bg': FRETBOARD_THEME.css.chordDetectedBg,
+    '--fb-chord-detected-border': FRETBOARD_THEME.css.chordDetectedBorder,
+    '--fb-chord-detected-shadow': FRETBOARD_THEME.css.chordDetectedShadow,
+    '--fb-shape-control-border': FRETBOARD_THEME.css.shapeControlBorder,
+    '--fb-shape-control-bg': FRETBOARD_THEME.css.shapeControlBg,
+    '--fb-shape-control-text': FRETBOARD_THEME.css.shapeControlText,
+    '--fb-shape-danger-border': FRETBOARD_THEME.css.shapeDangerBorder,
+    '--fb-shape-danger-text': FRETBOARD_THEME.css.shapeDangerText,
+    '--fb-shape-active-border': FRETBOARD_THEME.css.shapeActiveBorder,
+    '--fb-shape-active-bg': FRETBOARD_THEME.css.shapeActiveBg,
+    '--fb-shape-active-text': FRETBOARD_THEME.css.shapeActiveText,
+    '--fb-color-swatch-border': FRETBOARD_THEME.css.colorSwatchBorder,
+  }
+})
+
+function onViewportResize() {
+  viewportWidthPx.value = Number(globalThis?.innerWidth) || 1440
+}
 
 function dotMidXForFret(fret) {
   const f = Math.max(0, Math.min(Number(fret) || 0, fretsPct.value.length - 1))
@@ -1507,7 +1591,7 @@ function dotMidXForFret(fret) {
 }
 
 const inlayDots = computed(() => {
-  const inlays = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
+  const inlays = FRETBOARD_INLAYS.frets
   const maxF = Math.max(0, Number(props.numFrets) || 0)
   const inside = inlays.filter((f) => f <= maxF)
 
@@ -1515,11 +1599,11 @@ const inlayDots = computed(() => {
   const midY = FB_HEIGHT / 2
   for (const f of inside) {
     const x = dotMidXForFret(f)
-    const isDouble = f === 12 || f === 24
-    const r = 9
+    const isDouble = FRETBOARD_INLAYS.doubleFrets.includes(f)
+    const r = FRETBOARD_INLAYS.radiusPx
     if (isDouble) {
-      out.push({ key: `inlay-${f}-a`, x, y: midY - 22, r })
-      out.push({ key: `inlay-${f}-b`, x, y: midY + 22, r })
+      out.push({ key: `inlay-${f}-a`, x, y: midY - FRETBOARD_INLAYS.doubleOffsetYPx, r })
+      out.push({ key: `inlay-${f}-b`, x, y: midY + FRETBOARD_INLAYS.doubleOffsetYPx, r })
     } else {
       out.push({ key: `inlay-${f}`, x, y: midY, r })
     }
@@ -1662,7 +1746,7 @@ const suggestedHandPositionRange = computed(() => {
   if (!Number.isFinite(fretRaw)) return null
 
   const maxFret = Math.max(1, Number(props.numFrets) || 12)
-  const toSpan = 3
+  const toSpan = FRETBOARD_HAND_POSITION.suggestedSpanFrets
   const startMax = Math.max(1, maxFret - toSpan)
   const fromFret = clamp(Math.round(fretRaw) - 1, 1, startMax)
   const toFret = clamp(fromFret + toSpan, fromFret, maxFret)
@@ -1687,7 +1771,7 @@ const handPositionOverlayRect = computed(() => {
   const xRight = Number(lines[endFret] ?? FB_WIDTH)
   if (!(xRight > xLeft)) return null
 
-  const padY = 16
+  const padY = FRETBOARD_HAND_POSITION.activePadYPx
   const y = topY - padY
   const height = bottomY - topY + padY * 2
   return { x: xLeft, y, width: xRight - xLeft, height, rx: 10 }
@@ -1707,10 +1791,20 @@ const suggestedHandPositionOverlayRect = computed(() => {
   const xRight = Number(lines[toFret] ?? FB_WIDTH)
   if (!(xRight > xLeft)) return null
 
-  const padY = 10
+  const padY = FRETBOARD_HAND_POSITION.suggestedPadYPx
   const y = topY - padY
   const height = bottomY - topY + padY * 2
-  return { x: xLeft, y, width: xRight - xLeft, height, rx: 9, fromFret, toFret }
+  return {
+    x: xLeft,
+    y,
+    width: xRight - xLeft,
+    height,
+    rx: 9,
+    fromFret,
+    toFret,
+    labelX: xLeft + FRETBOARD_HAND_POSITION.suggestedLabelOffsetXPx,
+    labelY: y + FRETBOARD_HAND_POSITION.suggestedLabelOffsetYPx,
+  }
 })
 
 const handModeInfoText = computed(() => {
@@ -1916,8 +2010,8 @@ function onMouseLeave() {
   hideTooltip()
 }
 
-const DOT_BASE_R = 14.4
-const DOT_HOVER_R_FACTOR = 1.12
+const DOT_BASE_R = FRETBOARD_TONE_DOTS.baseRadiusPx
+const DOT_HOVER_R_FACTOR = FRETBOARD_TONE_DOTS.hoverRadiusFactor
 
 function posKeyForToneDot(d) {
   return `${Number(d?.string)}-${Number(d?.fret)}`
@@ -2132,15 +2226,15 @@ function toneDotY(d) {
 }
 
 function harmonyGuideFill(d) {
-  if (d?.inChord && d?.inScale) return 'rgba(230, 154, 66, 0.38)'
-  if (d?.inChord) return 'rgba(230, 154, 66, 0.26)'
+  if (d?.inChord && d?.inScale) return FRETBOARD_THEME.harmonyGuides.fillBoth
+  if (d?.inChord) return FRETBOARD_THEME.harmonyGuides.fillChord
   return 'transparent'
 }
 
 function harmonyGuideStroke(d) {
-  if (d?.inChord && d?.inScale) return 'rgba(255, 202, 125, 0.98)'
-  if (d?.inChord) return 'rgba(255, 188, 96, 0.92)'
-  return 'rgba(135, 190, 255, 0.86)'
+  if (d?.inChord && d?.inScale) return FRETBOARD_THEME.harmonyGuides.strokeBoth
+  if (d?.inChord) return FRETBOARD_THEME.harmonyGuides.strokeChord
+  return FRETBOARD_THEME.harmonyGuides.strokeScale
 }
 
 function harmonyGuideStrokeWidth(d) {
@@ -2165,7 +2259,7 @@ function toneDotOffset(d) {
   // Only horizontal offsets (requested): keep y aligned to the string.
   // Stack direction: only to the left.
   // Queue front is centered (dx=0); subsequent items shift left by OX each.
-  const OX = 3.5
+  const OX = FRETBOARD_INTERACTION.toneDotStackOffsetXPx
   return { dx: -i * OX, dy: 0 }
 }
 
@@ -2246,10 +2340,12 @@ function toneDotOpacity(d) {
 function toneDotStroke(d) {
   const hk = hoverKeyForToneDot(d)
   const hoverStroke =
-    hoveredToneDotKey.value === hk ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
+    hoveredToneDotKey.value === hk
+      ? FRETBOARD_THEME.toneDots.strokeHover
+      : FRETBOARD_THEME.toneDots.strokeDefault
 
   const nk = noteKeyForToneDot(d)
-  if (nk && String(selection.selectedNoteKey || '') === nk) return 'rgba(20, 20, 20, 0.95)'
+  if (nk && String(selection.selectedNoteKey || '') === nk) return FRETBOARD_THEME.toneDots.strokeHover
 
   return hoverStroke
 }
@@ -2295,17 +2391,19 @@ function toneDotR(d) {
 
 function previewR() {
   // Keep preview a touch smaller than a fully hovered active ToneDot.
-  return DOT_BASE_R * 1.02
+  return DOT_BASE_R * FRETBOARD_TONE_DOTS.previewRadiusFactor
 }
 
 onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
+  window.addEventListener('resize', onViewportResize)
 })
 
 onBeforeUnmount(() => {
   closeToneDotContextMenu()
   stopAnim()
+  window.removeEventListener('resize', onViewportResize)
 })
 
 watch(
@@ -2332,16 +2430,27 @@ watch(
 
 <style scoped>
 .fretboard-body {
+  --fb-ui-scale: 1;
+  --fb-gap-px: 8px;
+  --fb-control-h-px: 26px;
+  --fb-font-sm-px: 12px;
+  --fb-gap: calc(var(--fb-gap-px) * var(--fb-ui-scale));
+  --fb-control-h: calc(var(--fb-control-h-px) * var(--fb-ui-scale));
+  --fb-font-sm: calc(var(--fb-font-sm-px) * var(--fb-ui-scale));
   --fb-side-pad-left: 40px;
   --fb-side-pad-right: 10px;
   --fb-top-pad: 10px;
   --fb-bottom-pad: 10px;
+  --fb-numbers-height-px: 28px;
+  --fb-numbers-pad-top-px: 6px;
   --fb-numbers-margin-top: 10px;
   --fb-numbers-margin-bottom: 10px;
   --fb-actions-margin-top: -2px;
   --fb-actions-margin-bottom: 8px;
-  width: 100%;
-  max-width: 1460px;
+  --fb-rail-top-pad-px: 30px;
+  width: var(--fb-width-clamp, clamp(760px, 92vw, 1460px));
+  max-width: 100%;
+  margin-inline: auto;
   padding-bottom: var(--fb-bottom-pad);
   display: flex;
   flex-direction: column;
@@ -2349,7 +2458,7 @@ watch(
   gap: var(--panel-side-gap, 6px);
   position: relative;
   overflow: visible;
-  min-width: 1150px;
+  min-width: 0;
 }
 
 .fb-view-mask rect {
@@ -2395,7 +2504,7 @@ watch(
 
 .fb-playback-travel-line line {
   stroke-linecap: round;
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+  filter: var(--fb-playback-travel-line-shadow);
 }
 
 .fb-now-string-line {
@@ -2406,21 +2515,21 @@ watch(
 .fb-now-cross {
   stroke-width: 4.2;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 5px rgba(255, 245, 195, 0.75));
+  filter: var(--fb-now-cross-shadow);
 }
 
 .fb-now-ring {
   fill: none;
   stroke-width: 2.8;
   opacity: 0.95;
-  filter: drop-shadow(0 0 4px rgba(255, 226, 120, 0.72));
+  filter: var(--fb-now-ring-shadow);
 }
 
 .fb-playback-self-loop circle,
 .fb-playback-self-loop line {
   stroke-width: 3.1;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+  filter: var(--fb-self-loop-shadow);
 }
 
 .fb-playback-self-loop .self-loop-base {
@@ -2432,7 +2541,7 @@ watch(
 }
 
 .fb-playback-self-loop .self-loop-head {
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.75));
+  filter: var(--fb-self-loop-head-shadow);
 }
 
 .fb-harmony-guides circle {
@@ -2440,8 +2549,8 @@ watch(
 }
 
 .fb-tone-dot-symbol {
-  fill: rgba(255, 255, 255, 0.98);
-  stroke: rgba(20, 20, 20, 0.75);
+  fill: var(--fb-tone-dot-symbol-fill);
+  stroke: var(--fb-tone-dot-symbol-stroke);
   stroke-width: 1.4;
   paint-order: stroke;
   pointer-events: none;
@@ -2453,8 +2562,8 @@ watch(
 }
 
 .fb-tone-dot-pitch {
-  fill: rgba(255, 255, 255, 0.95);
-  stroke: rgba(20, 20, 20, 0.72);
+  fill: var(--fb-tone-dot-pitch-fill);
+  stroke: var(--fb-tone-dot-pitch-stroke);
   stroke-width: 1.1;
   paint-order: stroke;
   pointer-events: none;
@@ -2467,30 +2576,30 @@ watch(
 
 .fb-next-note-preview {
   fill: none;
-  stroke: rgba(255, 243, 186, 0.9);
+  stroke: var(--fb-next-note-preview-stroke);
   stroke-width: 2.4;
   stroke-dasharray: 5 3;
-  filter: drop-shadow(0 0 4px rgba(255, 230, 120, 0.75));
+  filter: var(--fb-next-note-preview-shadow);
   pointer-events: none;
 }
 
 .fb-hand-position-overlay rect {
-  fill: rgba(165, 118, 55, 0.3);
-  stroke: rgba(112, 78, 34, 0.65);
+  fill: var(--fb-hand-overlay-fill);
+  stroke: var(--fb-hand-overlay-stroke);
   stroke-width: 2.2;
-  filter: drop-shadow(0 0 5px rgba(133, 91, 39, 0.45));
+  filter: var(--fb-hand-overlay-shadow);
 }
 
 .fb-hand-position-suggested rect {
-  fill: rgba(89, 148, 211, 0.17);
-  stroke: rgba(146, 197, 255, 0.9);
+  fill: var(--fb-hand-suggested-fill);
+  stroke: var(--fb-hand-suggested-stroke);
   stroke-width: 1.8;
   stroke-dasharray: 6 4;
 }
 
 .fb-hand-position-suggested text {
-  fill: rgba(219, 238, 255, 0.96);
-  stroke: rgba(15, 20, 26, 0.5);
+  fill: var(--fb-hand-suggested-text-fill);
+  stroke: var(--fb-hand-suggested-text-stroke);
   stroke-width: 1;
   paint-order: stroke;
   font-size: 10px;
@@ -2505,8 +2614,8 @@ watch(
   padding: 4px 8px;
   border-radius: 6px;
 
-  background: rgba(20, 20, 20, 0.9);
-  color: white;
+  background: var(--fb-tooltip-bg);
+  color: var(--fb-tooltip-text);
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
@@ -2519,10 +2628,10 @@ watch(
   position: relative;
   width: 100%;
   z-index: 6;
-  height: 28px;
+  height: var(--fb-numbers-height-px);
   margin-top: var(--fb-numbers-margin-top);
   margin-bottom: var(--fb-numbers-margin-bottom);
-  padding-top: 6px;
+  padding-top: var(--fb-numbers-pad-top-px);
   background: transparent;
   border-radius: 10px;
   overflow: visible;
@@ -2533,25 +2642,19 @@ watch(
   top: 6px;
   transform: translateX(-50%);
 
-  font-size: 13px;
+  font-size: calc(13px * var(--fb-ui-scale));
   font-weight: 800;
   line-height: 1;
 
-  color: rgba(34, 40, 48, 0.96);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 2px rgba(255, 255, 255, 0.8),
-    0 1px 2px rgba(0, 0, 0, 0.28);
+  color: var(--fb-fret-number-color);
+  text-shadow: var(--fb-fret-number-shadow);
   user-select: none;
 }
 
 .fb-fret-number.is-marker-fret {
-  color: rgba(140, 114, 35, 0.98);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.92),
-    0 0 2px rgba(255, 255, 255, 0.78),
-    0 1px 2px rgba(0, 0, 0, 0.3);
-  font-size: 14px;
+  color: var(--fb-fret-number-marker-color);
+  text-shadow: var(--fb-fret-number-marker-shadow);
+  font-size: calc(14px * var(--fb-ui-scale));
 }
 
 .fb-fret-actions {
@@ -2559,7 +2662,7 @@ watch(
   justify-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--fb-gap);
   padding-left: var(--fb-side-pad-left);
   padding-right: var(--fb-side-pad-right);
   margin-top: var(--fb-actions-margin-top);
@@ -2570,8 +2673,8 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding-top: 30px;
+  gap: var(--fb-gap);
+  padding-top: calc(var(--fb-rail-top-pad-px) * var(--fb-ui-scale));
 }
 
 .fb-rail-controls.fb-inline-controls {
@@ -2584,18 +2687,18 @@ watch(
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--fb-gap);
 }
 
 .fb-fret-actions :deep(.fb-top-control),
 .fb-rail-controls :deep(.fb-top-control) {
-  --v-btn-height: 26px;
-  min-height: 26px !important;
-  height: 26px !important;
+  --v-btn-height: var(--fb-control-h);
+  min-height: var(--fb-control-h) !important;
+  height: var(--fb-control-h) !important;
   min-width: 36px;
   border-radius: 6px;
   padding: 0 9px;
-  font-size: 12px;
+  font-size: var(--fb-font-sm);
   font-weight: 700;
 }
 
@@ -2636,7 +2739,7 @@ watch(
   width: 9px;
   height: 9px;
   border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--fb-color-swatch-border);
 }
 
 .fb-hand-mode-info {
@@ -2647,11 +2750,11 @@ watch(
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: rgba(225, 233, 242, 0.9);
+  color: var(--fb-hand-info-text);
 }
 
 .fb-hand-mode-info .is-warning {
-  color: rgba(255, 210, 138, 0.96);
+  color: var(--fb-hand-info-warning-text);
 }
 
 .fb-chord-shape-panel {
@@ -2666,22 +2769,22 @@ watch(
   min-width: 86px;
   font-size: 12px;
   font-weight: 800;
-  color: #fff7cf;
-  background: rgba(14, 22, 31, 0.86);
-  border: 1px solid rgba(255, 230, 153, 0.5);
+  color: var(--fb-chord-detected-text);
+  background: var(--fb-chord-detected-bg);
+  border: 1px solid var(--fb-chord-detected-border);
   border-radius: 6px;
   padding: 3px 8px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  text-shadow: var(--fb-chord-detected-shadow);
 }
 
 .fb-shape-btn,
 .fb-shape-select {
-  height: 26px;
+  height: var(--fb-control-h);
   border-radius: 6px;
-  border: 1px solid rgba(180, 198, 217, 0.35);
-  background: rgba(18, 25, 34, 0.55);
-  color: rgba(238, 245, 251, 0.95);
-  font-size: 12px;
+  border: 1px solid var(--fb-shape-control-border);
+  background: var(--fb-shape-control-bg);
+  color: var(--fb-shape-control-text);
+  font-size: var(--fb-font-sm);
   font-weight: 700;
 }
 
@@ -2697,14 +2800,14 @@ watch(
 }
 
 .fb-shape-btn.is-danger {
-  border-color: rgba(255, 160, 160, 0.45);
-  color: rgba(255, 196, 196, 0.95);
+  border-color: var(--fb-shape-danger-border);
+  color: var(--fb-shape-danger-text);
 }
 
 .fb-shape-btn.is-active {
-  border-color: rgba(255, 171, 108, 0.9);
-  background: rgba(160, 72, 18, 0.42);
-  color: rgba(255, 231, 206, 0.98);
+  border-color: var(--fb-shape-active-border);
+  background: var(--fb-shape-active-bg);
+  color: var(--fb-shape-active-text);
 }
 
 .fb-shape-select {
