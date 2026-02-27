@@ -1,10 +1,8 @@
 <template>
-  <div ref="timelineMainEl" class="timeline-main" :style="timelineMainStyle">
+  <div class="timeline-main" :style="timelineMainStyle">
     <div v-if="countInVisible" class="count-in-lightbox" aria-live="polite" aria-atomic="true">
       <div class="count-in-value">{{ countInBeat }}</div>
     </div>
-    <button class="timeline-main-resize-handle" type="button" :aria-label="t('timelineView.dragTimelineLength')"
-      @pointerdown="(e) => onColumnsResizePointerDown(e, -1)" />
 
     <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
       <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
@@ -283,7 +281,6 @@ function isFirstVisibleTrack(track) {
 }
 
 const selection = useSelectionStore()
-const timelineMainHeightPx = ref(TIMELINE_LAYOUT.main.defaultHeightPx)
 
 const timelineMainStyle = computed(() => {
   const widths = TIMELINE_LAYOUT.secondaryMenu.sizes
@@ -313,12 +310,11 @@ const timelineMainStyle = computed(() => {
     '--tl-marker-layer-h': `${TIMELINE_LAYOUT.headers.markerLayerHeightPx}px`,
     '--tl-marker-layer-gap': `${TIMELINE_LAYOUT.headers.markerLayerBottomGapPx}px`,
     '--tl-loop-layer-h': `${TIMELINE_LAYOUT.headers.loopBracketLayerHeightPx}px`,
-    height: `${Number(timelineMainHeightPx.value) || TIMELINE_LAYOUT.main.defaultHeightPx}px`,
+    height: '100%',
   }
 })
 
 const scrollEl = ref(null)
-const timelineMainEl = ref(null)
 const timelineColumnsEl = ref(null)
 const secondaryMenuSize = ref('m')
 const marqueeActive = ref(false)
@@ -338,14 +334,6 @@ const loopDrag = ref({
   active: false,
   kind: '',
   pointerId: null,
-})
-const columnsResizeDrag = ref({
-  active: false,
-  pointerId: null,
-  startClientY: 0,
-  startHeightPx: 0,
-  direction: 1,
-  target: null,
 })
 const timelineColumnsHeightPx = ref(null)
 const timelineColumnsMeasuredHeightPx = ref(0)
@@ -420,74 +408,6 @@ function clampColumnsHeight(v) {
   if (!Number.isFinite(n)) return columnsHeightBounds().min
   const { min, max } = columnsHeightBounds()
   return Math.max(min, Math.min(max, Math.round(n)))
-}
-
-function mainHeightBounds() {
-  const min = TIMELINE_LAYOUT.main.minHeightPx
-  const viewport = Number(window?.innerHeight) || 0
-  const max = Math.max(min, viewport - TIMELINE_LAYOUT.main.maxViewportOffsetPx)
-  return { min, max }
-}
-
-function clampMainHeight(v) {
-  const n = Number(v)
-  if (!Number.isFinite(n)) return mainHeightBounds().min
-  const { min, max } = mainHeightBounds()
-  return Math.max(min, Math.min(max, Math.round(n)))
-}
-
-function onColumnsResizePointerDown(e, direction = TIMELINE_BEHAVIOR.resize.defaultDirection) {
-  if (e?.button != null && e.button !== 0) return
-  const pointerId = e?.pointerId
-  if (pointerId == null) return
-
-  const currentHeight = Number(timelineMainEl.value?.offsetHeight) || 0
-  columnsResizeDrag.value = {
-    active: true,
-    pointerId,
-    startClientY: Number(e?.clientY) || 0,
-    startHeightPx:
-      currentHeight > 0
-        ? currentHeight
-        : clampMainHeight(TIMELINE_LAYOUT.main.defaultHeightPx),
-    direction: Number(direction) === -1 ? -1 : TIMELINE_BEHAVIOR.resize.defaultDirection,
-    target: null,
-  }
-
-  window.addEventListener('pointermove', onColumnsResizePointerMove, { passive: false })
-  window.addEventListener('pointerup', onColumnsResizePointerUp)
-  window.addEventListener('pointercancel', onColumnsResizePointerUp)
-  e.preventDefault()
-  e.stopPropagation()
-}
-
-function onColumnsResizePointerMove(e) {
-  const drag = columnsResizeDrag.value
-  if (!drag.active) return
-  if (e?.pointerId !== drag.pointerId) return
-  const dy = (Number(e?.clientY) || 0) - drag.startClientY
-  timelineMainHeightPx.value = clampMainHeight(drag.startHeightPx + dy * drag.direction)
-  e.preventDefault()
-  e.stopPropagation()
-}
-
-function onColumnsResizePointerUp(e) {
-  const drag = columnsResizeDrag.value
-  if (!drag.active) return
-  if (e?.pointerId !== drag.pointerId) return
-  window.removeEventListener('pointermove', onColumnsResizePointerMove)
-  window.removeEventListener('pointerup', onColumnsResizePointerUp)
-  window.removeEventListener('pointercancel', onColumnsResizePointerUp)
-  columnsResizeDrag.value = {
-    active: false,
-    pointerId: null,
-    startClientY: 0,
-    startHeightPx: 0,
-    direction: 1,
-    target: null,
-  }
-  e?.preventDefault?.()
-  e?.stopPropagation?.()
 }
 
 function toContentCoords(clientX, clientY) {
@@ -778,29 +698,18 @@ function onLoopHandlePointerUp(e) {
 
 onBeforeUnmount(() => {
   if (marqueeRaf) cancelAnimationFrame(marqueeRaf)
-  window.removeEventListener('pointermove', onColumnsResizePointerMove)
-  window.removeEventListener('pointerup', onColumnsResizePointerUp)
-  window.removeEventListener('pointercancel', onColumnsResizePointerUp)
   timelineColumnsResizeObserver?.disconnect?.()
   timelineColumnsResizeObserver = null
   window.removeEventListener('resize', onWindowResizeColumns)
 })
 
 function onWindowResizeColumns() {
-  if (Number(timelineMainHeightPx.value) > 0) {
-    timelineMainHeightPx.value = clampMainHeight(timelineMainHeightPx.value)
-  }
   if (!(Number(timelineColumnsHeightPx.value) > 0)) return
   timelineColumnsHeightPx.value = clampColumnsHeight(timelineColumnsHeightPx.value)
   measureTimelineColumnsHeight()
 }
 
 onMounted(() => {
-  timelineMainHeightPx.value = clampMainHeight(
-    Number(timelineMainEl.value?.offsetHeight) ||
-      Number(timelineMainHeightPx.value) ||
-      TIMELINE_LAYOUT.main.defaultHeightPx,
-  )
   window.addEventListener('resize', onWindowResizeColumns)
   attachTimelineColumnsResizeObserver()
 })
@@ -1223,36 +1132,6 @@ const barBeatLabel = computed(() => {
   align-items: stretch;
 }
 
-.timeline-main-resize-handle {
-  display: block;
-  width: calc(100% - (var(--secondary-menu-w) + var(--space-4)));
-  margin: 0 0 6px var(--space-2);
-  height: var(--tl-main-resize-handle-h);
-  border: 0;
-  border-radius: 0;
-  position: relative;
-  background: transparent;
-  cursor: ns-resize;
-}
-
-.timeline-main-resize-handle::before,
-.timeline-main-resize-handle::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--tl-resize-line-color);
-}
-
-.timeline-main-resize-handle::before {
-  top: 3px;
-}
-
-.timeline-main-resize-handle::after {
-  top: 6px;
-}
-
 .timeline-column-card {
   border: 1px solid var(--color-border);
   border-radius: 0;
@@ -1465,10 +1344,6 @@ const barBeatLabel = computed(() => {
   .timeline-body {
     min-width: 0;
     padding-right: 0;
-  }
-
-  .timeline-main-resize-handle {
-    width: calc(100% - (2 * var(--space-2)));
   }
 
   .status-chip {

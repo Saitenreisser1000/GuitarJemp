@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import WindowManager from '@/components/app/WindowManager.vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
@@ -13,18 +14,16 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
 const numFrets = ref(12)
 const corePadResizePx = ref(0)
+const fretboardMainEl = ref(null)
 const timelineRef = ref(null)
 const transportVisible = ref(true)
-const showFretboard = ref(false)
+const showFretboard = ref(true)
+const showTimeline = ref(true)
 const showTransportBar = ref(false)
-let resizeStartY = 0
-let resizeStartPad = 0
-let isResizing = false
-let isResizeSnappedToDefault = false
 const RESIZE_MIN = -100
 const RESIZE_MAX = 260
-const RESIZE_SNAP_ENTER_PX = 10
-const RESIZE_SNAP_RELEASE_PX = 18
+let fretboardResizeObserver = null
+let fretboardBaseContentHeightPx = 0
 
 const instrument = useInstrumentStore()
 const notes = useNotesStore()
@@ -51,43 +50,21 @@ async function loadStartupMusicXml() {
     timelineSettings.setBeatBottom(Number(clip.beatBottom))
 }
 
-function onResizeMove(event) {
-  if (!isResizing) return
-  const dy = (Number(event?.clientY) || 0) - resizeStartY
-  const raw = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, Math.round(resizeStartPad + dy)))
-  if (isResizeSnappedToDefault) {
-    if (Math.abs(raw) <= RESIZE_SNAP_RELEASE_PX) {
-      corePadResizePx.value = 0
-      return
-    }
-    isResizeSnappedToDefault = false
+function updateFretboardResizeFromParentHeight(heightPx) {
+  const h = Number(heightPx) || 0
+  if (!(h > 0)) return
+  const parentEl = fretboardMainEl.value
+  const contentEl = parentEl?.querySelector?.('.fretboard-body')
+  if (!(fretboardBaseContentHeightPx > 0)) {
+    const intrinsic = Number(contentEl?.scrollHeight) || 0
+    if (intrinsic > 0) fretboardBaseContentHeightPx = intrinsic
   }
-  if (Math.abs(raw) <= RESIZE_SNAP_ENTER_PX) {
+  if (!(fretboardBaseContentHeightPx > 0)) {
     corePadResizePx.value = 0
-    isResizeSnappedToDefault = true
     return
   }
-  corePadResizePx.value = raw
-}
-
-function stopResize() {
-  isResizing = false
-  isResizeSnappedToDefault = false
-  window.removeEventListener('pointermove', onResizeMove)
-  window.removeEventListener('pointerup', stopResize)
-  window.removeEventListener('pointercancel', stopResize)
-}
-
-function onResizeStart(event) {
-  if (event.button !== 0) return
-  event.preventDefault()
-  isResizing = true
-  isResizeSnappedToDefault = Number(corePadResizePx.value) === 0
-  resizeStartY = Number(event.clientY) || 0
-  resizeStartPad = Number(corePadResizePx.value) || 0
-  window.addEventListener('pointermove', onResizeMove, { passive: false })
-  window.addEventListener('pointerup', stopResize)
-  window.addEventListener('pointercancel', stopResize)
+  const raw = Math.round(h - fretboardBaseContentHeightPx)
+  corePadResizePx.value = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, raw))
 }
 
 const fretboardStyleVars = computed(() => ({
@@ -132,23 +109,38 @@ onMounted(async () => {
   } catch (err) {
     console.warn('[startup-import] Could not load ballad-picking sample:', err)
   }
+  await nextTick()
+  const el = fretboardMainEl.value
+  if (!el || typeof ResizeObserver === 'undefined') return
+  updateFretboardResizeFromParentHeight(el.getBoundingClientRect().height)
+  fretboardResizeObserver = new ResizeObserver((entries) => {
+    const entry = entries?.[0]
+    const h = Number(entry?.contentRect?.height) || 0
+    updateFretboardResizeFromParentHeight(h)
+  })
+  fretboardResizeObserver.observe(el)
 })
 
 onBeforeUnmount(() => {
-  stopResize()
+  fretboardResizeObserver?.disconnect?.()
+  fretboardResizeObserver = null
 })
 </script>
 
 <template>
   <div class="app-layout">
-    <div v-if="showFretboard" class="fretboard-main">
-      <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
-      <button type="button" class="fretboard-root-resize-handle" aria-label="Resize bottom edge"
-        @pointerdown="onResizeStart" />
-    </div>
-    <Timeline ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
-      :transport-visible="transportVisible"
-      @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+    <WindowManager>
+      <template #pane-a>
+        <div v-if="showFretboard" ref="fretboardMainEl" class="fretboard-main">
+          <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+        </div>
+      </template>
+      <template #pane-b>
+        <Timeline v-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
+          :transport-visible="transportVisible"
+          @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+      </template>
+    </WindowManager>
     <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
@@ -168,31 +160,29 @@ onBeforeUnmount(() => {
 .app-layout {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
 }
 
 .app-layout :deep(.timeline-main) {
-  margin-top: auto;
+  margin-top: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .fretboard-main {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   width: 100%;
   overflow-x: auto;
   overflow-y: visible;
 }
 
-.fretboard-root-resize-handle {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
-  height: 6px;
-  border: 0;
-  padding: 0;
-  background: #8a8a8a;
-  cursor: ns-resize;
-  touch-action: none;
+.fretboard-main :deep(.fretboard-body) {
+  width: 100%;
 }
 </style>

@@ -2470,14 +2470,16 @@ watch(
   padding-left: var(--fb-side-pad-left);
   padding-right: var(--fb-side-pad-right);
   padding-top: var(--fb-top-pad);
-  padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
-  margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
+  padding-bottom: 0;
+  margin-bottom: 0;
   box-sizing: border-box;
   overflow: visible;
 }
 
 .fb-core-resizable {
   width: 100%;
+  padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
+  margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
   transform-origin: top center;
   overflow: visible;
 }
