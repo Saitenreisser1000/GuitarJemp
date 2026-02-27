@@ -341,14 +341,13 @@ import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 import { gridIndexToStartMs, lengthBlocksToDurationMs } from '@/domain/timelineTime'
 import { useI18n } from '@/i18n'
 
-defineOptions({ name: 'Fretboard' })
+defineOptions({ name: 'FretboardView' })
 
 const props = defineProps({
   numFrets: { type: Number, required: true },
   editable: { type: Boolean, default: false },
   coreResizePx: { type: Number, default: 0 },
 })
-const emit = defineEmits(['update-frets'])
 
 const FB_WIDTH = FRETBOARD_DIMENSIONS.width
 const FB_HEIGHT = FRETBOARD_DIMENSIONS.height
@@ -375,39 +374,9 @@ const { handPositions } = storeToRefs(handPositionsStore)
 const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } =
   storeToRefs(harmonyMenu)
 const isPlaying = computed(() => playState.value === 'playing')
-const numStringsLocal = computed({
-  get: () => Number(instrument.numStrings) || 6,
-  set: (v) => instrument.setNumStrings(Number(v)),
-})
-const numFretsLocal = computed({
-  get: () => Number(props.numFrets) || 12,
-  set: (v) => emit('update-frets', Number(v)),
-})
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
 const fretViewTo = ref(Math.max(0, Number(props.numFrets) || 12))
-const fretViewModeItems = [
-  { title: 'Full', value: 'full' },
-  { title: 'From-To', value: 'range' },
-]
-const fretViewFromLocal = computed({
-  get: () => Number(fretViewFrom.value),
-  set: (v) => {
-    const max = Math.max(0, Number(props.numFrets) || 12)
-    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
-    fretViewFrom.value = next
-    if (next > Number(fretViewTo.value)) fretViewTo.value = next
-  },
-})
-const fretViewToLocal = computed({
-  get: () => Number(fretViewTo.value),
-  set: (v) => {
-    const max = Math.max(0, Number(props.numFrets) || 12)
-    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
-    fretViewTo.value = next
-    if (next < Number(fretViewFrom.value)) fretViewFrom.value = next
-  },
-})
 const fretViewRange = computed(() => {
   const max = Math.max(0, Number(props.numFrets) || 12)
   if (fretViewMode.value !== 'range') return { from: 0, to: max }

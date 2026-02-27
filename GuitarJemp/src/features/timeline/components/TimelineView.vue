@@ -842,28 +842,6 @@ watch(
   { flush: 'post' },
 )
 
-const timePerBlockMs = computed(() => {
-  const total = Number(props.totalDuration) || 0
-  const blocks = Number(props.totalBlocks) || 0
-  if (!(total > 0) || !(blocks > 0)) return 0
-  return total / blocks
-})
-
-function formatMs(tMs) {
-  const ms = Math.max(0, Number(tMs) || 0)
-  const totalSeconds = ms / 1000
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = Math.floor(totalSeconds % 60)
-  const hundredths = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100)
-
-  const mm = String(minutes).padStart(2, '0')
-  const ss = String(seconds).padStart(2, '0')
-  const hh = String(hundredths).padStart(2, '0')
-  return `${mm}:${ss}.${hh}`
-}
-
-const playheadTimeLabel = computed(() => formatMs(props.playhead))
-
 const beatsPerBarSafe = computed(() => {
   const v = Number.parseInt(String(props.beatTop), 10)
   return Number.isFinite(v) && v > 0 ? v : 1
@@ -876,17 +854,6 @@ const beatBottomSafe = computed(() => {
 
 const blocksPerBeatSafe = computed(() => 4 / beatBottomSafe.value)
 const blocksPerBarSafe = computed(() => beatsPerBarSafe.value * blocksPerBeatSafe.value)
-
-const pickupBeatsSafe = computed(() => {
-  const raw = Number.parseInt(String(props.pickupBeats), 10)
-  if (!Number.isFinite(raw)) return 1
-  const maxByBeat = Math.max(1, beatsPerBarSafe.value - 1)
-  return Math.max(1, Math.min(Math.min(9, raw), maxByBeat))
-})
-
-const pickupBlocksSafe = computed(() =>
-  props.pickupEnabled ? pickupBeatsSafe.value * blocksPerBeatSafe.value : 0,
-)
 
 const barsNoPickup = computed({
   get: () => {
@@ -921,40 +888,6 @@ function incrementBarsNoPickup() {
   barsNoPickup.value = Math.min(TIMELINE_LAYOUT.bars.maxCount, Number(barsNoPickup.value) + 1)
 }
 
-const barBeatLabel = computed(() => {
-  const beatsPerBarRaw = Number.parseInt(String(props.beatTop), 10)
-  const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 1
-
-  const tpb = timePerBlockMs.value
-  if (!(tpb > 0)) return t('timelineView.barBeatFallback')
-
-  const totalBlocks = Math.max(1, Number(props.totalBlocks) || 1)
-  const blocksRaw = (Number(props.playhead) || 0) / tpb
-  // If we're exactly at the end, show the last bar (not "one past").
-  const blocks = Math.min(totalBlocks - 1e-9, Math.max(0, blocksRaw))
-  const beatBottom = Number.parseInt(String(props.beatBottom), 10)
-  const blocksPerBeat = 4 / ([1, 2, 4, 8].includes(beatBottom) ? beatBottom : 4)
-  const blocksPerBar = beatsPerBar * blocksPerBeat
-  const pickupOn = Boolean(props.pickupEnabled)
-  const rawPickupBeats = Number.parseInt(String(props.pickupBeats), 10)
-  const pickupBeats = Number.isFinite(rawPickupBeats)
-    ? Math.max(1, Math.min(Math.max(1, beatsPerBar - 1), Math.min(9, rawPickupBeats)))
-    : 1
-  const pickupBlocks = pickupOn ? pickupBeats * blocksPerBeat : 0
-
-  let bar = 1
-  let beat = 1
-  if (pickupOn && pickupBlocks > 0 && blocks < pickupBlocks) {
-    bar = 0
-    beat = Math.floor(blocks / blocksPerBeat) + 1
-  } else {
-    const shifted = pickupOn ? blocks - pickupBlocks : blocks
-    const blockIndex = Math.floor(Math.max(0, shifted))
-    bar = Math.floor(blockIndex / blocksPerBar) + 1
-    beat = Math.floor((blockIndex % blocksPerBar) / blocksPerBeat) + 1
-  }
-  return `${bar}|${beat}`
-})
 </script>
 
 <style scoped>

@@ -21,7 +21,7 @@
 import { useI18n } from '@/i18n'
 import PlaybackControls from './PlaybackControls.vue'
 
-const props = defineProps({
+defineProps({
   visible: { type: Boolean, default: true },
   isPlaying: { type: Boolean, required: true },
   tempo: { type: Number, required: true },

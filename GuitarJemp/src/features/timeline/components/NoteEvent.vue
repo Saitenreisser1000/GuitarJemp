@@ -173,24 +173,6 @@ const leftPercent = computed(() => {
   return ((clamped - 1) / total) * 100
 })
 
-const widthPercent = computed(() => {
-  const total = Math.max(1, Number(props.totalBlocks) || 1)
-  const baseLen = safeLengthBlocks.value
-  const useGroup = isGroupSelected.value && selection.groupResizeActive
-  const previewDelta =
-    isGroupSelected.value && selection.groupResizeActive
-      ? Number(selection.groupResizeDeltaBlocks || 0)
-      : 0
-  const previewLen = baseLen + previewDelta
-  const len = useGroup
-    ? previewLen
-    : isResizing.value
-      ? Number(dragLength.value ?? baseLen)
-      : baseLen
-  const safeLen = Number.isFinite(len) && len > 0 ? len : 1
-  return (safeLen / total) * 100
-})
-
 function parseColorToRgb(input) {
   const raw = String(input ?? '').trim()
   if (!raw) return null
