@@ -72,4 +72,18 @@ function setMode(mode) {
   font-weight: 700;
   padding-inline: 12px;
 }
+
+.timeline-mode-btn :deep(.v-btn__overlay),
+.timeline-mode-btn :deep(.v-btn__underlay) {
+  border: 0 !important;
+}
+
+.timeline-mode-btn :deep(.v-btn__content) {
+  border: 0 !important;
+}
+
+.timeline-mode-btn :deep(.v-btn) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
 </style>

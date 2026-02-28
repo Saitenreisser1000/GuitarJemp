@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import WindowManager from '@/components/app/WindowManager.vue'
+import LayoutManager from '@/components/app/LayoutManager.vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
@@ -19,7 +19,7 @@ const timelineRef = ref(null)
 const transportVisible = ref(true)
 const showFretboard = ref(true)
 const showTimeline = ref(true)
-const showTransportBar = ref(false)
+const showTransportBar = ref(true)
 const RESIZE_MIN = -100
 const RESIZE_MAX = 260
 let fretboardResizeObserver = null
@@ -129,18 +129,33 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-layout">
-    <WindowManager>
-      <template #pane-a>
-        <div v-if="showFretboard" ref="fretboardMainEl" class="fretboard-main">
-          <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
-        </div>
-      </template>
-      <template #pane-b>
-        <Timeline v-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
-          :transport-visible="transportVisible"
-          @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
-      </template>
-    </WindowManager>
+    <header class="app-header">
+      <h1 class="app-title">GuitarJemp</h1>
+    </header>
+
+    <nav class="app-menu" aria-label="Main menu">
+      <button type="button" class="app-menu-item is-active">Editor</button>
+      <button type="button" class="app-menu-item">Library</button>
+      <button type="button" class="app-menu-item">Settings</button>
+    </nav>
+
+    <main class="app-content">
+      <LayoutManager class="app-window-manager">
+        <template #pane-a>
+          <div v-if="showFretboard" ref="fretboardMainEl" class="fretboard-main">
+            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+          </div>
+        </template>
+        <template #pane-b>
+          <Timeline v-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
+            :transport-visible="transportVisible"
+            @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+        </template>
+        <template #sidebar>
+          <div class="app-sidebar-title">Sidebar</div>
+        </template>
+      </LayoutManager>
+    </main>
     <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
@@ -153,6 +168,10 @@ onBeforeUnmount(() => {
       @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
       @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
       @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
+
+    <footer class="app-footer">
+      <span>GuitarJemp Workspace</span>
+    </footer>
   </div>
 </template>
 
@@ -162,6 +181,66 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100vh;
   width: 100%;
+}
+
+.app-header,
+.app-footer {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  background: #111;
+  color: #f3f3f3;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.app-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px;
+  border-top: 1px solid #2f2f2f;
+  border-bottom: 1px solid #c8c8c8;
+  background: #efefef;
+}
+
+.app-menu-item {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #c5c5c5;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-menu-item.is-active {
+  border-color: #222;
+}
+
+.app-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-window-manager {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-sidebar-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
 }
 
 .app-layout :deep(.timeline-main) {
