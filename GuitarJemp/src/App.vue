@@ -4,6 +4,7 @@ import LayoutManager from '@/components/app/LayoutManager.vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
+import FretboardContextMenu from '@/features/fretboard/components/FretboardContextMenu.vue'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { getTuning } from '@/domain/music/tunings'
 import { useInstrumentStore } from '@/store/useInstrument'
@@ -154,7 +155,8 @@ onBeforeUnmount(() => {
             @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
         </template>
         <template #sidebar>
-          <div class="app-sidebar-title">Sidebar</div>
+          <div class="app-sidebar-title">Fretboard Context</div>
+          <FretboardContextMenu />
         </template>
       </LayoutManager>
     </main>
