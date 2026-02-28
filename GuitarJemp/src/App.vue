@@ -129,15 +129,17 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-layout">
-    <header class="app-header">
-      <h1 class="app-title">GuitarJemp</h1>
+    <header class="app-topbar">
+      <div class="app-topbar-title">GuitarJemp</div>
     </header>
-
-    <nav class="app-menu" aria-label="Main menu">
-      <button type="button" class="app-menu-item is-active">Editor</button>
-      <button type="button" class="app-menu-item">Library</button>
-      <button type="button" class="app-menu-item">Settings</button>
-    </nav>
+    <div class="app-menu-bar" aria-label="Main menu">
+      <v-btn variant="text" size="small" class="app-menu-btn">File</v-btn>
+      <v-btn variant="text" size="small" class="app-menu-btn">Edit</v-btn>
+      <v-btn variant="text" size="small" class="app-menu-btn">View</v-btn>
+      <v-btn variant="text" size="small" class="app-menu-btn">Window</v-btn>
+      <v-btn variant="text" size="small" class="app-menu-btn">Language</v-btn>
+      <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
+    </div>
 
     <main class="app-content">
       <LayoutManager class="app-window-manager">
@@ -183,7 +185,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.app-header,
 .app-footer {
   display: flex;
   align-items: center;
@@ -193,36 +194,47 @@ onBeforeUnmount(() => {
   color: #f3f3f3;
 }
 
-.app-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.app-menu {
+.app-topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 10px;
-  border-top: 1px solid #2f2f2f;
+  min-height: 42px;
+  padding-inline: 12px;
+  border-bottom: 1px solid #2f2f2f;
+  background: #111;
+  color: #f3f3f3;
+}
+
+.app-topbar-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+}
+
+.app-menu-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 8px;
   border-bottom: 1px solid #c8c8c8;
   background: #efefef;
 }
 
-.app-menu-item {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid #c5c5c5;
-  border-radius: 6px;
-  background: #fff;
-  color: #222;
+.app-menu-btn {
+  min-width: auto;
+  padding-inline: 8px;
+  text-transform: none;
   font-size: 12px;
   font-weight: 600;
 }
 
-.app-menu-item.is-active {
-  border-color: #222;
+.app-menu-btn:hover {
+  background: rgb(0 0 0 / 6%);
+}
+
+.app-footer {
+  border-top: 1px solid #2f2f2f;
 }
 
 .app-content {
