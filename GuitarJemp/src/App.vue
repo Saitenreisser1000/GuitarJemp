@@ -5,13 +5,17 @@ import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
 import FretboardContextMenu from '@/features/fretboard/components/FretboardContextMenu.vue'
+import { AuthDialog, ConnectionsDialog, LibraryPanel } from '@/features/cloud'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { getTuning } from '@/domain/music/tunings'
 import { useInstrumentStore } from '@/store/useInstrument'
+import { useAuthStore } from '@/store/useAuth'
 import { useNotesStore } from '@/store/useNotes'
+import { useSelectionStore } from '@/store/useSelection'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
+import { useLibraryStore } from '@/store/useLibrary'
 
 const numFrets = ref(12)
 const corePadResizePx = ref(0)
@@ -21,16 +25,29 @@ const transportVisible = ref(true)
 const showFretboard = ref(true)
 const showTimeline = ref(true)
 const showTransportBar = ref(true)
+const showLibraryInPaneB = ref(false)
+const authOpen = ref(false)
+const connectionsOpen = ref(false)
+const saveAsNewOpen = ref(false)
+const saveAsNewTitle = ref('')
+const saveAsNewVisibility = ref('private')
+const saveAsNewBusy = ref(false)
 const RESIZE_MIN = -100
 const RESIZE_MAX = 260
 let fretboardResizeObserver = null
 let fretboardBaseContentHeightPx = 0
 
 const instrument = useInstrumentStore()
+const auth = useAuthStore()
 const notes = useNotesStore()
+const selection = useSelectionStore()
 const handPositions = useHandPositionsStore()
 const transport = useTransportStore()
 const timelineSettings = useTimelineSettingsStore()
+const library = useLibraryStore()
+
+const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
+const canSaveAsNew = computed(() => hasNotes.value)
 
 async function loadStartupMusicXml() {
   const tuning = getTuning(instrument.tuningId)
@@ -104,6 +121,89 @@ function timelineToggleRecord() {
   timelineRef.value?.toggleRecord?.()
 }
 
+function makeSnapshot() {
+  return {
+    version: 1,
+    instrument: {
+      instrumentType: instrument.instrumentType,
+      tuningId: instrument.tuningId,
+      numStrings: instrument.numStrings,
+    },
+    transport: {
+      tempo: transport.tempo,
+    },
+    timelineSettings: {
+      selectedMode: timelineSettings.selectedMode,
+      lastRhythmMode: timelineSettings.lastRhythmMode,
+      snapEnabled: timelineSettings.snapEnabled,
+      soundPreviewEnabled: timelineSettings.soundPreviewEnabled,
+      clickEnabled: timelineSettings.clickEnabled,
+      countInEnabled: timelineSettings.countInEnabled,
+      loopEnabled: timelineSettings.loopEnabled,
+      loopStartBlock: timelineSettings.loopStartBlock,
+      loopEndBlock: timelineSettings.loopEndBlock,
+      beatTop: timelineSettings.beatTop,
+      beatBottom: timelineSettings.beatBottom,
+      pickupEnabled: timelineSettings.pickupEnabled,
+      pickupBeats: timelineSettings.pickupBeats,
+      zoomPxPerBlock: timelineSettings.zoomPxPerBlock,
+      timelineLengthBlocks: timelineSettings.timelineLengthBlocks,
+      selectedColor: timelineSettings.selectedColor,
+    },
+    notes: notes.activeNotes,
+    handPositions: handPositions.handPositions,
+  }
+}
+
+async function saveAsNewToCloud() {
+  if (saveAsNewBusy.value) return
+  if (!auth.isSignedIn) {
+    authOpen.value = true
+    return
+  }
+  if (!hasNotes.value) return
+
+  const title = String(saveAsNewTitle.value ?? '').trim()
+  if (!title) return
+
+  const kind = String(library.currentItem?.kind ?? 'song')
+  const category = library.currentItem?.category ? String(library.currentItem.category) : ''
+  const visibility = String(saveAsNewVisibility.value ?? 'private')
+
+  saveAsNewBusy.value = true
+  const created = await library.createItem({
+      kind,
+      title,
+      visibility,
+      category,
+      content: makeSnapshot(),
+    })
+  saveAsNewBusy.value = false
+
+  if (!created) {
+    const msg = String(library.error?.message ?? library.error ?? 'Save As New failed')
+    window.alert(msg)
+    return
+  }
+  saveAsNewOpen.value = false
+}
+
+function openSaveAsNew() {
+  const base = String(library.currentItem?.title ?? '').trim()
+  saveAsNewTitle.value = base ? `${base} (copy)` : 'New Recording'
+  saveAsNewVisibility.value = 'private'
+  saveAsNewOpen.value = true
+}
+
+function resetEditorToTwoBars() {
+  notes.clearNotes()
+  selection.clearSelection()
+  const top = Number(timelineSettings.beatTop) || 4
+  const bottom = Number(timelineSettings.beatBottom) || 4
+  const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
+  timelineSettings.setTimelineLengthBlocks(Number((blocksPerBar * 2).toFixed(3)))
+}
+
 onMounted(async () => {
   try {
     await loadStartupMusicXml()
@@ -130,15 +230,106 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-layout">
+    <AuthDialog v-model="authOpen" />
+    <ConnectionsDialog v-model="connectionsOpen" />
+
     <header class="app-topbar">
       <div class="app-topbar-title">GuitarJemp</div>
+      <v-spacer />
+      <div class="app-topbar-actions">
+        <v-chip v-if="auth.isSignedIn" size="small" color="success" variant="tonal">
+          {{ auth.profile?.display_name || auth.user?.user_metadata?.display_name || 'User' }}
+        </v-chip>
+        <v-menu location="bottom end">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" size="small" variant="tonal" prepend-icon="mdi-account">
+              Account
+            </v-btn>
+          </template>
+          <v-list density="compact" min-width="180">
+            <v-list-item
+              :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
+              :title="auth.isSignedIn ? 'Logout' : 'Login'"
+              @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
+            />
+            <v-list-item
+              prepend-icon="mdi-account-multiple"
+              title="Friends"
+              :disabled="!auth.isSignedIn"
+              @click="connectionsOpen = true"
+            />
+          </v-list>
+        </v-menu>
+      </div>
     </header>
     <div class="app-menu-bar" aria-label="Main menu">
-      <v-btn variant="text" size="small" class="app-menu-btn">File</v-btn>
-      <v-btn variant="text" size="small" class="app-menu-btn">Edit</v-btn>
-      <v-btn variant="text" size="small" class="app-menu-btn">View</v-btn>
-      <v-btn variant="text" size="small" class="app-menu-btn">Window</v-btn>
-      <v-btn variant="text" size="small" class="app-menu-btn">Language</v-btn>
+      <v-menu location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">File</v-btn>
+        </template>
+          <v-list density="compact" min-width="220">
+            <v-list-item title="New" />
+            <v-divider class="my-1" />
+            <v-list-item title="Save" />
+            <v-list-item title="Save As New" @click="openSaveAsNew" />
+            <v-list-item title="Reset" @click="resetEditorToTwoBars" />
+            <v-divider class="my-1" />
+            <v-list-item title="Export MusicXML" />
+          <v-list-item title="Export MIDI" />
+          <v-list-item title="Export PDF" />
+          <v-divider class="my-1" />
+          <v-list-item title="Import (Replace)" />
+          <v-list-item title="Import (Append)" />
+        </v-list>
+      </v-menu>
+
+      <v-menu location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Edit</v-btn>
+        </template>
+        <v-list density="compact" min-width="180">
+          <v-list-item title="Undo" />
+          <v-list-item title="Redo" />
+          <v-divider class="my-1" />
+          <v-list-item title="Preferences" />
+        </v-list>
+      </v-menu>
+
+      <v-menu location="bottom start" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">View</v-btn>
+        </template>
+        <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
+          <v-switch density="compact" hide-details inset label="Library"
+            :model-value="showLibraryInPaneB"
+            @update:model-value="(v) => (showLibraryInPaneB = Boolean(v))" />
+        </v-card>
+      </v-menu>
+
+      <v-menu location="bottom start" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Window</v-btn>
+        </template>
+        <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
+          <v-switch density="compact" hide-details inset label="Fretboard" :model-value="showFretboard"
+            @update:model-value="(v) => (showFretboard = Boolean(v))" />
+          <v-switch density="compact" hide-details inset label="Timeline" :model-value="showTimeline"
+            @update:model-value="(v) => (showTimeline = Boolean(v))" />
+          <v-switch density="compact" hide-details inset label="Transport" :model-value="showTransportBar"
+            @update:model-value="(v) => (showTransportBar = Boolean(v))" />
+        </v-card>
+      </v-menu>
+
+      <v-menu location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Language</v-btn>
+        </template>
+        <v-list density="compact" min-width="180">
+          <v-list-item title="English" />
+          <v-list-item title="Deutsch" />
+        </v-list>
+      </v-menu>
+
       <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
     </div>
 
@@ -150,7 +341,8 @@ onBeforeUnmount(() => {
           </div>
         </template>
         <template #pane-b>
-          <Timeline v-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
+          <LibraryPanel v-if="showLibraryInPaneB" />
+          <Timeline v-else-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
             :transport-visible="transportVisible"
             @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
         </template>
@@ -172,6 +364,48 @@ onBeforeUnmount(() => {
       @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
       @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
       @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
+
+    <v-dialog v-model="saveAsNewOpen" max-width="520">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>Save As New</span>
+          <v-btn icon="mdi-close" variant="text" @click="saveAsNewOpen = false" />
+        </v-card-title>
+
+        <v-card-text>
+          <v-text-field
+            v-model="saveAsNewTitle"
+            label="Title"
+            density="compact"
+            variant="outlined"
+            autofocus
+          />
+          <v-select
+            v-model="saveAsNewVisibility"
+            :items="[
+              { title: 'Private', value: 'private' },
+              { title: 'Connections', value: 'connections' },
+              { title: 'Public', value: 'public' },
+            ]"
+            label="Visibility"
+            density="compact"
+            variant="outlined"
+          />
+        </v-card-text>
+
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" @click="saveAsNewOpen = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :disabled="!hasNotes || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy"
+            @click="saveAsNewToCloud"
+          >
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <footer class="app-footer">
       <span>GuitarJemp Workspace</span>
@@ -204,6 +438,12 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #2f2f2f;
   background: #111;
   color: #f3f3f3;
+}
+
+.app-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .app-topbar-title {

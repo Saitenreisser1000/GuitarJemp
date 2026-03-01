@@ -167,6 +167,10 @@ function toggleEraseMode() {
 function eraseAllNotes() {
   notes.clearNotes()
   selection.clearSelection()
+  const top = Number(settings.beatTop) || 4
+  const bottom = Number(settings.beatBottom) || 4
+  const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
+  settings.setTimelineLengthBlocks(Number((blocksPerBar * 2).toFixed(3)))
 }
 </script>
 
