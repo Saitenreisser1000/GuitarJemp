@@ -64,6 +64,7 @@ import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 import { useCountInOverlay } from '@/features/timeline/composables/useCountInOverlay'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
+import { normalizeNoteValue } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
@@ -128,6 +129,7 @@ const {
   handPositionVisible,
   simGroupMode,
   loopEnabled,
+  shuffleEnabled,
   loopStartBlock,
   loopEndBlock,
   beatTop,
@@ -800,7 +802,10 @@ const autoTotalBlocks = computed(() => {
 const totalBlocks = computed(() => {
   const manual = Number(timelineLengthBlocks.value) || 0
   if (manual > 0) return manual
-  return autoTotalBlocks.value
+  const blocksPerBarValue = Math.max(1, Number(blocksPerBar()) || 1)
+  const defaultBars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
+  const defaultBlocks = Number((defaultBars * blocksPerBarValue).toFixed(3))
+  return Math.max(autoTotalBlocks.value, defaultBlocks)
 })
 
 const loopRangeBlocks = computed(() => {
@@ -1260,7 +1265,7 @@ function maybePlayNotesAt(tMs) {
     const gridIndex = Number(note?.gridIndex)
     if (!Number.isFinite(gridIndex)) continue
 
-    const startMs = gridIndexToStartMs(gridIndex, timePerBlock)
+    const startMs = playbackStartMsForNote(note, timePerBlock)
     if (!(startMs > t0 && startMs <= t1)) continue
 
     const midi = midiForNote(note, t)
@@ -1279,6 +1284,31 @@ function maybePlayNotesAt(tMs) {
     // But let the audio duration respect tempo (real time)
     void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
   }
+}
+
+function playbackStartMsForNote(note, timePerBlock) {
+  const gridIndex = Number(note?.gridIndex)
+  if (!Number.isFinite(gridIndex)) return NaN
+
+  const baseStartMs = gridIndexToStartMs(gridIndex, timePerBlock)
+  if (!shuffleEnabled.value) return baseStartMs
+  if (normalizeNoteValue(note?.noteValue) !== '1/8') return baseStartMs
+  if (Number(note?.subdivision) === 3) return baseStartMs
+
+  const beatBottomRaw = Number.parseInt(String(beatBottom.value), 10)
+  const beatBottomSafe = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
+  const blocksPerBeat = 4 / beatBottomSafe
+  if (!(blocksPerBeat > 0)) return baseStartMs
+
+  const blockStart = gridIndex - 1
+  const withinBeat = ((blockStart % blocksPerBeat) + blocksPerBeat) % blocksPerBeat
+  const offbeatPos = blocksPerBeat * 0.5
+  const isOffbeatEighth = Math.abs(withinBeat - offbeatPos) <= 1e-3
+  if (!isOffbeatEighth) return baseStartMs
+
+  const msPerBeat = timePerBlock * blocksPerBeat
+  const swingDelayMs = msPerBeat / 6 // 66/33: offbeat shifts from 1/2 to 2/3 beat
+  return baseStartMs + swingDelayMs
 }
 
 const playback = usePlayback({

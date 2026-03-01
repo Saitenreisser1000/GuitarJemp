@@ -27,6 +27,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
       : 1,
   )
   const loopEnabled = ref(typeof stored.loopEnabled === 'boolean' ? stored.loopEnabled : false)
+  const shuffleEnabled = ref(
+    typeof stored.shuffleEnabled === 'boolean' ? stored.shuffleEnabled : false,
+  )
   const loopStartBlock = ref(
     Number.isFinite(stored.loopStartBlock) && stored.loopStartBlock >= 0
       ? Number(stored.loopStartBlock)
@@ -118,6 +121,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setLoopEnabled(v) {
     loopEnabled.value = Boolean(v)
+  }
+
+  function setShuffleEnabled(v) {
+    shuffleEnabled.value = Boolean(v)
   }
 
   function setLoopStartBlock(v) {
@@ -230,6 +237,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     countInEnabled,
     soundDurationScale,
     loopEnabled,
+    shuffleEnabled,
     loopStartBlock,
     loopEndBlock,
     beatTop,
@@ -260,6 +268,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     countInEnabled,
     soundDurationScale,
     loopEnabled,
+    shuffleEnabled,
     loopStartBlock,
     loopEndBlock,
     beatTop,
@@ -286,6 +295,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setCountInEnabled,
     setSoundDurationScale,
     setLoopEnabled,
+    setShuffleEnabled,
     setLoopStartBlock,
     setLoopEndBlock,
     setBeatTop,

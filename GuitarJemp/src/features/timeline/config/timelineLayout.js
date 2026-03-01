@@ -45,6 +45,7 @@ export const TIMELINE_LAYOUT = {
     autoScrollMarginPx: 56,
   },
   bars: {
+    defaultCount: 2,
     maxCount: 512,
   },
   breakpoints: {

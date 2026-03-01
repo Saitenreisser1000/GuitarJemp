@@ -6,8 +6,6 @@ import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
 import FretboardContextMenu from '@/features/fretboard/components/FretboardContextMenu.vue'
 import { AuthDialog, ConnectionsDialog, LibraryPanel } from '@/features/cloud'
-import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
-import { getTuning } from '@/domain/music/tunings'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
 import { useNotesStore } from '@/store/useNotes'
@@ -16,6 +14,9 @@ import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useLibraryStore } from '@/store/useLibrary'
+import { buildSongSnapshot } from '@/domain/song/songSnapshot'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { useTheme } from 'vuetify'
 
 const numFrets = ref(12)
 const corePadResizePx = ref(0)
@@ -32,10 +33,13 @@ const saveAsNewOpen = ref(false)
 const saveAsNewTitle = ref('')
 const saveAsNewVisibility = ref('private')
 const saveAsNewBusy = ref(false)
+const preferencesOpen = ref(false)
+const songName = ref('')
 const RESIZE_MIN = -100
 const RESIZE_MAX = 260
 let fretboardResizeObserver = null
 let fretboardBaseContentHeightPx = 0
+const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -45,27 +49,28 @@ const handPositions = useHandPositionsStore()
 const transport = useTransportStore()
 const timelineSettings = useTimelineSettingsStore()
 const library = useLibraryStore()
+const theme = useTheme()
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
 const canSaveAsNew = computed(() => hasNotes.value)
+const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark))
+const preferenceToneDuration = computed({
+  get: () => Number(timelineSettings.soundDurationScale) || 1,
+  set: (v) => timelineSettings.setSoundDurationScale(Number(v)),
+})
+const preferenceSoundPreview = computed({
+  get: () => Boolean(timelineSettings.soundPreviewEnabled),
+  set: (v) => timelineSettings.setSoundPreviewEnabled(Boolean(v)),
+})
+const preferenceDarkMode = computed({
+  get: () => isDarkTheme.value,
+  set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
+})
 
-async function loadStartupMusicXml() {
-  const tuning = getTuning(instrument.tuningId)
-  const openMidi = Array.isArray(tuning?.openMidi) ? tuning.openMidi : []
-  const response = await fetch('/samples/ballad-picking-study.musicxml', { cache: 'no-store' })
-  if (!response.ok) throw new Error(`Failed to load sample (${response.status})`)
-  const xml = await response.text()
-  const clip = parseMusicXmlToClip(xml, { openMidi, maxFret: Number(numFrets.value) || 24 })
-
-  notes.setNotes(Array.isArray(clip?.notes) ? clip.notes : [])
-  handPositions.setHandPositions([])
-  transport.setPlayheadMs(0)
-  transport.setPlayState('stopped')
-
-  if (Number.isFinite(Number(clip?.tempo))) transport.setTempo(Number(clip.tempo))
-  if (Number.isFinite(Number(clip?.beatTop))) timelineSettings.setBeatTop(Number(clip.beatTop))
-  if (Number.isFinite(Number(clip?.beatBottom)))
-    timelineSettings.setBeatBottom(Number(clip.beatBottom))
+function applyTheme(name) {
+  const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
+  theme.global.name.value = next
+  localStorage.setItem(THEME_STORAGE_KEY, next)
 }
 
 function updateFretboardResizeFromParentHeight(heightPx) {
@@ -121,40 +126,6 @@ function timelineToggleRecord() {
   timelineRef.value?.toggleRecord?.()
 }
 
-function makeSnapshot() {
-  return {
-    version: 1,
-    instrument: {
-      instrumentType: instrument.instrumentType,
-      tuningId: instrument.tuningId,
-      numStrings: instrument.numStrings,
-    },
-    transport: {
-      tempo: transport.tempo,
-    },
-    timelineSettings: {
-      selectedMode: timelineSettings.selectedMode,
-      lastRhythmMode: timelineSettings.lastRhythmMode,
-      snapEnabled: timelineSettings.snapEnabled,
-      soundPreviewEnabled: timelineSettings.soundPreviewEnabled,
-      clickEnabled: timelineSettings.clickEnabled,
-      countInEnabled: timelineSettings.countInEnabled,
-      loopEnabled: timelineSettings.loopEnabled,
-      loopStartBlock: timelineSettings.loopStartBlock,
-      loopEndBlock: timelineSettings.loopEndBlock,
-      beatTop: timelineSettings.beatTop,
-      beatBottom: timelineSettings.beatBottom,
-      pickupEnabled: timelineSettings.pickupEnabled,
-      pickupBeats: timelineSettings.pickupBeats,
-      zoomPxPerBlock: timelineSettings.zoomPxPerBlock,
-      timelineLengthBlocks: timelineSettings.timelineLengthBlocks,
-      selectedColor: timelineSettings.selectedColor,
-    },
-    notes: notes.activeNotes,
-    handPositions: handPositions.handPositions,
-  }
-}
-
 async function saveAsNewToCloud() {
   if (saveAsNewBusy.value) return
   if (!auth.isSignedIn) {
@@ -176,7 +147,14 @@ async function saveAsNewToCloud() {
       title,
       visibility,
       category,
-      content: makeSnapshot(),
+      content: buildSongSnapshot({
+        name: songName.value,
+        instrument,
+        transport,
+        timelineSettings,
+        notes,
+        handPositions,
+      }),
     })
   saveAsNewBusy.value = false
 
@@ -189,27 +167,34 @@ async function saveAsNewToCloud() {
 }
 
 function openSaveAsNew() {
+  const fromNameField = String(songName.value ?? '').trim()
   const base = String(library.currentItem?.title ?? '').trim()
-  saveAsNewTitle.value = base ? `${base} (copy)` : 'New Recording'
+  if (fromNameField) saveAsNewTitle.value = fromNameField
+  else saveAsNewTitle.value = base ? `${base} (copy)` : 'New Recording'
   saveAsNewVisibility.value = 'private'
   saveAsNewOpen.value = true
 }
 
-function resetEditorToTwoBars() {
-  notes.clearNotes()
-  selection.clearSelection()
+function applyConfiguredDefaultTimelineLength() {
   const top = Number(timelineSettings.beatTop) || 4
   const bottom = Number(timelineSettings.beatBottom) || 4
   const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
-  timelineSettings.setTimelineLengthBlocks(Number((blocksPerBar * 2).toFixed(3)))
+  const bars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
+  timelineSettings.setTimelineLengthBlocks(Number((blocksPerBar * bars).toFixed(3)))
+}
+
+function resetEditorToDefaultLength() {
+  notes.clearNotes()
+  selection.clearSelection()
+  applyConfiguredDefaultTimelineLength()
 }
 
 onMounted(async () => {
-  try {
-    await loadStartupMusicXml()
-  } catch (err) {
-    console.warn('[startup-import] Could not load ballad-picking sample:', err)
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+  if (storedTheme === 'guitarjemp' || storedTheme === 'guitarjempDark') {
+    applyTheme(storedTheme)
   }
+  applyConfiguredDefaultTimelineLength()
   await nextTick()
   const el = fretboardMainEl.value
   if (!el || typeof ResizeObserver === 'undefined') return
@@ -272,7 +257,7 @@ onBeforeUnmount(() => {
             <v-divider class="my-1" />
             <v-list-item title="Save" />
             <v-list-item title="Save As New" @click="openSaveAsNew" />
-            <v-list-item title="Reset" @click="resetEditorToTwoBars" />
+            <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
             <v-divider class="my-1" />
             <v-list-item title="Export MusicXML" />
           <v-list-item title="Export MIDI" />
@@ -291,7 +276,7 @@ onBeforeUnmount(() => {
           <v-list-item title="Undo" />
           <v-list-item title="Redo" />
           <v-divider class="my-1" />
-          <v-list-item title="Preferences" />
+          <v-list-item title="Preferences" @click="preferencesOpen = true" />
         </v-list>
       </v-menu>
 
@@ -331,6 +316,17 @@ onBeforeUnmount(() => {
       </v-menu>
 
       <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
+
+      <div class="app-menu-center">
+        <v-text-field
+          v-model="songName"
+          density="compact"
+          variant="outlined"
+          hide-details
+          class="app-menu-name-input"
+          placeholder="Name"
+        />
+      </div>
     </div>
 
     <main class="app-content">
@@ -347,14 +343,17 @@ onBeforeUnmount(() => {
             @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
         </template>
         <template #sidebar>
-          <div class="app-sidebar-title">Fretboard Context</div>
-          <FretboardContextMenu />
+          <div class="app-sidebar-content">
+            <div class="app-sidebar-title">Tools</div>
+            <FretboardContextMenu class="app-sidebar-menu" />
+          </div>
         </template>
       </LayoutManager>
     </main>
     <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
+      :shuffle-enabled="timelineSettings.shuffleEnabled"
       :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
       :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
       :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
@@ -363,6 +362,7 @@ onBeforeUnmount(() => {
       @seek-playhead="timelineSeekPlayhead" @update-tempo="transport.setTempo"
       @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
       @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
+      @update-shuffle="timelineSettings.setShuffleEnabled"
       @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
 
     <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -403,6 +403,51 @@ onBeforeUnmount(() => {
           >
             Save
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="preferencesOpen" max-width="520">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>Preferences</span>
+          <v-btn icon="mdi-close" variant="text" @click="preferencesOpen = false" />
+        </v-card-title>
+        <v-card-text class="d-flex flex-column ga-3">
+          <v-text-field
+            v-model="preferenceToneDuration"
+            label="Tone duration"
+            density="compact"
+            variant="outlined"
+            type="number"
+            min="0.1"
+            step="0.1"
+          />
+          <v-switch
+            v-model="preferenceSoundPreview"
+            density="compact"
+            hide-details
+            inset
+            label="Sound preview"
+          />
+          <v-switch
+            v-model="preferenceDarkMode"
+            density="compact"
+            hide-details
+            inset
+            label="Dark mode"
+          />
+          <v-switch
+            density="compact"
+            hide-details
+            inset
+            label="Hand position track"
+            :model-value="timelineSettings.handPositionVisible"
+            @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))"
+          />
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" @click="preferencesOpen = false">Close</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -454,6 +499,7 @@ onBeforeUnmount(() => {
 }
 
 .app-menu-bar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -461,6 +507,33 @@ onBeforeUnmount(() => {
   padding: 0 8px;
   border-bottom: 1px solid #c8c8c8;
   background: #efefef;
+}
+
+.app-menu-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, 40vw);
+  pointer-events: none;
+}
+
+.app-menu-name-input {
+  pointer-events: auto;
+}
+
+.app-menu-name-input :deep(.v-field) {
+  background: rgb(255 255 255 / 92%);
+  min-height: 24px;
+  height: 24px;
+}
+
+.app-menu-name-input :deep(.v-field__input) {
+  min-height: 24px;
+  height: 24px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 12px;
 }
 
 .app-menu-btn {
@@ -495,6 +568,19 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 700;
   color: #333;
+}
+
+.app-sidebar-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-sidebar-menu {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .app-layout :deep(.timeline-main) {

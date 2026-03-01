@@ -1,43 +1,39 @@
 <template>
   <div class="fb-context-menu">
     <div class="fb-rail-controls fb-inline-controls">
-      <v-menu location="bottom start" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
+      <div class="fb-note-panel">
+        <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
+        <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
           <v-btn
-            v-bind="menuProps"
-            size="small"
+            v-for="item in modeItems"
+            :key="item.value"
+            :value="item.value"
             variant="tonal"
-            class="fb-top-control fb-note-value-btn"
-            :title="t('modeSelector.noteValues')"
+            size="small"
+            :title="item.title"
           >
-            <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-            <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
+            <span class="fb-note-glyph">
+              <img
+                v-if="hasNoteIcon(item)"
+                class="fb-note-glyph-img"
+                :src="item.icon"
+                alt=""
+                aria-hidden="true"
+                @error="markNoteIconError(item.icon)"
+              />
+              <span v-else>{{ noteGlyphText(item) }}</span>
+            </span>
           </v-btn>
-        </template>
+        </v-btn-toggle>
 
-        <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-          <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-          <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-            <v-btn
-              v-for="item in modeItems"
-              :key="item.value"
-              :value="item.value"
-              variant="tonal"
-              size="small"
-              :title="item.title"
-            >
-              <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
-            </v-btn>
-          </v-btn-toggle>
+        <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
+        <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+          <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+          <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+        </v-btn-toggle>
+      </div>
 
-          <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-          <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-            <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-            <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-          </v-btn-toggle>
-        </v-card>
-      </v-menu>
-
+      <hr class="fb-tool-separator" />
       <v-btn
         size="small"
         variant="tonal"
@@ -48,35 +44,25 @@
         :aria-pressed="String(isSimOn)"
         @click="toggleSim"
       >
-        CH
+        Chord
       </v-btn>
+      <hr class="fb-tool-separator" />
 
-      <v-menu location="bottom start" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn
-            v-bind="menuProps"
-            size="small"
-            variant="tonal"
-            class="fb-top-control fb-color-btn"
-            :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-          >
-            <v-icon icon="mdi-palette-outline" size="18" />
-            <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-          </v-btn>
-        </template>
+      <div class="fb-color-inline" :title="t('modeSelector.symbols', { color: settings.selectedColor })">
+        <ColorPalette orientation="horizontal" />
+      </div>
 
-        <v-card class="pa-2" min-width="260" variant="flat" border>
-          <ColorPalette orientation="horizontal" />
-        </v-card>
-      </v-menu>
+      <button class="fb-shape-btn" type="button" @click="armTextPlacement">
+        Textfeld platzieren
+      </button>
     </div>
 
     <div class="fb-fret-actions-erase">
       <button class="fb-shape-btn" :class="{ 'is-active': settings.eraseMode }" type="button" @click="toggleEraseMode">
-        Erase
+        Delete
       </button>
       <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-        Erase All
+        Clear Fretboard
       </button>
     </div>
   </div>
@@ -89,6 +75,8 @@ import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useNotesStore } from '@/store/useNotes'
 import { useSelectionStore } from '@/store/useSelection'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import ColorPalette from './ColorPalette.vue'
 
 defineOptions({ name: 'FretboardContextMenu' })
@@ -96,7 +84,9 @@ defineOptions({ name: 'FretboardContextMenu' })
 const settings = useTimelineSettingsStore()
 const notes = useNotesStore()
 const selection = useSelectionStore()
+const overlay = useFretboardOverlayStore()
 const { t } = useI18n()
+const iconErrorBySrc = ref({})
 
 const modeItems = computed(() =>
   NOTE_VALUE_ITEMS.map((item) => ({
@@ -129,11 +119,6 @@ const noteValueLocal = computed({
   },
 })
 
-const activeModeItem = computed(() => {
-  const activeValue = String(noteValueLocal.value || '')
-  return modeItems.value.find((item) => String(item.value) === activeValue) || modeItems.value[0]
-})
-
 const noteModifierLocal = ref(String(settings.simGroupMode || ''))
 
 watch(
@@ -151,6 +136,23 @@ watch(noteModifierLocal, (val) => {
 })
 
 const isSimOn = computed(() => settings.selectedMode === 'sim')
+
+function hasNoteIcon(item) {
+  const src = String(item?.icon || '').trim()
+  if (!src) return false
+  return !iconErrorBySrc.value[src]
+}
+
+function markNoteIconError(src) {
+  const key = String(src || '').trim()
+  if (!key) return
+  if (iconErrorBySrc.value[key]) return
+  iconErrorBySrc.value = { ...iconErrorBySrc.value, [key]: true }
+}
+
+function noteGlyphText(item) {
+  return String(item?.fallbackSymbol || item?.dotSymbol || item?.label || '')
+}
 
 function toggleSim() {
   if (isSimOn.value) {
@@ -170,7 +172,12 @@ function eraseAllNotes() {
   const top = Number(settings.beatTop) || 4
   const bottom = Number(settings.beatBottom) || 4
   const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
-  settings.setTimelineLengthBlocks(Number((blocksPerBar * 2).toFixed(3)))
+  const bars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
+  settings.setTimelineLengthBlocks(Number((blocksPerBar * bars).toFixed(3)))
+}
+
+function armTextPlacement() {
+  overlay.armTextPlacement()
 }
 </script>
 
@@ -179,6 +186,9 @@ function eraseAllNotes() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .fb-rail-controls {
@@ -190,9 +200,22 @@ function eraseAllNotes() {
 }
 
 .fb-rail-controls.fb-inline-controls {
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.fb-note-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-tool-separator {
+  width: 100%;
+  margin: 2px 0;
+  border: 0;
+  border-top: 1px solid rgba(70, 70, 70, 0.25);
 }
 
 .fb-fret-actions-erase {
@@ -200,6 +223,8 @@ function eraseAllNotes() {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-top: auto;
+  margin-bottom: 8px;
 }
 
 .fb-context-menu :deep(.fb-top-control) {
@@ -212,21 +237,18 @@ function eraseAllNotes() {
   font-weight: 700;
 }
 
-.fb-context-menu :deep(.fb-note-value-btn) {
-  position: relative;
-  padding-right: 22px;
-}
-
 .fb-note-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   font-size: 15px;
 }
 
-.fb-note-caret {
-  position: absolute;
-  right: 5px;
-  bottom: 4px;
-  opacity: 0.75;
+.fb-note-glyph-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .fb-note-toggle-row {
@@ -235,19 +257,16 @@ function eraseAllNotes() {
   flex-wrap: wrap;
 }
 
-.fb-context-menu :deep(.fb-color-btn) {
-  position: relative;
-  padding-right: 18px;
+.fb-note-toggle-row :deep(.v-btn) {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
 }
 
-.fb-color-swatch {
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  border: 1px solid rgba(60, 60, 60, 0.8);
+.fb-color-inline {
+  width: 100%;
 }
 
 .fb-shape-btn {
@@ -273,5 +292,15 @@ function eraseAllNotes() {
 
 .fb-shape-btn.is-danger {
   color: #e08d8d;
+}
+
+.fb-fret-actions-erase .fb-shape-btn {
+  border-color: rgba(139, 35, 35, 0.55);
+  background: rgba(161, 48, 48, 0.14);
+  color: #8f1f1f;
+}
+
+.fb-fret-actions-erase .fb-shape-btn:hover {
+  background: rgba(161, 48, 48, 0.22);
 }
 </style>

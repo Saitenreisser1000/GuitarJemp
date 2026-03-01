@@ -161,7 +161,16 @@
                     @click="onToneDotClick(d, $event)" @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
                     @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
                     @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
-                  <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
+                  <image
+                    v-if="toneDotIcon(d)"
+                    class="fb-tone-dot-symbol-icon"
+                    :x="toneDotX(d) - 7"
+                    :y="toneDotY(d) - 7"
+                    width="14"
+                    height="14"
+                    :href="toneDotIcon(d)"
+                  />
+                  <text v-else class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
                     {{ toneDotSymbol(d) }}
                   </text>
                   <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
@@ -183,6 +192,41 @@
               </g>
             </g>
           </svg>
+          <div class="fb-text-layer">
+            <div
+              v-for="item in textItems"
+              :key="item.id"
+              class="fb-text-item"
+              :style="{ left: `${item.xPct}%`, top: `${item.yPct}%` }"
+            >
+              <button
+                class="fb-text-item-drag"
+                type="button"
+                title="Textfeld bewegen"
+                @pointerdown.stop.prevent="onTextItemDragStart(item.id, $event)"
+              >
+                ::
+              </button>
+              <input
+                class="fb-text-item-input"
+                type="text"
+                :value="item.text"
+                placeholder="Text"
+                @pointerdown.stop
+                @click.stop
+                @input="onTextItemInput(item.id, $event)"
+              />
+              <button
+                class="fb-text-item-delete"
+                type="button"
+                title="Textfeld löschen"
+                @pointerdown.stop
+                @click.stop="onTextItemDelete(item.id)"
+              >
+                x
+              </button>
+            </div>
+          </div>
         </div>
         <div class="fb-fret-numbers" aria-hidden="true">
           <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
@@ -249,6 +293,7 @@ import { useTransportStore } from '@/store/useTransport'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
 import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
@@ -305,12 +350,14 @@ const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const handPositionsStore = useHandPositionsStore()
 const harmonyMenu = useHarmonyMenuStore()
+const overlay = useFretboardOverlayStore()
 const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
 const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } =
   storeToRefs(harmonyMenu)
+const { placementArmed, textItems } = storeToRefs(overlay)
 const isPlaying = computed(() => playState.value === 'playing')
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
@@ -1170,6 +1217,69 @@ const toneDotContextMenu = ref({
   fret: 0,
   items: [],
 })
+const textDragState = ref({
+  active: false,
+  pointerId: null,
+  itemId: '',
+})
+
+function clampPercent(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(100, n))
+}
+
+function overlayClientToPercent(clientX, clientY) {
+  const rect = overlayEl.value?.getBoundingClientRect?.()
+  if (!rect) return null
+  if (!(rect.width > 0) || !(rect.height > 0)) return null
+  const xPct = clampPercent(((Number(clientX) - rect.left) / rect.width) * 100)
+  const yPct = clampPercent(((Number(clientY) - rect.top) / rect.height) * 100)
+  return { xPct, yPct }
+}
+
+function onTextItemInput(id, event) {
+  const text = String(event?.target?.value ?? '')
+  overlay.updateTextItemText(id, text)
+}
+
+function onTextItemDelete(id) {
+  overlay.removeTextItem(id)
+}
+
+function stopTextDrag() {
+  if (!textDragState.value.active) return
+  textDragState.value = { active: false, pointerId: null, itemId: '' }
+  window.removeEventListener('pointermove', onTextItemDragMove)
+  window.removeEventListener('pointerup', onTextItemDragEnd)
+  window.removeEventListener('pointercancel', onTextItemDragEnd)
+}
+
+function onTextItemDragMove(event) {
+  const state = textDragState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  const p = overlayClientToPercent(event.clientX, event.clientY)
+  if (!p) return
+  overlay.updateTextItemPosition(state.itemId, p)
+}
+
+function onTextItemDragEnd(event) {
+  const state = textDragState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  stopTextDrag()
+}
+
+function onTextItemDragStart(id, event) {
+  if (event.button !== 0) return
+  textDragState.value = {
+    active: true,
+    pointerId: event.pointerId,
+    itemId: String(id || ''),
+  }
+  window.addEventListener('pointermove', onTextItemDragMove)
+  window.addEventListener('pointerup', onTextItemDragEnd)
+  window.addEventListener('pointercancel', onTextItemDragEnd)
+}
 
 function removeSelectionKey(noteKey) {
   const key = String(noteKey || '')
@@ -1757,6 +1867,14 @@ function hoveredPosFromEvent(event) {
 
 function onClick(event) {
   if (Date.now() < suppressClicksUntilMs) return
+  if (placementArmed.value) {
+    const p = overlayClientToPercent(event?.clientX, event?.clientY)
+    overlay.setPlacementArmed(false)
+    if (p) {
+      overlay.addTextItem({ ...p, text: '' })
+      return
+    }
+  }
   const pos = hoveredPosFromEvent(event)
   if (!pos) return
   const { fret, string } = pos
@@ -2155,6 +2273,13 @@ function toneDotSymbol(d) {
   return item?.dotSymbol || item?.label || value
 }
 
+function toneDotIcon(d) {
+  const value = noteValueForToneDot(d)
+  if (!(value === '1/2' || value === '1')) return ''
+  const item = noteValueItem(value)
+  return String(item?.icon || '')
+}
+
 function toneDotPitchLabel(d) {
   const fret = Number(d?.fret)
   const string = Number(d?.string)
@@ -2251,6 +2376,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   closeToneDotContextMenu()
+  stopTextDrag()
   stopAnim()
   window.removeEventListener('resize', onViewportResize)
 })
@@ -2353,6 +2479,61 @@ watch(
   overflow: visible;
 }
 
+.fb-text-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.fb-text-item {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.fb-text-item-drag {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #9aa3ad;
+  border-radius: 4px;
+  background: #eef1f4;
+  color: #3a4350;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: move;
+}
+
+.fb-text-item-input {
+  height: 22px;
+  min-width: 80px;
+  max-width: 180px;
+  padding: 0 6px;
+  border: 1px solid #9aa3ad;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 92%);
+  color: #1b1f25;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fb-text-item-delete {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #b68888;
+  border-radius: 4px;
+  background: #f6e9e9;
+  color: #7b2a2a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .fb-playback-travel-line line {
   stroke-linecap: round;
   filter: var(--fb-playback-travel-line-shadow);
@@ -2409,6 +2590,11 @@ watch(
   dominant-baseline: middle;
   font-size: 14px;
   font-weight: 800;
+  user-select: none;
+}
+
+.fb-tone-dot-symbol-icon {
+  pointer-events: none;
   user-select: none;
 }
 

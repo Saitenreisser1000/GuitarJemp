@@ -1,42 +1,49 @@
+const NOTE_ICON_BASE = '/assets/notes'
+
 export const NOTE_VALUE_ITEMS = [
   {
     value: '1/16',
-    icon: '',
+    icon: `${NOTE_ICON_BASE}/sixteenth.svg`,
     title: 'Sixteenth Note',
     label: '1/16',
     dotSymbol: '♬',
+    fallbackSymbol: '♬',
     baseBlocks: 0.25,
   },
   {
     value: '1/8',
-    icon: '',
+    icon: `${NOTE_ICON_BASE}/eighth.svg`,
     title: 'Eighth Note',
     label: '1/8',
     dotSymbol: '♪',
+    fallbackSymbol: '♪',
     baseBlocks: 0.5,
   },
   {
     value: '1/4',
-    icon: '',
+    icon: `${NOTE_ICON_BASE}/quarter.svg`,
     title: 'Quarter Note',
     label: '1/4',
     dotSymbol: '♩',
+    fallbackSymbol: '♩',
     baseBlocks: 1,
   },
   {
     value: '1/2',
-    icon: '',
+    icon: `${NOTE_ICON_BASE}/half.png`,
     title: 'Half Note',
     label: '1/2',
     dotSymbol: '𝅗𝅥',
+    fallbackSymbol: '𝅗𝅥',
     baseBlocks: 2,
   },
   {
     value: '1',
-    icon: '',
+    icon: `${NOTE_ICON_BASE}/whole.png`,
     title: 'Whole Note',
     label: '1',
     dotSymbol: '𝅝',
+    fallbackSymbol: '𝅝',
     baseBlocks: 4,
   },
 ]
@@ -51,5 +58,10 @@ export function normalizeNoteValue(raw) {
 
 export function noteValueItem(value) {
   const v = normalizeNoteValue(value)
-  return v ? NOTE_VALUE_TO_ITEM.get(v) ?? null : null
+  return v ? (NOTE_VALUE_TO_ITEM.get(v) ?? null) : null
+}
+
+export function noteValueFallbackSymbol(value) {
+  const item = noteValueItem(value)
+  return item?.fallbackSymbol || item?.dotSymbol || item?.label || ''
 }

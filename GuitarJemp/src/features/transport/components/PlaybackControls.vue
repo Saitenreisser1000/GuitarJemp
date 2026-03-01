@@ -14,6 +14,14 @@
 
           <v-switch class="loop-switch" density="compact" hide-details inset :label="t('playback.loop')" :model-value="loopEnabled"
             @update:model-value="(v) => emit('update-loop', Boolean(v))" />
+          <v-checkbox
+            class="shuffle-checkbox"
+            density="compact"
+            hide-details
+            label="Shuffle"
+            :model-value="shuffleEnabled"
+            @update:model-value="(v) => emit('update-shuffle', Boolean(v))"
+          />
         </div>
 
         <div class="transport-col transport-col-middle" aria-hidden="true" />
@@ -95,6 +103,7 @@ const props = defineProps({
   countInEnabled: { type: Boolean, default: true },
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
+  shuffleEnabled: { type: Boolean, default: false },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
   practiceActive: { type: Boolean, default: false },
@@ -114,6 +123,7 @@ const emit = defineEmits([
   'update-count-in-enabled',
   'update-auto-follow',
   'update-loop',
+  'update-shuffle',
   'toggle-practice',
   'toggle-record',
 ])
@@ -259,6 +269,10 @@ function onInputModeChange(v) {
 }
 
 .loop-switch {
+  color: var(--color-text-muted);
+}
+
+.shuffle-checkbox {
   color: var(--color-text-muted);
 }
 
