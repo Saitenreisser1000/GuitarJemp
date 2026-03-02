@@ -58,18 +58,34 @@
     </div>
 
     <div class="fb-fret-actions-erase">
-      <button class="fb-shape-btn" :class="{ 'is-active': settings.eraseMode }" type="button" @click="toggleEraseMode">
+      <button
+        class="fb-shape-btn fb-delete-toggle"
+        :class="{ 'is-active': settings.eraseMode }"
+        type="button"
+        @click="toggleEraseMode"
+      >
         Delete
       </button>
-      <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-        Clear Fretboard
-      </button>
+      <div ref="clearWrapEl" class="fb-clear-wrap">
+        <button class="fb-shape-btn is-danger" type="button" @click="onClearFretboardClick">
+          Clear Fretboard
+        </button>
+        <div v-if="clearConfirmOpen" class="fb-clear-confirm-menu" @click.stop>
+          <div class="fb-clear-confirm-text">
+            {{ clearDeleteCount }} Elemente löschen?
+          </div>
+          <div class="fb-clear-confirm-actions">
+            <button class="fb-clear-confirm-btn" type="button" @click="clearConfirmOpen = false">Abbrechen</button>
+            <button class="fb-clear-confirm-btn is-danger" type="button" @click="confirmEraseAllNotes">Löschen</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from '@/i18n'
 import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
@@ -87,6 +103,8 @@ const selection = useSelectionStore()
 const overlay = useFretboardOverlayStore()
 const { t } = useI18n()
 const iconErrorBySrc = ref({})
+const clearConfirmOpen = ref(false)
+const clearWrapEl = ref(null)
 
 const modeItems = computed(() =>
   NOTE_VALUE_ITEMS.map((item) => ({
@@ -136,6 +154,9 @@ watch(noteModifierLocal, (val) => {
 })
 
 const isSimOn = computed(() => settings.selectedMode === 'sim')
+const clearDeleteCount = computed(() =>
+  Array.isArray(notes.activeNotes) ? notes.activeNotes.length : 0,
+)
 
 function hasNoteIcon(item) {
   const src = String(item?.icon || '').trim()
@@ -176,9 +197,39 @@ function eraseAllNotes() {
   settings.setTimelineLengthBlocks(Number((blocksPerBar * bars).toFixed(3)))
 }
 
+function onClearFretboardClick() {
+  if (clearDeleteCount.value > 15) {
+    clearConfirmOpen.value = true
+    return
+  }
+  eraseAllNotes()
+}
+
+function confirmEraseAllNotes() {
+  clearConfirmOpen.value = false
+  eraseAllNotes()
+}
+
+function onWindowPointerDown(event) {
+  if (!clearConfirmOpen.value) return
+  const wrap = clearWrapEl.value
+  const target = event?.target
+  if (!wrap || !target) return
+  if (wrap.contains(target)) return
+  clearConfirmOpen.value = false
+}
+
 function armTextPlacement() {
   overlay.armTextPlacement()
 }
+
+onMounted(() => {
+  window.addEventListener('pointerdown', onWindowPointerDown, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pointerdown', onWindowPointerDown, true)
+})
 </script>
 
 <style scoped>
@@ -295,12 +346,79 @@ function armTextPlacement() {
 }
 
 .fb-fret-actions-erase .fb-shape-btn {
-  border-color: rgba(139, 35, 35, 0.55);
-  background: rgba(161, 48, 48, 0.14);
-  color: #8f1f1f;
+  border-color: #f1222e;
+  background: transparent;
+  color: #f1222e;
 }
 
 .fb-fret-actions-erase .fb-shape-btn:hover {
-  background: rgba(161, 48, 48, 0.22);
+  background: rgba(241, 34, 46, 0.12);
+}
+
+.fb-fret-actions-erase .fb-delete-toggle {
+  border-color: #f1222e;
+  background: transparent;
+  color: #f1222e;
+}
+
+.fb-fret-actions-erase .fb-delete-toggle:hover {
+  background: rgba(241, 34, 46, 0.12);
+}
+
+.fb-fret-actions-erase .fb-delete-toggle.is-active {
+  border-color: #f1222e;
+  background: #f1222e;
+  color: #fff;
+}
+
+.fb-clear-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.fb-clear-confirm-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 250px;
+  border: 1px solid rgba(20, 24, 28, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.fb-clear-confirm-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2328;
+}
+
+.fb-clear-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.fb-clear-confirm-btn {
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(42, 48, 56, 0.2);
+  background: #f4f5f7;
+  color: #232a31;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.fb-clear-confirm-btn.is-danger {
+  border-color: #f1222e;
+  background: #f1222e;
+  color: #fff;
 }
 </style>

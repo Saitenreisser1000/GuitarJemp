@@ -71,7 +71,9 @@ const preferenceDarkMode = computed({
   set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
 })
 const isPhoneView = computed(() => viewMode.value === 'phone')
-const showPhoneRotateOverlay = computed(() => isPhoneView.value && isPortraitViewport.value)
+const isWatchView = computed(() => viewMode.value === 'watch')
+const isCompactView = computed(() => isPhoneView.value || isWatchView.value)
+const showPhoneRotateOverlay = computed(() => isCompactView.value && isPortraitViewport.value)
 
 function applyTheme(name) {
   const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
@@ -85,7 +87,7 @@ function updateViewportOrientationFlag() {
 }
 
 function updateFretboardResizeFromParentHeight(heightPx) {
-  if (isPhoneView.value) {
+  if (isCompactView.value) {
     corePadResizePx.value = 0
     return
   }
@@ -234,8 +236,8 @@ watch(
   },
 )
 
-watch(isPhoneView, async (phone) => {
-  if (phone) {
+watch(isCompactView, async (compact) => {
+  if (compact) {
     corePadResizePx.value = 0
     return
   }
@@ -254,7 +256,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-layout" :class="{ 'is-phone-view': viewMode === 'phone' }">
+  <div
+    class="app-layout"
+    :class="{
+      'is-phone-view': isPhoneView,
+      'is-watch-view': isWatchView,
+      'is-compact-view': isCompactView,
+    }"
+  >
     <AuthDialog v-model="authOpen" />
     <ConnectionsDialog v-model="connectionsOpen" />
 
@@ -337,6 +346,7 @@ onBeforeUnmount(() => {
           >
             <v-btn value="desktop" size="small" variant="tonal">Desktop</v-btn>
             <v-btn value="phone" size="small" variant="tonal">Phone</v-btn>
+            <v-btn value="watch" size="small" variant="tonal">Watch</v-btn>
           </v-btn-toggle>
         </v-card>
       </v-menu>
@@ -368,7 +378,7 @@ onBeforeUnmount(() => {
       <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
 
       <div class="app-menu-right">
-        <v-menu v-if="isPhoneView" location="bottom end" :close-on-content-click="false">
+        <v-menu v-if="isCompactView && !isWatchView" location="bottom end" :close-on-content-click="false">
           <template #activator="{ props: menuProps }">
             <v-btn
               v-bind="menuProps"
@@ -384,6 +394,16 @@ onBeforeUnmount(() => {
             <FretboardContextMenu />
           </v-card>
         </v-menu>
+        <v-btn
+          v-else-if="isWatchView"
+          variant="tonal"
+          size="small"
+          class="app-menu-tools-btn"
+          prepend-icon="mdi-tools"
+          disabled
+        >
+          Tools
+        </v-btn>
       </div>
 
       <div class="app-menu-center">
@@ -401,21 +421,21 @@ onBeforeUnmount(() => {
     <main v-if="!showPhoneRotateOverlay" class="app-content">
       <LayoutManager class="app-window-manager">
         <template #pane-a>
-          <div v-if="!isPhoneView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
+          <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
             <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
           </div>
-          <div v-else-if="isPhoneView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+          <div v-else-if="isCompactView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl" class="fretboard-main">
+            <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
           </div>
           <Timeline
-            v-else-if="isPhoneView && phonePane === 'timeline' && showTimeline"
+            v-else-if="isCompactView && phonePane === 'timeline' && showTimeline"
             ref="timelineRef"
             :num-frets="numFrets"
             :library-panel-visible="false"
             :transport-visible="transportVisible"
             @update-transport-visible="(v) => (transportVisible = Boolean(v))"
           />
-          <LibraryPanel v-else-if="isPhoneView && phonePane === 'library'" />
+          <LibraryPanel v-else-if="isCompactView && phonePane === 'library'" />
         </template>
         <template #pane-b>
           <LibraryPanel v-if="showLibraryInPaneB" />
@@ -441,7 +461,7 @@ onBeforeUnmount(() => {
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
       :shuffle-enabled="timelineSettings.shuffleEnabled"
-      :is-phone-view="isPhoneView"
+      :is-phone-view="isCompactView"
       :phone-pane="phonePane"
       :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
       :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
@@ -713,25 +733,25 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.app-layout.is-phone-view :deep(.layout-manager) {
+.app-layout.is-compact-view :deep(.layout-manager) {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
 
-.app-layout.is-phone-view :deep(.layout-sidebar) {
+.app-layout.is-compact-view :deep(.layout-sidebar) {
   display: none;
 }
 
-.app-layout.is-phone-view :deep(.wm-pane-b),
-.app-layout.is-phone-view :deep(.wm-divider) {
+.app-layout.is-compact-view :deep(.wm-pane-b),
+.app-layout.is-compact-view :deep(.wm-divider) {
   display: none;
 }
 
-.app-layout.is-phone-view :deep(.wm-pane-a) {
+.app-layout.is-compact-view :deep(.wm-pane-a) {
   flex-basis: 100% !important;
 }
 
-.app-layout.is-phone-view .app-menu-center {
+.app-layout.is-compact-view .app-menu-center {
   width: min(240px, 56vw);
 }
 

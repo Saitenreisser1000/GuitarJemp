@@ -157,6 +157,7 @@
                 <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
                   <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)"
                     :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
+                    :style="toneDotStyle(d)"
                     @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
                     @click="onToneDotClick(d, $event)" @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
                     @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
@@ -298,7 +299,6 @@ import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
   FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR,
-  FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD,
 } from '@/features/fretboard/config/fretboardVisuals'
 import {
   FRETBOARD_DIMENSIONS,
@@ -651,7 +651,7 @@ const toneDotsForRender = computed(() => {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
     const order = dotQueueByPosKey.value.get(posKey) ?? []
-    const visibleLimit = props.editable ? Infinity : 2
+    const visibleLimit = 2
     const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
 
     const [stringRaw, fretRaw] = String(posKey).split('-')
@@ -2326,41 +2326,57 @@ function toneDotStroke(d) {
 
 function toneDotStrokeWidth(d) {
   const hk = hoverKeyForToneDot(d)
-  let w = hoveredToneDotKey.value === hk ? 4 : 2
+  let w = hoveredToneDotKey.value === hk ? 1.8 : 1.2
 
-  if (isToneDotHovered(d)) w = Math.max(w, 4)
+  if (isToneDotHovered(d)) w = Math.max(w, 1.8)
 
   const nk = noteKeyForToneDot(d)
-  if (nk && String(selection.selectedNoteKey || '') === nk) w = 4
+  if (nk && String(selection.selectedNoteKey || '') === nk) w = Math.max(w, 1.8)
   const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
-  if (Number.isFinite(dyn)) w += dyn * 1.25
-
-  const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
-  if (!Number.isFinite(startedAt)) return w
-
-  const dt = animNowMs.value - startedAt
-  const PULSE_MS = FRETBOARD_SHOW_DOT_PULSE_MS
-  if (!(dt >= 0 && dt <= PULSE_MS)) return w
-  const p = dt / PULSE_MS
-  const bump = Math.sin(Math.PI * p)
-  return w + FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD * bump
+  if (Number.isFinite(dyn)) w += dyn * 0.35
+  return w
 }
 
 function toneDotR(d) {
   const hk = hoverKeyForToneDot(d)
   const nk = noteKeyForToneDot(d)
+  const isActive =
+    Boolean(nk) &&
+    (String(selection.selectedNoteKey || '') === String(nk) ||
+      highlightedNoteKeySet.value.has(String(nk)))
   const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
   const dynScale = Number.isFinite(dyn) ? 0.82 + dyn * 0.42 : 1
   const baseR = DOT_BASE_R * dynScale * (hoveredToneDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
-  if (!Number.isFinite(startedAt)) return baseR
+  if (!Number.isFinite(startedAt)) {
+    if (isActive) return baseR * 1.12
+    return baseR
+  }
 
   const dt = animNowMs.value - startedAt
   const PULSE_MS = FRETBOARD_SHOW_DOT_PULSE_MS
-  if (!(dt >= 0 && dt <= PULSE_MS)) return baseR
+  if (!(dt >= 0 && dt <= PULSE_MS)) {
+    if (isActive) return baseR * 1.12
+    return baseR
+  }
   const p = dt / PULSE_MS
   const bump = Math.sin(Math.PI * p)
-  return baseR * (1 + FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR * bump)
+  const pulseR = baseR * (1 + FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR * bump)
+  if (isActive) return pulseR * 1.12
+  return pulseR
+}
+
+function toneDotStyle(d) {
+  const nk = noteKeyForToneDot(d)
+  if (!nk) return null
+  const selected = String(selection.selectedNoteKey || '') === nk
+  const highlighted = highlightedNoteKeySet.value.has(nk)
+  if (!selected && !highlighted) return null
+  return {
+    filter: selected
+      ? 'drop-shadow(0 0 5px rgba(255, 235, 170, 0.92)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))'
+      : 'drop-shadow(0 0 4px rgba(255, 220, 120, 0.86)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42))',
+  }
 }
 
 function previewR() {
