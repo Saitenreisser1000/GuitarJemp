@@ -862,6 +862,8 @@ const {
   playMetronomeClick,
 })
 
+const PLAYBACK_LOOKAHEAD_MS = 140
+
 const practiceTargets = computed(() => {
   const t = tuning.value
   return store.activeNotes
@@ -1221,7 +1223,8 @@ function maybePlayClickAt(tMs) {
   if (!clickEnabled.value) return
 
   const t0Raw = lastClickTickMs
-  const t1Raw = Number(tMs)
+  const nowPlayheadMs = Number(tMs) || 0
+  const t1Raw = nowPlayheadMs + PLAYBACK_LOOKAHEAD_MS
   lastClickTickMs = t1Raw
 
   const t0 = Number.isFinite(t0Raw) ? t0Raw : -0.0001
@@ -1238,9 +1241,13 @@ function maybePlayClickAt(tMs) {
   const lastBeat = Math.floor(t1 / msPerBeat)
   if (lastBeat < firstBeat) return
 
+  const tempoValue = Number(tempo.value) || 120
+  const tempoScale = 120 / tempoValue
   for (let b = firstBeat; b <= lastBeat; b += 1) {
     if (b < 0) continue
-    void playMetronomeClick({ accent: isBarStartBeat(b) })
+    const beatTimeMs = b * msPerBeat
+    const startDelayMs = Math.max(0, (beatTimeMs - nowPlayheadMs) * tempoScale)
+    void playMetronomeClick({ accent: isBarStartBeat(b), startDelayMs })
   }
 }
 
@@ -1248,8 +1255,9 @@ function maybePlayNotesAt(tMs) {
   if (!soundPreviewEnabled.value) return
 
   const t0 = lastAudioTickMs
-  const t1 = tMs
-  lastAudioTickMs = tMs
+  const nowPlayheadMs = Number(tMs) || 0
+  const t1 = nowPlayheadMs + PLAYBACK_LOOKAHEAD_MS
+  lastAudioTickMs = t1
 
   const t = tuning.value
   if (!t) return
@@ -1277,12 +1285,17 @@ function maybePlayNotesAt(tMs) {
     const durScale = Number(soundDurationScale.value)
     const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
     const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+    const startDelayMs = Math.max(0, (startMs - nowPlayheadMs) * tempoScale)
 
     triggeredNoteKeys.add(key)
     // Keep the dot "active" for the exact timeline duration (playhead time)
-    playbackVisuals.highlight(key, tMs + durationPlayheadMs)
+    playbackVisuals.highlight(key, startMs + durationPlayheadMs)
     // But let the audio duration respect tempo (real time)
-    void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+    void playMidi(midi, {
+      durationMs: durationAudioMs,
+      startDelayMs,
+      instrumentType: instrument.instrumentType,
+    })
   }
 }
 

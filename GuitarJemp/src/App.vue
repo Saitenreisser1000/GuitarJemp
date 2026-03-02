@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import LayoutManager from '@/components/app/LayoutManager.vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
@@ -16,6 +16,7 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useLibraryStore } from '@/store/useLibrary'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
 import { useTheme } from 'vuetify'
 
 const numFrets = ref(12)
@@ -27,6 +28,9 @@ const showFretboard = ref(true)
 const showTimeline = ref(true)
 const showTransportBar = ref(true)
 const showLibraryInPaneB = ref(false)
+const viewMode = ref('desktop')
+const phonePane = ref('fretboard')
+const isPortraitViewport = ref(false)
 const authOpen = ref(false)
 const connectionsOpen = ref(false)
 const saveAsNewOpen = ref(false)
@@ -66,6 +70,8 @@ const preferenceDarkMode = computed({
   get: () => isDarkTheme.value,
   set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
 })
+const isPhoneView = computed(() => viewMode.value === 'phone')
+const showPhoneRotateOverlay = computed(() => isPhoneView.value && isPortraitViewport.value)
 
 function applyTheme(name) {
   const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
@@ -73,7 +79,16 @@ function applyTheme(name) {
   localStorage.setItem(THEME_STORAGE_KEY, next)
 }
 
+function updateViewportOrientationFlag() {
+  if (typeof window === 'undefined') return
+  isPortraitViewport.value = window.innerHeight > window.innerWidth
+}
+
 function updateFretboardResizeFromParentHeight(heightPx) {
+  if (isPhoneView.value) {
+    corePadResizePx.value = 0
+    return
+  }
   const h = Number(heightPx) || 0
   if (!(h > 0)) return
   const parentEl = fretboardMainEl.value
@@ -190,6 +205,11 @@ function resetEditorToDefaultLength() {
 }
 
 onMounted(async () => {
+  updateViewportOrientationFlag()
+  window.addEventListener('resize', updateViewportOrientationFlag)
+  window.addEventListener('orientationchange', updateViewportOrientationFlag)
+  installAudioAutoWarmup({ instrumentType: instrument.instrumentType })
+  void initAudioEngine({ instrumentType: instrument.instrumentType })
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
   if (storedTheme === 'guitarjemp' || storedTheme === 'guitarjempDark') {
     applyTheme(storedTheme)
@@ -207,14 +227,34 @@ onMounted(async () => {
   fretboardResizeObserver.observe(el)
 })
 
+watch(
+  () => instrument.instrumentType,
+  (next) => {
+    void initAudioEngine({ instrumentType: next })
+  },
+)
+
+watch(isPhoneView, async (phone) => {
+  if (phone) {
+    corePadResizePx.value = 0
+    return
+  }
+  await nextTick()
+  const el = fretboardMainEl.value
+  if (!el) return
+  updateFretboardResizeFromParentHeight(el.getBoundingClientRect().height)
+})
+
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportOrientationFlag)
+  window.removeEventListener('orientationchange', updateViewportOrientationFlag)
   fretboardResizeObserver?.disconnect?.()
   fretboardResizeObserver = null
 })
 </script>
 
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'is-phone-view': viewMode === 'phone' }">
     <AuthDialog v-model="authOpen" />
     <ConnectionsDialog v-model="connectionsOpen" />
 
@@ -285,9 +325,19 @@ onBeforeUnmount(() => {
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">View</v-btn>
         </template>
         <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
-          <v-switch density="compact" hide-details inset label="Library"
+          <v-switch density="compact" hide-details inset :label="`Pane B: ${showLibraryInPaneB ? 'Library' : 'Timeline'}`"
             :model-value="showLibraryInPaneB"
             @update:model-value="(v) => (showLibraryInPaneB = Boolean(v))" />
+          <div class="text-caption">Viewport</div>
+          <v-btn-toggle
+            :model-value="viewMode"
+            mandatory
+            divided
+            @update:model-value="(v) => (viewMode = String(v || 'desktop'))"
+          >
+            <v-btn value="desktop" size="small" variant="tonal">Desktop</v-btn>
+            <v-btn value="phone" size="small" variant="tonal">Phone</v-btn>
+          </v-btn-toggle>
         </v-card>
       </v-menu>
 
@@ -317,6 +367,25 @@ onBeforeUnmount(() => {
 
       <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
 
+      <div class="app-menu-right">
+        <v-menu v-if="isPhoneView" location="bottom end" :close-on-content-click="false">
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              variant="tonal"
+              size="small"
+              class="app-menu-tools-btn"
+              prepend-icon="mdi-tools"
+            >
+              Tools
+            </v-btn>
+          </template>
+          <v-card class="app-phone-tools-menu" min-width="260">
+            <FretboardContextMenu />
+          </v-card>
+        </v-menu>
+      </div>
+
       <div class="app-menu-center">
         <v-text-field
           v-model="songName"
@@ -329,12 +398,24 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <main class="app-content">
+    <main v-if="!showPhoneRotateOverlay" class="app-content">
       <LayoutManager class="app-window-manager">
         <template #pane-a>
-          <div v-if="showFretboard" ref="fretboardMainEl" class="fretboard-main">
+          <div v-if="!isPhoneView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
             <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
           </div>
+          <div v-else-if="isPhoneView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl" class="fretboard-main">
+            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+          </div>
+          <Timeline
+            v-else-if="isPhoneView && phonePane === 'timeline' && showTimeline"
+            ref="timelineRef"
+            :num-frets="numFrets"
+            :library-panel-visible="false"
+            :transport-visible="transportVisible"
+            @update-transport-visible="(v) => (transportVisible = Boolean(v))"
+          />
+          <LibraryPanel v-else-if="isPhoneView && phonePane === 'library'" />
         </template>
         <template #pane-b>
           <LibraryPanel v-if="showLibraryInPaneB" />
@@ -350,10 +431,18 @@ onBeforeUnmount(() => {
         </template>
       </LayoutManager>
     </main>
+    <main v-else class="app-content app-phone-rotate-lock" aria-live="polite">
+      <div class="app-phone-rotate-card">
+        <div class="app-phone-rotate-title">Landscape Required</div>
+        <div class="app-phone-rotate-text">Bitte Gerät drehen, um den Phone-View zu nutzen.</div>
+      </div>
+    </main>
     <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
       :shuffle-enabled="timelineSettings.shuffleEnabled"
+      :is-phone-view="isPhoneView"
+      :phone-pane="phonePane"
       :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
       :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
       :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
@@ -363,6 +452,7 @@ onBeforeUnmount(() => {
       @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
       @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
       @update-shuffle="timelineSettings.setShuffleEnabled"
+      @update-phone-pane="(v) => (phonePane = String(v || 'fretboard'))"
       @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
 
     <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -518,6 +608,24 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+.app-menu-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-menu-tools-btn {
+  text-transform: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-phone-tools-menu {
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  padding: 8px;
+}
+
 .app-menu-name-input {
   pointer-events: auto;
 }
@@ -603,5 +711,55 @@ onBeforeUnmount(() => {
 
 .fretboard-main :deep(.fretboard-body) {
   width: 100%;
+}
+
+.app-layout.is-phone-view :deep(.layout-manager) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-layout.is-phone-view :deep(.layout-sidebar) {
+  display: none;
+}
+
+.app-layout.is-phone-view :deep(.wm-pane-b),
+.app-layout.is-phone-view :deep(.wm-divider) {
+  display: none;
+}
+
+.app-layout.is-phone-view :deep(.wm-pane-a) {
+  flex-basis: 100% !important;
+}
+
+.app-layout.is-phone-view .app-menu-center {
+  width: min(240px, 56vw);
+}
+
+.app-phone-rotate-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #101010;
+  color: #f3f3f3;
+  padding: 20px;
+}
+
+.app-phone-rotate-card {
+  width: min(480px, 92vw);
+  border: 2px solid #2d2d2d;
+  border-radius: 12px;
+  padding: 18px 16px;
+  background: #181818;
+}
+
+.app-phone-rotate-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.app-phone-rotate-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #cfcfcf;
 }
 </style>

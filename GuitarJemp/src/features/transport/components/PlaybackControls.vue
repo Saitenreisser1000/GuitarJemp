@@ -22,6 +22,19 @@
             :model-value="shuffleEnabled"
             @update:model-value="(v) => emit('update-shuffle', Boolean(v))"
           />
+          <v-radio-group
+            v-if="isPhoneView"
+            class="phone-pane-switch"
+            density="compact"
+            hide-details
+            inline
+            :model-value="phonePane"
+            @update:model-value="(v) => emit('update-phone-pane', String(v || 'fretboard'))"
+          >
+            <v-radio label="Fretboard" value="fretboard" />
+            <v-radio label="Timeline" value="timeline" />
+            <v-radio label="Library" value="library" />
+          </v-radio-group>
         </div>
 
         <div class="transport-col transport-col-middle" aria-hidden="true" />
@@ -104,6 +117,8 @@ const props = defineProps({
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   shuffleEnabled: { type: Boolean, default: false },
+  isPhoneView: { type: Boolean, default: false },
+  phonePane: { type: String, default: 'fretboard' },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
   practiceActive: { type: Boolean, default: false },
@@ -124,6 +139,7 @@ const emit = defineEmits([
   'update-auto-follow',
   'update-loop',
   'update-shuffle',
+  'update-phone-pane',
   'toggle-practice',
   'toggle-record',
 ])
@@ -274,6 +290,25 @@ function onInputModeChange(v) {
 
 .shuffle-checkbox {
   color: var(--color-text-muted);
+}
+
+.phone-pane-switch {
+  margin-left: 2px;
+  color: var(--color-text-muted);
+}
+
+.phone-pane-switch :deep(.v-selection-control-group) {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.phone-pane-switch :deep(.v-selection-control) {
+  min-height: 24px;
+}
+
+.phone-pane-switch :deep(.v-label) {
+  font-size: 12px;
 }
 
 .transport-controls :deep(.v-slider-track__background) {

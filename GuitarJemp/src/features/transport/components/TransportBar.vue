@@ -4,6 +4,8 @@
       <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
         :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
         :shuffle-enabled="shuffleEnabled"
+        :is-phone-view="isPhoneView"
+        :phone-pane="phonePane"
         :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
         :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
         :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
@@ -14,6 +16,7 @@
         @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
         @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
         @update-shuffle="(v) => emit('update-shuffle', v)"
+        @update-phone-pane="(v) => emit('update-phone-pane', v)"
         @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
     </div>
   </div>
@@ -32,6 +35,8 @@ defineProps({
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   shuffleEnabled: { type: Boolean, default: false },
+  isPhoneView: { type: Boolean, default: false },
+  phonePane: { type: String, default: 'fretboard' },
   playhead: { type: Number, required: true },
   totalDuration: { type: Number, required: true },
   practiceActive: { type: Boolean, default: false },
@@ -53,6 +58,7 @@ const emit = defineEmits([
   'update-auto-follow',
   'update-loop',
   'update-shuffle',
+  'update-phone-pane',
   'toggle-practice',
   'toggle-record',
 ])
