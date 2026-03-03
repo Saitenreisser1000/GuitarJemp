@@ -303,6 +303,31 @@ function onInputModeChange(v) {
   padding-bottom: 8px !important;
 }
 
+.transport-controls.is-phone-view .transport-primary-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.transport-controls.is-phone-view .transport-col-middle {
+  display: none;
+}
+
+.transport-controls.is-phone-view .transport-col-left,
+.transport-controls.is-phone-view .transport-col-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap !important;
+}
+
+.transport-controls.is-phone-view .transport-col-right {
+  margin-left: auto;
+}
+
 .loop-switch {
   color: var(--color-text-muted);
 }
@@ -386,7 +411,8 @@ function onInputModeChange(v) {
   }
 
   .transport-controls.is-phone-view .transport-primary-controls {
-    row-gap: 4px;
+    row-gap: 0;
+    grid-template-columns: none;
   }
 }
 </style>

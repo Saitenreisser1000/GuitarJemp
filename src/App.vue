@@ -18,6 +18,7 @@ import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
+import { useI18n } from '@/i18n'
 import { useTheme } from 'vuetify'
 
 const numFrets = ref(12)
@@ -70,6 +71,7 @@ const timelineSettings = useTimelineSettingsStore()
 const library = useLibraryStore()
 const harmony = useHarmonyMenuStore()
 const theme = useTheme()
+const { locale, languages, setLocale } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
@@ -98,6 +100,13 @@ const preferenceDarkMode = computed({
 const preferenceIntervalsOnDots = computed({
   get: () => Boolean(timelineSettings.showIntervalsOnDots),
   set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
+})
+const languageItems = computed(() => languages.map((l) => ({ title: l.label, value: l.code })))
+const preferenceLanguage = computed({
+  get: () => String(locale.value || 'en'),
+  set: (v) => {
+    void setLocale(String(v || 'en'))
+  },
 })
 const isPhoneView = computed(() => viewMode.value === 'phone')
 const isWatchView = computed(() => viewMode.value === 'watch')
@@ -416,37 +425,41 @@ onBeforeUnmount(() => {
     <AuthDialog v-model="authOpen" />
     <ConnectionsDialog v-model="connectionsOpen" />
 
-    <header class="app-topbar">
-      <div class="app-topbar-title">GuitarJemp</div>
-      <v-spacer />
-      <div class="app-topbar-actions">
-        <v-chip v-if="auth.isSignedIn" size="small" color="success" variant="tonal">
-          {{ auth.profile?.display_name || auth.user?.user_metadata?.display_name || 'User' }}
-        </v-chip>
-        <v-menu location="bottom end">
-          <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" size="small" variant="tonal" prepend-icon="mdi-account">
-              Account
-            </v-btn>
-          </template>
-          <v-list density="compact" min-width="180">
-            <v-list-item
-              :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
-              :title="auth.isSignedIn ? 'Logout' : 'Login'"
-              @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
-            />
-            <v-list-item
-              prepend-icon="mdi-account-multiple"
-              title="Friends"
-              :disabled="!auth.isSignedIn"
-              @click="connectionsOpen = true"
-            />
-          </v-list>
-        </v-menu>
-      </div>
-    </header>
     <div class="app-menu-bar" aria-label="Main menu">
-      <v-menu location="bottom start">
+      <div class="app-menu-brand">GuitarJemp</div>
+      <v-menu v-if="isPhoneView" location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="menuProps"
+            icon="mdi-menu"
+            variant="text"
+            size="small"
+            class="app-menu-btn app-hamburger-btn"
+            aria-label="Open menu"
+          />
+        </template>
+        <v-list density="compact" min-width="260">
+          <v-list-subheader>File</v-list-subheader>
+          <v-list-item title="New" @click="openNewSongDialog" />
+          <v-list-item title="Save" @click="saveCurrentSong" />
+          <v-list-item title="Save As New" @click="openSaveAsNew" />
+          <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
+          <v-divider class="my-1" />
+          <v-list-subheader>Edit</v-list-subheader>
+          <v-list-item title="Undo" @click="triggerUndo" />
+          <v-list-item title="Redo" @click="triggerRedo" />
+          <v-list-item title="Preferences" @click="preferencesOpen = true" />
+          <v-divider class="my-1" />
+          <v-list-subheader>Song</v-list-subheader>
+          <v-list-item title="Song Settings" @click="openSongSettingsDialog" />
+          <v-divider class="my-1" />
+          <v-list-subheader>View</v-list-subheader>
+          <v-list-item title="Desktop" @click="viewMode = 'desktop'" />
+          <v-list-item title="Phone" @click="viewMode = 'phone'" />
+          <v-list-item title="Watch" @click="viewMode = 'watch'" />
+        </v-list>
+      </v-menu>
+      <v-menu v-else location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">File</v-btn>
         </template>
@@ -466,7 +479,7 @@ onBeforeUnmount(() => {
         </v-list>
       </v-menu>
 
-      <v-menu location="bottom start">
+      <v-menu v-if="!isPhoneView" location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Edit</v-btn>
         </template>
@@ -478,7 +491,7 @@ onBeforeUnmount(() => {
         </v-list>
       </v-menu>
 
-      <v-menu location="bottom start">
+      <v-menu v-if="!isPhoneView" location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Song</v-btn>
         </template>
@@ -487,7 +500,7 @@ onBeforeUnmount(() => {
         </v-list>
       </v-menu>
 
-      <v-menu location="bottom start" :close-on-content-click="false">
+      <v-menu v-if="!isPhoneView" location="bottom start" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">View</v-btn>
         </template>
@@ -509,33 +522,10 @@ onBeforeUnmount(() => {
         </v-card>
       </v-menu>
 
-      <v-menu location="bottom start" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Window</v-btn>
-        </template>
-        <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
-          <v-switch density="compact" hide-details inset label="Fretboard" :model-value="showFretboard"
-            @update:model-value="(v) => (showFretboard = Boolean(v))" />
-          <v-switch density="compact" hide-details inset label="Timeline" :model-value="showTimeline"
-            @update:model-value="(v) => (showTimeline = Boolean(v))" />
-          <v-switch density="compact" hide-details inset label="Transport" :model-value="showTransportBar"
-            @update:model-value="(v) => (showTransportBar = Boolean(v))" />
-        </v-card>
-      </v-menu>
-
-      <v-menu location="bottom start">
-        <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Language</v-btn>
-        </template>
-        <v-list density="compact" min-width="180">
-          <v-list-item title="English" />
-          <v-list-item title="Deutsch" />
-        </v-list>
-      </v-menu>
-
-      <v-btn variant="text" size="small" class="app-menu-btn">Help</v-btn>
-
       <div class="app-menu-right">
+        <v-chip v-if="auth.isSignedIn && !isPhoneView" size="small" color="success" variant="tonal">
+          {{ auth.profile?.display_name || auth.user?.user_metadata?.display_name || 'User' }}
+        </v-chip>
         <v-menu v-if="isCompactView && !isWatchView" location="bottom end" :close-on-content-click="false">
           <template #activator="{ props: menuProps }">
             <v-btn
@@ -562,9 +552,29 @@ onBeforeUnmount(() => {
         >
           Tools
         </v-btn>
+        <v-menu location="bottom end">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" size="small" variant="tonal" prepend-icon="mdi-account">
+              Account
+            </v-btn>
+          </template>
+          <v-list density="compact" min-width="180">
+            <v-list-item
+              :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
+              :title="auth.isSignedIn ? 'Logout' : 'Login'"
+              @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
+            />
+            <v-list-item
+              prepend-icon="mdi-account-multiple"
+              title="Friends"
+              :disabled="!auth.isSignedIn"
+              @click="connectionsOpen = true"
+            />
+          </v-list>
+        </v-menu>
       </div>
 
-      <div class="app-menu-center">
+      <div v-if="!isPhoneView" class="app-menu-center">
         <v-text-field
           v-model="songName"
           density="compact"
@@ -825,6 +835,13 @@ onBeforeUnmount(() => {
             :model-value="timelineSettings.handPositionVisible"
             @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))"
           />
+          <v-select
+            v-model="preferenceLanguage"
+            :items="languageItems"
+            label="Language"
+            density="compact"
+            variant="outlined"
+          />
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn variant="text" @click="preferencesOpen = false">Close</v-btn>
@@ -833,7 +850,7 @@ onBeforeUnmount(() => {
     </v-dialog>
 
     <footer class="app-footer">
-      <span>GuitarJemp Workspace</span>
+      <span>GuitarJemp ©</span>
     </footer>
   </div>
 </template>
@@ -849,44 +866,32 @@ onBeforeUnmount(() => {
 .app-footer {
   display: flex;
   align-items: center;
-  height: 44px;
+  height: 31px;
   padding: 0 14px;
   background: #111;
   color: #f3f3f3;
-}
-
-.app-topbar {
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  padding-inline: 12px;
-  border-bottom: 1px solid #2f2f2f;
-  background: #111;
-  color: #f3f3f3;
-}
-
-.app-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.app-topbar-title {
-  font-size: 1.8rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  font-family: var(--font-display);
 }
 
 .app-menu-bar {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 30px;
-  padding: 0 8px;
-  border-bottom: 1px solid #c8c8c8;
-  background: #efefef;
+  gap: 4px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #2f2f2f;
+  background: #111;
+  color: #f3f3f3;
+}
+
+.app-menu-brand {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  padding-right: 8px;
+  margin-right: 4px;
+  border-right: 1px solid rgb(255 255 255 / 18%);
 }
 
 .app-menu-center {
@@ -902,6 +907,7 @@ onBeforeUnmount(() => {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
 }
 
 .app-menu-tools-btn {
@@ -940,10 +946,15 @@ onBeforeUnmount(() => {
   text-transform: none;
   font-size: 12px;
   font-weight: 600;
+  color: #f3f3f3;
 }
 
 .app-menu-btn:hover {
-  background: rgb(0 0 0 / 6%);
+  background: rgb(255 255 255 / 10%);
+}
+
+.app-hamburger-btn {
+  margin-left: 2px;
 }
 
 .app-footer {
