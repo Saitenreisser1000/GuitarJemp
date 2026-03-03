@@ -27,6 +27,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
       : 1,
   )
   const loopEnabled = ref(typeof stored.loopEnabled === 'boolean' ? stored.loopEnabled : false)
+  const shuffleEnabled = ref(
+    typeof stored.shuffleEnabled === 'boolean' ? stored.shuffleEnabled : false,
+  )
   const loopStartBlock = ref(
     Number.isFinite(stored.loopStartBlock) && stored.loopStartBlock >= 0
       ? Number(stored.loopStartBlock)
@@ -87,6 +90,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const showSuggestedPosition = ref(
     typeof stored.showSuggestedPosition === 'boolean' ? stored.showSuggestedPosition : false,
   )
+  const showIntervalsOnDots = ref(
+    typeof stored.showIntervalsOnDots === 'boolean' ? stored.showIntervalsOnDots : false,
+  )
   const eraseMode = ref(typeof stored.eraseMode === 'boolean' ? stored.eraseMode : false)
 
   function setSelectedMode(m) {
@@ -118,6 +124,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setLoopEnabled(v) {
     loopEnabled.value = Boolean(v)
+  }
+
+  function setShuffleEnabled(v) {
+    shuffleEnabled.value = Boolean(v)
   }
 
   function setLoopStartBlock(v) {
@@ -211,6 +221,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showSuggestedPosition.value = Boolean(v)
   }
 
+  function setShowIntervalsOnDots(v) {
+    showIntervalsOnDots.value = Boolean(v)
+  }
+
   function setSimGroupMode(v) {
     const raw = String(v || '')
     const next = raw === 'dot' ? 'dotted' : raw
@@ -230,6 +244,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     countInEnabled,
     soundDurationScale,
     loopEnabled,
+    shuffleEnabled,
     loopStartBlock,
     loopEndBlock,
     beatTop,
@@ -247,6 +262,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showChordShapePanel,
     handPositionVisible,
     showSuggestedPosition,
+    showIntervalsOnDots,
     simGroupMode,
     eraseMode,
   })
@@ -260,6 +276,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     countInEnabled,
     soundDurationScale,
     loopEnabled,
+    shuffleEnabled,
     loopStartBlock,
     loopEndBlock,
     beatTop,
@@ -277,6 +294,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showChordShapePanel,
     handPositionVisible,
     showSuggestedPosition,
+    showIntervalsOnDots,
     simGroupMode,
     eraseMode,
     setSelectedMode,
@@ -286,6 +304,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setCountInEnabled,
     setSoundDurationScale,
     setLoopEnabled,
+    setShuffleEnabled,
     setLoopStartBlock,
     setLoopEndBlock,
     setBeatTop,
@@ -303,6 +322,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setShowChordShapePanel,
     setHandPositionVisible,
     setShowSuggestedPosition,
+    setShowIntervalsOnDots,
     setSimGroupMode,
     setEraseMode,
   }

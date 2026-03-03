@@ -1,5 +1,5 @@
 <template>
-  <v-card class="timeline-info ui-panel" variant="flat">
+  <div class="timeline-info ui-panel">
     <div class="d-flex align-center ga-2 flex-wrap pa-1">
       <div class="timeline-info-tools d-flex align-center ga-2" :aria-label="t('timelineView.tools')">
         <label class="timeline-tool" :class="{ 'is-active': String(activeTool) === 'arrow' }"
@@ -45,7 +45,7 @@
         </v-btn>
       </div>
     </div>
-  </v-card>
+  </div>
 </template>
 
 <script setup>

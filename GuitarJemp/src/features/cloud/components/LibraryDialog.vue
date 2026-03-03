@@ -6,6 +6,7 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
+import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useI18n } from '@/i18n'
 import { supabase, isSupabaseConfigured } from '@/infra/supabase/client'
 
@@ -34,6 +35,7 @@ const notes = useNotesStore()
 const instrument = useInstrumentStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const playbackVisuals = usePlaybackVisualsStore()
 const { t } = useI18n()
 const ownerNamesById = ref({})
 
@@ -162,6 +164,23 @@ async function onLoad(item) {
     }
 
     if (Array.isArray(snap?.notes)) notes.setNotes(snap.notes)
+    if (Array.isArray(snap?.notes) && snap.notes.length > 1) {
+        const orderedKeys = [...snap.notes]
+            .sort((a, b) => {
+                const ga = Number(a?.gridIndex) || 0
+                const gb = Number(b?.gridIndex) || 0
+                if (ga !== gb) return ga - gb
+                const ta = Number(a?.placedAtMs) || 0
+                const tb = Number(b?.placedAtMs) || 0
+                if (ta !== tb) return ta - tb
+                return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+            })
+            .map((n) => String(n?.key ?? ''))
+            .filter(Boolean)
+        const segCount = Math.max(1, orderedKeys.length - 1)
+        const durationMs = Math.min(10000, Math.max(2200, segCount * 360))
+        playbackVisuals.triggerDirectionPreview(orderedKeys, { durationMs })
+    }
 }
 
 watch(

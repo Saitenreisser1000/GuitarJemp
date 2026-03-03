@@ -1,382 +1,309 @@
 <template>
-  <div ref="rootEl" class="fretboard-js">
-    <div class="fb-main-column">
-      <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${FB_HEIGHT}` }">
-        <RealisticFretboardBackground class="fb-layer fb-bg" :width="FB_WIDTH" :height="FB_HEIGHT" :nut-width="NUT_WIDTH"
-          :fret-count="props.numFrets" :string-count="instrument.numStrings" />
+  <div ref="rootEl" class="fretboard-body" :style="fretboardCssVars">
+    <div class="fb-core-pad">
+      <div class="fb-core-resizable" :style="coreResizableStyle">
+        <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
+          <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
+            preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
+            @click="onClick">
+            <defs>
+              <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.woodStops" :key="`wood-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
+              </linearGradient>
 
-        <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 0 ${FB_WIDTH} ${FB_HEIGHT}`"
-          preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
-          @click="onClick">
-          <!-- transparent hit-area -->
-          <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" fill="transparent" />
+              <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.shadeStops" :key="`shade-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
+              </linearGradient>
 
-        <!-- String numbers -->
-        <g class="fb-string-labels">
-          <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-6" :y="s.y + 4" text-anchor="end"
-            font-size="12" font-weight="800" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.45)" stroke-width="2"
-            paint-order="stroke">
-            {{ stringLabelFor(s.string) }}
-          </text>
-        </g>
+              <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
+                <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0" />
+                <feComposite operator="in" in2="SourceGraphic" />
+              </filter>
 
-        <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
-          <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y" :width="handPositionOverlayRect.width"
-            :height="handPositionOverlayRect.height" :rx="handPositionOverlayRect.rx" />
-        </g>
-        <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested" style="pointer-events: none">
-          <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
-            :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
-            :rx="suggestedHandPositionOverlayRect.rx" />
-          <text :x="suggestedHandPositionOverlayRect.x + 6" :y="suggestedHandPositionOverlayRect.y + 14">
-            {{ t('fretboardShow.suggestedPosition', { from: suggestedHandPositionOverlayRect.fromFret, to: suggestedHandPositionOverlayRect.toFret }) }}
-          </text>
-        </g>
+              <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.metalStops" :key="`metal-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
+              </linearGradient>
 
-        <!-- ToneDots -->
-        <g class="fb-tone-dots">
-          <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
-            <circle
-              v-for="d in harmonyGuideDots"
-              :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`"
-              :cx="toneDotX(d)"
-              :cy="toneDotY(d)"
-              :r="harmonyGuideRadius(d)"
-              :fill="harmonyGuideFill(d)"
-              :stroke="harmonyGuideStroke(d)"
-              :stroke-width="harmonyGuideStrokeWidth(d)"
-            />
-          </g>
-          <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
-            <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
-              :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color"
-              :style="{ strokeWidth: `${playbackTravelLine.strokeWidth}px`, filter: playbackTravelLine.filter }" />
-          </g>
-          <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
-            <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
-              <line
-                class="fb-now-string-line"
-                :x1="NUT_WIDTH"
-                :y1="m.y"
-                :x2="FB_WIDTH"
-                :y2="m.y"
-                :stroke="m.color"
-                :style="{ opacity: m.lineOpacity }"
-              />
-              <line
-                class="fb-now-cross"
-                :x1="m.x - m.crossHalf"
-                :y1="m.y"
-                :x2="m.x + m.crossHalf"
-                :y2="m.y"
-                :stroke="m.color"
-              />
-              <circle
-                class="fb-now-ring"
-                :cx="m.x"
-                :cy="m.y"
-                :r="m.ringR"
-                :stroke="m.color"
-              />
+              <radialGradient id="inlay" cx="50%" cy="40%" r="60%">
+                <stop v-for="(s, idx) in FRETBOARD_THEME.svg.inlayStops" :key="`inlay-stop-${idx}`" :offset="s.offset"
+                  :stop-color="s.color" />
+              </radialGradient>
+
+              <clipPath id="fb-core-clip">
+                <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
+              </clipPath>
+            </defs>
+
+            <g class="fb-board-shell" data-part="board-shell">
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#wood)" />
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="url(#shade)" />
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" rx="0" fill="transparent" filter="url(#grain)"
+                opacity="0.9" />
+              <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
+                :stroke="FRETBOARD_THEME.svg.boardBorderStroke" stroke-width="2" />
+              <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" :fill="FRETBOARD_THEME.svg.nutFill"
+                opacity="0.95" />
+              <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" :fill="FRETBOARD_THEME.svg.nutDividerFill"
+                opacity="0.9" />
+              <g class="fb-frets">
+                <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
+                  <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
+                    :stroke="FRETBOARD_THEME.svg.fretZeroStroke" stroke-width="2" opacity="0.9" />
+                  <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
+                    :stroke="FRETBOARD_THEME.svg.fretGlowStroke" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
+                  <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
+                    :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
+                  <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
+                    :stroke="FRETBOARD_THEME.svg.fretShadowStroke" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
+                </template>
+              </g>
             </g>
-          </g>
-          <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
-            <circle
-              class="self-loop-base"
-              :cx="playbackSelfLoop.cx"
-              :cy="playbackSelfLoop.cy"
-              :r="playbackSelfLoop.r"
-              fill="none"
-              :stroke="playbackSelfLoop.color"
-            />
-            <line
-              :x1="playbackSelfLoop.x1"
-              :y1="playbackSelfLoop.y1"
-              :x2="playbackSelfLoop.x2"
-              :y2="playbackSelfLoop.y2"
-              :stroke="playbackSelfLoop.color"
-            />
-            <circle
-              class="self-loop-progress"
-              :cx="playbackSelfLoop.cx"
-              :cy="playbackSelfLoop.cy"
-              :r="playbackSelfLoop.r"
-              fill="none"
-              :stroke="playbackSelfLoop.color"
-              :stroke-dasharray="playbackSelfLoop.dasharray"
-              :stroke-dashoffset="playbackSelfLoop.dashoffset"
-            />
-            <circle
-              class="self-loop-head"
-              :cx="playbackSelfLoop.headX"
-              :cy="playbackSelfLoop.headY"
-              :r="2.7"
-              :fill="playbackSelfLoop.color"
-            />
-          </g>
 
-          <!-- Hover preview for inactive positions (editor only) -->
-          <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)" :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()"
-            fill="transparent" stroke="rgba(255,255,255,0.85)" stroke-width="3" style="pointer-events: none" />
+            <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
+              <g class="fb-inlays" opacity="0.95">
+                <template v-for="dot in inlayDots" :key="dot.key">
+                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
+                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
+                    stroke-width="1" />
+                </template>
+              </g>
 
-          <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
-            <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)" :opacity="toneDotOpacity(d)"
-              :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)" @mouseenter="onToneDotEnter(d, $event)"
-              @mouseleave="onToneDotLeave(d)" @click="onToneDotClick(d, $event)"
-              @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
-              @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
-              @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
-            <text class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
-              {{ toneDotSymbol(d) }}
-            </text>
-            <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
-              {{ toneDotPitchLabel(d) }}
-            </text>
-          </g>
+              <g class="fb-strings" opacity="0.9">
+                <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y" :x2="FB_WIDTH"
+                  :y2="s.y" :stroke="FRETBOARD_THEME.svg.stringStroke" :stroke-width="s.w" stroke-linecap="round" />
+                <line v-for="s in strings" :key="`string-shadow-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y + 0.9"
+                  :x2="FB_WIDTH" :y2="s.y + 0.9" :stroke="FRETBOARD_THEME.svg.stringShadowStroke" :stroke-width="Math.max(1, s.w - 0.6)"
+                  stroke-linecap="round" />
+              </g>
+            </g>
+            <g class="fb-interaction-layer" data-part="interaction-layer">
+              <!-- transparent hit-area incl. fretboard overhang -->
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" />
 
-          <circle
-            v-if="nextNotePreviewDot"
-            class="fb-next-note-preview"
-            :cx="toneDotX(nextNotePreviewDot)"
-            :cy="toneDotY(nextNotePreviewDot)"
-            :r="toneDotR(nextNotePreviewDot) + 7"
-          />
+              <!-- String numbers -->
+              <g class="fb-string-labels">
+                <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
+                  font-size="12" font-weight="800" :fill="FRETBOARD_THEME.svg.stringLabelFill" :stroke="FRETBOARD_THEME.svg.stringLabelStroke"
+                  stroke-width="2" paint-order="stroke">
+                  {{ stringLabelFor(s.string) }}
+                </text>
+              </g>
 
-          <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
-          <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)" :r="toneDotR(dragPreviewToneDot)"
-            fill="transparent" stroke="rgba(255,255,255,0.95)" stroke-width="4" style="pointer-events: none" />
-        </g>
-        <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
-          <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
-          <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
-        </g>
-        </svg>
-      </div>
-      <div class="fb-fret-numbers" aria-hidden="true">
-        <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-          :class="{ 'is-marker-fret': isMarkerFret(l.fret) }"
-          :style="{ left: `${l.xPct}%` }">
-          {{ l.fret }}
-        </span>
-      </div>
-      <Teleport v-if="hasLeftRailHost" to="#fretboard-left-rail-host">
-        <div class="fb-rail-controls">
-          <v-menu location="right start" :close-on-content-click="false">
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                v-bind="menuProps"
-                size="small"
-                variant="tonal"
-                class="fb-top-control fb-note-value-btn"
-                :title="t('modeSelector.noteValues')"
-              >
-                <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-                <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-              </v-btn>
-            </template>
+              <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
+                <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y"
+                  :width="handPositionOverlayRect.width" :height="handPositionOverlayRect.height"
+                  :rx="handPositionOverlayRect.rx" />
+              </g>
+              <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested"
+                style="pointer-events: none">
+                <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
+                  :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
+                  :rx="suggestedHandPositionOverlayRect.rx" />
+                <text :x="suggestedHandPositionOverlayRect.labelX" :y="suggestedHandPositionOverlayRect.labelY">
+                  {{
+                    t('fretboardShow.suggestedPosition', {
+                      from: suggestedHandPositionOverlayRect.fromFret,
+                      to: suggestedHandPositionOverlayRect.toFret,
+                    })
+                  }}
+                </text>
+              </g>
 
-            <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-              <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-              <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-                <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-                  :title="item.title">
-                  <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
-                </v-btn>
-              </v-btn-toggle>
+              <!-- ToneDots -->
+              <g class="fb-tone-dots">
+                <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
+                  <circle v-for="d in harmonyGuideDots"
+                    :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`" :cx="toneDotX(d)"
+                    :cy="toneDotY(d)" :r="harmonyGuideRadius(d)" :fill="harmonyGuideFill(d)"
+                    :stroke="harmonyGuideStroke(d)" :stroke-width="harmonyGuideStrokeWidth(d)" />
+                </g>
+                <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
+                  <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
+                    :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" :style="{
+                      strokeWidth: `${playbackTravelLine.strokeWidth}px`,
+                      filter: playbackTravelLine.filter,
+                    }" />
+                </g>
+                <g
+                  v-if="directionPreviewSegments.length"
+                  class="fb-direction-preview"
+                  style="pointer-events: none"
+                >
+                  <line
+                    v-for="seg in directionPreviewSegments"
+                    :key="`dir-preview-${seg.fromKey}-${seg.toKey}`"
+                    :x1="seg.x1"
+                    :y1="seg.y1"
+                    :x2="seg.x2"
+                    :y2="seg.y2"
+                    :stroke="seg.color"
+                    :style="{
+                      opacity: seg.opacity,
+                      strokeWidth: `${seg.strokeWidth}px`,
+                      filter: seg.filter,
+                    }"
+                  />
+                </g>
+                <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
+                  <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
+                    <line class="fb-now-string-line" :x1="NUT_WIDTH" :y1="m.y" :x2="FB_WIDTH" :y2="m.y"
+                      :stroke="m.color" :style="{ opacity: m.lineOpacity }" />
+                    <line class="fb-now-cross" :x1="m.x - m.crossHalf" :y1="m.y" :x2="m.x + m.crossHalf" :y2="m.y"
+                      :stroke="m.color" />
+                    <circle class="fb-now-ring" :cx="m.x" :cy="m.y" :r="m.ringR" :stroke="m.color" />
+                  </g>
+                </g>
+                <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
+                  <circle class="self-loop-base" :cx="playbackSelfLoop.cx" :cy="playbackSelfLoop.cy"
+                    :r="playbackSelfLoop.r" fill="none" :stroke="playbackSelfLoop.color" />
+                  <line :x1="playbackSelfLoop.x1" :y1="playbackSelfLoop.y1" :x2="playbackSelfLoop.x2"
+                    :y2="playbackSelfLoop.y2" :stroke="playbackSelfLoop.color" />
+                  <circle class="self-loop-progress" :cx="playbackSelfLoop.cx" :cy="playbackSelfLoop.cy"
+                    :r="playbackSelfLoop.r" fill="none" :stroke="playbackSelfLoop.color"
+                    :stroke-dasharray="playbackSelfLoop.dasharray" :stroke-dashoffset="playbackSelfLoop.dashoffset" />
+                  <circle class="self-loop-head" :cx="playbackSelfLoop.headX" :cy="playbackSelfLoop.headY" :r="2.7"
+                    :fill="playbackSelfLoop.color" />
+                </g>
 
-              <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-              <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-                <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-                <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-              </v-btn-toggle>
-            </v-card>
-          </v-menu>
+                <!-- Hover preview for inactive positions (editor only) -->
+                <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)"
+                  :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()" fill="transparent"
+                  :stroke="FRETBOARD_THEME.svg.hoverPreviewStroke" stroke-width="3" style="pointer-events: none" />
 
-          <v-btn
-            size="small"
-            variant="tonal"
-            class="fb-top-control"
-            :active="Boolean(isSimOn)"
-            :color="isSimOn ? 'primary' : undefined"
-            :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-            :aria-pressed="String(isSimOn)"
-            @click="toggleSim"
-          >
-            CH
-          </v-btn>
+                <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
+                  <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)"
+                    :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
+                    :style="toneDotStyle(d)"
+                    @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
+                    @click="onToneDotClick(d, $event)" @contextmenu.prevent.stop="onToneDotContextMenu(d, $event)"
+                    @pointerdown="onToneDotPointerDown(d, $event)" @pointermove="onToneDotPointerMove($event)"
+                    @pointerup="onToneDotPointerUp($event)" @pointercancel="onToneDotPointerUp($event)" />
+                  <image
+                    v-if="toneDotIcon(d)"
+                    class="fb-tone-dot-symbol-icon"
+                    :x="toneDotX(d) - 7"
+                    :y="toneDotY(d) - 7"
+                    width="14"
+                    height="14"
+                    :href="toneDotIcon(d)"
+                  />
+                  <text v-else class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
+                    {{ toneDotSymbol(d) }}
+                  </text>
+                  <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
+                    {{ toneDotPitchLabel(d) }}
+                  </text>
+                </g>
 
-          <v-menu location="right start" :close-on-content-click="false">
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                v-bind="menuProps"
-                size="small"
-                variant="tonal"
-                class="fb-top-control fb-color-btn"
-                :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-              >
-                <v-icon icon="mdi-palette-outline" size="18" />
-                <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-              </v-btn>
-            </template>
+                <circle v-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
+                  :cy="toneDotY(nextNotePreviewDot)" :r="toneDotR(nextNotePreviewDot) + 7" />
 
-            <v-card class="pa-2" min-width="260" variant="flat" border>
-              <ColorPalette orientation="horizontal" />
-            </v-card>
-          </v-menu>
-        </div>
-      </Teleport>
-      <div class="fb-fret-actions">
-        <template v-if="!hasLeftRailHost">
-        <v-menu location="bottom start" :close-on-content-click="false">
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              size="small"
-              variant="tonal"
-              class="fb-top-control fb-note-value-btn"
-              :title="t('modeSelector.noteValues')"
+                <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
+                <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)"
+                  :r="toneDotR(dragPreviewToneDot)" fill="transparent" :stroke="FRETBOARD_THEME.svg.dragPreviewStroke" stroke-width="4"
+                  style="pointer-events: none" />
+              </g>
+              <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
+                <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
+                <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
+              </g>
+            </g>
+          </svg>
+          <div class="fb-text-layer">
+            <div
+              v-for="item in textItems"
+              :key="item.id"
+              class="fb-text-item"
+              :style="{ left: `${item.xPct}%`, top: `${item.yPct}%` }"
             >
-              <span class="fb-note-glyph">{{ activeModeItem?.dotSymbol || activeModeItem?.label }}</span>
-              <v-icon class="fb-note-caret" icon="mdi-chevron-down" size="14" />
-            </v-btn>
-          </template>
-
-          <v-card class="pa-3 d-flex flex-column ga-3" min-width="250" variant="flat" border>
-            <div class="text-caption">{{ t('modeSelector.noteValue') }}</div>
-            <v-btn-toggle v-model="noteValueLocal" mandatory divided class="fb-note-toggle-row">
-              <v-btn v-for="item in modeItems" :key="item.value" :value="item.value" variant="tonal" size="small"
-                :title="item.title">
-                <span class="fb-note-glyph">{{ item.dotSymbol || item.label }}</span>
-              </v-btn>
-            </v-btn-toggle>
-
-            <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-            <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-              <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-              <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-            </v-btn-toggle>
-          </v-card>
-        </v-menu>
-
-        <v-btn
-          size="small"
-          variant="tonal"
-          class="fb-top-control"
-          :active="Boolean(isSimOn)"
-          :color="isSimOn ? 'primary' : undefined"
-          :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-          :aria-pressed="String(isSimOn)"
-          @click="toggleSim"
-        >
-          CH
-        </v-btn>
-
-        <v-menu location="bottom start" :close-on-content-click="false">
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              size="small"
-              variant="tonal"
-              class="fb-top-control fb-color-btn"
-              :title="t('modeSelector.symbols', { color: settings.selectedColor })"
-            >
-              <v-icon icon="mdi-palette-outline" size="18" />
-              <span class="fb-color-swatch" :style="{ backgroundColor: settings.selectedColor }" aria-hidden="true" />
-            </v-btn>
-          </template>
-
-          <v-card class="pa-2" min-width="260" variant="flat" border>
-            <ColorPalette orientation="horizontal" />
-          </v-card>
-        </v-menu>
-        </template>
-
-        <div v-if="!hasRightRailHost" class="fb-fret-actions-erase">
-          <button
-            class="fb-shape-btn"
-            :class="{ 'is-active': settings.eraseMode }"
-            type="button"
-            @click="settings.setEraseMode(!settings.eraseMode)"
-          >
-            Erase
-          </button>
-          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-            Erase All
-          </button>
+              <button
+                class="fb-text-item-drag"
+                type="button"
+                title="Textfeld bewegen"
+                @pointerdown.stop.prevent="onTextItemDragStart(item.id, $event)"
+              >
+                ::
+              </button>
+              <input
+                class="fb-text-item-input"
+                type="text"
+                :value="item.text"
+                placeholder="Text"
+                @pointerdown.stop
+                @click.stop
+                @input="onTextItemInput(item.id, $event)"
+              />
+              <button
+                class="fb-text-item-delete"
+                type="button"
+                title="Textfeld löschen"
+                @pointerdown.stop
+                @click.stop="onTextItemDelete(item.id)"
+              >
+                x
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="fb-fret-numbers" aria-hidden="true">
+          <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
+            :class="{ 'is-marker-fret': isMarkerFret(l.fret) }" :style="{ left: `${l.xPct}%` }">
+            {{ l.fret }}
+          </span>
         </div>
       </div>
-      <Teleport v-if="hasRightRailHost" to="#fretboard-right-rail-host">
-        <div class="fb-rail-controls fb-rail-controls-right">
-          <button
-            class="fb-shape-btn"
-            :class="{ 'is-active': settings.eraseMode }"
-            type="button"
-            @click="settings.setEraseMode(!settings.eraseMode)"
-          >
-            Erase
-          </button>
-          <button class="fb-shape-btn is-danger" type="button" @click="eraseAllNotes">
-            Erase All
-          </button>
-        </div>
-      </Teleport>
-      <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
-        <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
-        <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
-      </div>
-      <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
-        <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
-          {{ t('fretboardShow.plusFret') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
-          {{ t('fretboardShow.minusFret') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
-          {{ t('fretboardShow.stringUp') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
-          {{ t('fretboardShow.stringDown') }}
-        </button>
-        <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
-          {{ t('fretboardShow.saveShape') }}
-        </button>
-        <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
-          <option value="">{{ t('fretboardShow.selectShape') }}</option>
-          <option v-for="s in savedShapes" :key="s.id" :value="s.id">
-            {{ s.name }}
-          </option>
-        </select>
-        <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable" @click="applySelectedShape">
-          {{ t('fretboardShow.loadShape') }}
-        </button>
-        <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
-          {{ t('fretboardShow.delete') }}
-        </button>
-      </div>
+    </div>
+    <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
+      <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
+      <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
+    </div>
+    <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
+      <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
+        {{ t('fretboardShow.plusFret') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(-1, 0)">
+        {{ t('fretboardShow.minusFret') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, -1)">
+        {{ t('fretboardShow.stringUp') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(0, 1)">
+        {{ t('fretboardShow.stringDown') }}
+      </button>
+      <button class="fb-shape-btn" type="button" :disabled="!canSaveCurrentShape" @click="saveCurrentShape">
+        {{ t('fretboardShow.saveShape') }}
+      </button>
+      <select v-model="selectedShapeId" class="fb-shape-select" :disabled="!savedShapes.length">
+        <option value="">{{ t('fretboardShow.selectShape') }}</option>
+        <option v-for="s in savedShapes" :key="s.id" :value="s.id">
+          {{ s.name }}
+        </option>
+      </select>
+      <button class="fb-shape-btn" type="button" :disabled="!selectedShape || !props.editable"
+        @click="applySelectedShape">
+        {{ t('fretboardShow.loadShape') }}
+      </button>
+      <button class="fb-shape-btn is-danger" type="button" :disabled="!selectedShape" @click="deleteSelectedShape">
+        {{ t('fretboardShow.delete') }}
+      </button>
     </div>
 
     <div v-if="tooltip.visible" class="fb-tooltip" :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }">
       {{ tooltip.text }}
     </div>
-    <FretboardToneDotContextMenu
-      :open="toneDotContextMenu.open"
-      :x="toneDotContextMenu.x"
-      :y="toneDotContextMenu.y"
-      :string="toneDotContextMenu.string"
-      :fret="toneDotContextMenu.fret"
-      :items="toneDotContextMenu.items"
-      :delete-label="t('fretboardShow.delete')"
-      @delete-item="onDeleteToneDotContextItem"
-    />
-
+    <FretboardToneDotContextMenu :open="toneDotContextMenu.open" :x="toneDotContextMenu.x" :y="toneDotContextMenu.y"
+      :string="toneDotContextMenu.string" :fret="toneDotContextMenu.fret" :items="toneDotContextMenu.items"
+      :delete-label="t('fretboardShow.delete')" @delete-item="onDeleteToneDotContextItem" />
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import RealisticFretboardBackground from './RealisticFretboardBackground.vue'
-import ColorPalette from './ColorPalette.vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import FretboardToneDotContextMenu from './FretboardToneDotContextMenu.vue'
 import { storeToRefs } from 'pinia'
 import { useNotesStore } from '@/store/useNotes'
@@ -387,12 +314,27 @@ import { useTransportStore } from '@/store/useTransport'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
 import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
   FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR,
-  FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD,
-} from '@/features/fretboard/config/fretboardShow'
+} from '@/features/fretboard/config/fretboardVisuals'
+import {
+  FRETBOARD_DIMENSIONS,
+  FRETBOARD_LAYOUT_BREAKPOINTS,
+  FRETBOARD_LAYOUT_PRESETS,
+  FRETBOARD_RESIZE,
+  FRETBOARD_UI_TOKENS,
+} from '@/features/fretboard/config/fretboardLayout'
+import {
+  FRETBOARD_HAND_POSITION,
+  FRETBOARD_INLAYS,
+  FRETBOARD_INTERACTION,
+  FRETBOARD_SHAPES,
+  FRETBOARD_TONE_DOTS,
+} from '@/features/fretboard/config/fretboardBehavior'
+import { FRETBOARD_THEME } from '@/features/fretboard/config/fretboardTheme'
 import { NOTE_VALUE_ITEMS, normalizeNoteValue, noteValueItem } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -402,21 +344,23 @@ import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
 import { gridIndexToStartMs, lengthBlocksToDurationMs } from '@/domain/timelineTime'
 import { useI18n } from '@/i18n'
 
-defineOptions({ name: 'Fretboard' })
+defineOptions({ name: 'FretboardView' })
 
 const props = defineProps({
   numFrets: { type: Number, required: true },
   editable: { type: Boolean, default: false },
+  coreResizePx: { type: Number, default: 0 },
 })
-const emit = defineEmits(['update-frets'])
 
-const FB_WIDTH = 1100
-const FB_HEIGHT = 180
-const NUT_WIDTH = 12
+const FB_WIDTH = FRETBOARD_DIMENSIONS.width
+const FB_HEIGHT = FRETBOARD_DIMENSIONS.height
+const NUT_WIDTH = FRETBOARD_DIMENSIONS.nutWidth
+const BOARD_OVERHANG = FRETBOARD_DIMENSIONS.boardOverhang
+const STRING_OVERHANG = FRETBOARD_DIMENSIONS.stringOverhang
+const CORE_RESIZE_SCALE_DIVISOR = FRETBOARD_RESIZE.coreScaleDivisor
 const rootEl = ref(null)
 const overlayEl = ref(null)
-const hasLeftRailHost = ref(false)
-const hasRightRailHost = ref(false)
+const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -426,45 +370,18 @@ const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const handPositionsStore = useHandPositionsStore()
 const harmonyMenu = useHarmonyMenuStore()
+const overlay = useFretboardOverlayStore()
 const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
-const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } = storeToRefs(harmonyMenu)
+const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale, scaleRoot, chordRoot } =
+  storeToRefs(harmonyMenu)
+const { placementArmed, textItems } = storeToRefs(overlay)
 const isPlaying = computed(() => playState.value === 'playing')
-const numStringsLocal = computed({
-  get: () => Number(instrument.numStrings) || 6,
-  set: (v) => instrument.setNumStrings(Number(v)),
-})
-const numFretsLocal = computed({
-  get: () => Number(props.numFrets) || 12,
-  set: (v) => emit('update-frets', Number(v)),
-})
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
 const fretViewTo = ref(Math.max(0, Number(props.numFrets) || 12))
-const fretViewModeItems = [
-  { title: 'Full', value: 'full' },
-  { title: 'From-To', value: 'range' },
-]
-const fretViewFromLocal = computed({
-  get: () => Number(fretViewFrom.value),
-  set: (v) => {
-    const max = Math.max(0, Number(props.numFrets) || 12)
-    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
-    fretViewFrom.value = next
-    if (next > Number(fretViewTo.value)) fretViewTo.value = next
-  },
-})
-const fretViewToLocal = computed({
-  get: () => Number(fretViewTo.value),
-  set: (v) => {
-    const max = Math.max(0, Number(props.numFrets) || 12)
-    const next = Math.max(0, Math.min(max, Number.parseInt(String(v), 10) || 0))
-    fretViewTo.value = next
-    if (next < Number(fretViewFrom.value)) fretViewFrom.value = next
-  },
-})
 const fretViewRange = computed(() => {
   const max = Math.max(0, Number(props.numFrets) || 12)
   if (fretViewMode.value !== 'range') return { from: 0, to: max }
@@ -482,76 +399,6 @@ const fretViewMask = computed(() => {
   return { left, right }
 })
 
-const modeItems = computed(() =>
-  NOTE_VALUE_ITEMS.map((item) => ({
-    ...item,
-    title: t(`noteValues.${item.value.replace('/', '_')}`, item.title),
-  })),
-)
-const lastNonSimMode = ref(
-  settings.selectedMode !== 'sim'
-    ? String(settings.selectedMode)
-    : String(settings.lastRhythmMode || '1/4'),
-)
-watch(
-  () => settings.selectedMode,
-  (val) => {
-    if (val !== 'sim') lastNonSimMode.value = String(val || '1/4')
-  },
-  { immediate: true },
-)
-const noteValueLocal = computed({
-  get: () => (settings.selectedMode === 'sim' ? lastNonSimMode.value : String(settings.selectedMode || '1/4')),
-  set: (v) => {
-    const mode = String(v || '1/4')
-    if (mode !== 'sim') lastNonSimMode.value = mode
-    settings.setSelectedMode(mode)
-  },
-})
-const activeModeItem = computed(() => {
-  const activeValue = String(noteValueLocal.value || '')
-  return modeItems.value.find((item) => String(item.value) === activeValue) || modeItems.value[0]
-})
-const noteModifierLocal = ref(String(settings.simGroupMode || ''))
-watch(
-  () => settings.simGroupMode,
-  (val) => {
-    const next = String(val || '')
-    if (next !== noteModifierLocal.value) noteModifierLocal.value = next
-  },
-  { immediate: true },
-)
-watch(noteModifierLocal, (val) => {
-  const next = String(val || '')
-  if (next !== String(settings.simGroupMode || '')) settings.setSimGroupMode(next)
-})
-const isSimOn = computed(() => settings.selectedMode === 'sim')
-function toggleSim() {
-  if (isSimOn.value) {
-    settings.setSelectedMode(lastNonSimMode.value || '1/4')
-    return
-  }
-  settings.setSelectedMode('sim')
-}
-
-async function syncLeftRailHost() {
-  if (typeof document === 'undefined') {
-    hasLeftRailHost.value = false
-    return
-  }
-  await nextTick()
-  hasLeftRailHost.value = Boolean(document.getElementById('fretboard-left-rail-host'))
-}
-
-async function syncRightRailHost() {
-  if (typeof document === 'undefined') {
-    hasRightRailHost.value = false
-    return
-  }
-  await nextTick()
-  hasRightRailHost.value = Boolean(document.getElementById('fretboard-right-rail-host'))
-}
-
 function isFretInView(fret) {
   const n = Number(fret)
   if (!Number.isFinite(n)) return false
@@ -565,16 +412,17 @@ watch(
     const max = Math.max(0, Number(maxRaw) || 12)
     if (Number(fretViewFrom.value) > max) fretViewFrom.value = max
     if (Number(fretViewTo.value) > max) fretViewTo.value = max
-    if (Number(fretViewTo.value) < Number(fretViewFrom.value)) fretViewTo.value = Number(fretViewFrom.value)
+    if (Number(fretViewTo.value) < Number(fretViewFrom.value))
+      fretViewTo.value = Number(fretViewFrom.value)
   },
   { immediate: true },
 )
 
-const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
+const { highlightedNoteKeys, pulseStarts, directionPreview } = storeToRefs(playbackVisuals)
 const playedNoteKeys = ref(new Set())
 
-const LONG_PRESS_MS = 180
-const CLICK_SUPPRESS_MS = 250
+const LONG_PRESS_MS = FRETBOARD_INTERACTION.longPressMs
+const CLICK_SUPPRESS_MS = FRETBOARD_INTERACTION.clickSuppressMs
 
 const dragState = ref({
   active: false,
@@ -586,7 +434,7 @@ const dragState = ref({
 
 let longPressTimer = null
 let suppressClicksUntilMs = 0
-const CHORD_SHAPES_STORAGE_KEY = 'guitarjemp.fretboard.chordShapes.v1'
+const CHORD_SHAPES_STORAGE_KEY = FRETBOARD_SHAPES.storageKey
 const savedShapes = ref([])
 const selectedShapeId = ref('')
 
@@ -823,7 +671,7 @@ const toneDotsForRender = computed(() => {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
     const order = dotQueueByPosKey.value.get(posKey) ?? []
-    const visibleLimit = props.editable ? Infinity : 2
+    const visibleLimit = 2
     const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
 
     const [stringRaw, fretRaw] = String(posKey).split('-')
@@ -888,9 +736,7 @@ const notesAtPlayhead = computed(() => {
 const currentChordSourceNotes = computed(() => {
   const selected = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
   if (selected.length >= 2) {
-    return selected
-      .map((k) => noteByKey.value.get(String(k)))
-      .filter(Boolean)
+    return selected.map((k) => noteByKey.value.get(String(k))).filter(Boolean)
   }
   return notesAtPlayhead.value
 })
@@ -933,7 +779,10 @@ const detectedChordLabel = computed(() => {
   if (!Array.isArray(notes) || notes.length < 2) return '—'
   const pcs = new Set()
   for (const n of notes) {
-    const midi = midiForFretString({ fret: Number(n?.fret), string: Number(n?.string) }, tuning.value)
+    const midi = midiForFretString(
+      { fret: Number(n?.fret), string: Number(n?.string) },
+      tuning.value,
+    )
     if (!Number.isFinite(Number(midi))) continue
     pcs.add(Number(midi) % 12)
   }
@@ -959,8 +808,8 @@ function shapePositionsFromNotes(notes) {
 
 const currentShapePositions = computed(() => shapePositionsFromNotes(currentChordSourceNotes.value))
 const canSaveCurrentShape = computed(() => currentShapePositions.value.length >= 2)
-const selectedShape = computed(() =>
-  savedShapes.value.find((s) => String(s?.id) === String(selectedShapeId.value)) ?? null,
+const selectedShape = computed(
+  () => savedShapes.value.find((s) => String(s?.id) === String(selectedShapeId.value)) ?? null,
 )
 
 function persistChordShapes() {
@@ -983,9 +832,10 @@ function loadChordShapes() {
 
 function saveCurrentShape() {
   if (!canSaveCurrentShape.value) return
-  const chord = detectedChordLabel.value && detectedChordLabel.value !== '—'
-    ? detectedChordLabel.value
-    : t('fretboardShow.shape')
+  const chord =
+    detectedChordLabel.value && detectedChordLabel.value !== '—'
+      ? detectedChordLabel.value
+      : t('fretboardShow.shape')
   const stamp = new Date().toISOString().slice(11, 19)
   const id = `shape_${Date.now()}`
   const name = `${chord} ${stamp}`
@@ -996,7 +846,7 @@ function saveCurrentShape() {
     positions: currentShapePositions.value,
     createdAt: Date.now(),
   }
-  savedShapes.value = [shape, ...savedShapes.value].slice(0, 64)
+  savedShapes.value = [shape, ...savedShapes.value].slice(0, FRETBOARD_SHAPES.maxSavedShapes)
   selectedShapeId.value = id
   persistChordShapes()
 }
@@ -1259,16 +1109,93 @@ const playbackTravelLine = computed(() => {
   const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
   const color =
     deltaFret > 0
-      ? 'rgba(67, 197, 255, 0.95)'
+      ? FRETBOARD_THEME.playbackTravel.upColor
       : deltaFret < 0
-        ? 'rgba(255, 177, 77, 0.95)'
-        : 'rgba(187, 247, 208, 0.95)'
+        ? FRETBOARD_THEME.playbackTravel.downColor
+        : FRETBOARD_THEME.playbackTravel.sameColor
   const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
-  const filter = absJump >= 4
-    ? 'drop-shadow(0 0 6px rgba(255, 215, 88, 0.85))'
-    : 'drop-shadow(0 0 3px rgba(255, 210, 50, 0.7))'
+  const filter =
+    absJump >= 4
+      ? FRETBOARD_THEME.playbackTravel.highJumpFilter
+      : FRETBOARD_THEME.playbackTravel.normalFilter
 
   return { x1, y1, x2, y2, color, strokeWidth, filter }
+})
+
+const directionPreviewSegments = computed(() => {
+  if (isPlaying.value) return []
+  const preview = directionPreview.value
+  const keys = Array.isArray(preview?.noteKeys) ? preview.noteKeys : []
+  if (keys.length < 2) return []
+  const startedAt = Number(preview?.startedAtMs)
+  const durationMs = Number(preview?.durationMs)
+  if (!Number.isFinite(startedAt) || !Number.isFinite(durationMs) || durationMs <= 0) return []
+
+  const dt = animNowMs.value - startedAt
+  if (!(dt >= 0 && dt <= durationMs)) return []
+  const fade = 1 - dt / durationMs
+  const fadeOpacity = Math.max(0, Math.min(1, 0.85 * fade))
+  const segmentCount = keys.length - 1
+  const segmentDurationMs = durationMs / segmentCount
+  const activeSegmentIndex = Math.min(segmentCount - 1, Math.floor(dt / segmentDurationMs))
+  const activeSegmentElapsedMs = dt - activeSegmentIndex * segmentDurationMs
+  const activeProgress = Math.max(0, Math.min(1, activeSegmentElapsedMs / segmentDurationMs))
+
+  const out = []
+  for (let i = 0; i < segmentCount; i += 1) {
+    const fromKey = String(keys[i] || '')
+    const toKey = String(keys[i + 1] || '')
+    if (!fromKey || !toKey) continue
+    const fromDot = renderedToneDotByNoteKey.value.get(fromKey)
+    const toDot = renderedToneDotByNoteKey.value.get(toKey)
+    const fromNote = noteByKey.value.get(fromKey)
+    const toNote = noteByKey.value.get(toKey)
+    if (!fromDot || !toDot || !fromNote || !toNote) continue
+
+    const sameString = Number(fromNote?.string) === Number(toNote?.string)
+    const sameFret = Number(fromNote?.fret) === Number(toNote?.fret)
+    if (sameString && sameFret) continue
+
+    const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
+    const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
+    const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
+    const color =
+      deltaFret > 0
+        ? FRETBOARD_THEME.playbackTravel.upColor
+        : deltaFret < 0
+          ? FRETBOARD_THEME.playbackTravel.downColor
+          : FRETBOARD_THEME.playbackTravel.sameColor
+
+    const xStart = toneDotX(fromDot)
+    const yStart = toneDotY(fromDot)
+    const xEnd = toneDotX(toDot)
+    const yEnd = toneDotY(toDot)
+
+    const isCompleted = i < activeSegmentIndex
+    const isActive = i === activeSegmentIndex
+    if (!isCompleted && !isActive) continue
+
+    const x2 = isActive ? xStart + (xEnd - xStart) * activeProgress : xEnd
+    const y2 = isActive ? yStart + (yEnd - yStart) * activeProgress : yEnd
+
+    out.push({
+      fromKey,
+      toKey,
+      x1: xStart,
+      y1: yStart,
+      x2,
+      y2,
+      color,
+      opacity: isActive ? Math.max(0.55, fadeOpacity) : Math.max(0.18, fadeOpacity * 0.45),
+      strokeWidth: Math.min(6.5, (isActive ? 2.6 : 1.8) + absJump * 0.45),
+      filter:
+        absJump >= 4
+          ? FRETBOARD_THEME.playbackTravel.highJumpFilter
+          : FRETBOARD_THEME.playbackTravel.normalFilter,
+    })
+  }
+
+  return out
 })
 
 const playbackSelfLoop = computed(() => {
@@ -1386,6 +1313,69 @@ const toneDotContextMenu = ref({
   fret: 0,
   items: [],
 })
+const textDragState = ref({
+  active: false,
+  pointerId: null,
+  itemId: '',
+})
+
+function clampPercent(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(100, n))
+}
+
+function overlayClientToPercent(clientX, clientY) {
+  const rect = overlayEl.value?.getBoundingClientRect?.()
+  if (!rect) return null
+  if (!(rect.width > 0) || !(rect.height > 0)) return null
+  const xPct = clampPercent(((Number(clientX) - rect.left) / rect.width) * 100)
+  const yPct = clampPercent(((Number(clientY) - rect.top) / rect.height) * 100)
+  return { xPct, yPct }
+}
+
+function onTextItemInput(id, event) {
+  const text = String(event?.target?.value ?? '')
+  overlay.updateTextItemText(id, text)
+}
+
+function onTextItemDelete(id) {
+  overlay.removeTextItem(id)
+}
+
+function stopTextDrag() {
+  if (!textDragState.value.active) return
+  textDragState.value = { active: false, pointerId: null, itemId: '' }
+  window.removeEventListener('pointermove', onTextItemDragMove)
+  window.removeEventListener('pointerup', onTextItemDragEnd)
+  window.removeEventListener('pointercancel', onTextItemDragEnd)
+}
+
+function onTextItemDragMove(event) {
+  const state = textDragState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  const p = overlayClientToPercent(event.clientX, event.clientY)
+  if (!p) return
+  overlay.updateTextItemPosition(state.itemId, p)
+}
+
+function onTextItemDragEnd(event) {
+  const state = textDragState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  stopTextDrag()
+}
+
+function onTextItemDragStart(id, event) {
+  if (event.button !== 0) return
+  textDragState.value = {
+    active: true,
+    pointerId: event.pointerId,
+    itemId: String(id || ''),
+  }
+  window.addEventListener('pointermove', onTextItemDragMove)
+  window.addEventListener('pointerup', onTextItemDragEnd)
+  window.addEventListener('pointercancel', onTextItemDragEnd)
+}
 
 function removeSelectionKey(noteKey) {
   const key = String(noteKey || '')
@@ -1568,16 +1558,135 @@ const strings = computed(() => {
   return res
 })
 
+const boardY = computed(() => -BOARD_OVERHANG)
+const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
+const coreResizeScale = computed(() => {
+  const px = Number(props.coreResizePx) || 0
+  return Math.max(FRETBOARD_RESIZE.minScale, Math.min(FRETBOARD_RESIZE.maxScale, 1 + px / CORE_RESIZE_SCALE_DIVISOR))
+})
+const coreResizableStyle = computed(() => ({
+  transform: `scale(${coreResizeScale.value})`,
+}))
+
+const fretboardLayoutPreset = computed(() => {
+  const vw = Number(viewportWidthPx.value) || 0
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.mobileMax) return FRETBOARD_LAYOUT_PRESETS.mobile
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.tabletMax) return FRETBOARD_LAYOUT_PRESETS.tablet
+  return FRETBOARD_LAYOUT_PRESETS.desktop
+})
+
+const fretboardCssVars = computed(() => {
+  const preset = fretboardLayoutPreset.value
+  const width = preset?.width || FRETBOARD_LAYOUT_PRESETS.desktop.width
+  return {
+    '--fb-ui-scale': String(preset?.uiScale ?? 1),
+    '--fb-side-pad-left': `${Number(preset?.sidePadLeft ?? 40)}px`,
+    '--fb-side-pad-right': `${Number(preset?.sidePadRight ?? 10)}px`,
+    '--fb-width-clamp': `clamp(${Number(width.minPx)}px, ${Number(width.preferredVw)}vw, ${Number(width.maxPx)}px)`,
+    '--fb-gap-px': `${Number(FRETBOARD_UI_TOKENS.gapPx)}px`,
+    '--fb-control-h-px': `${Number(FRETBOARD_UI_TOKENS.controlHeightPx)}px`,
+    '--fb-font-sm-px': `${Number(FRETBOARD_UI_TOKENS.fontSmallPx)}px`,
+    '--fb-top-pad': `${Number(FRETBOARD_UI_TOKENS.topPadPx)}px`,
+    '--fb-bottom-pad': `${Number(FRETBOARD_UI_TOKENS.bottomPadPx)}px`,
+    '--fb-numbers-height-px': `${Number(FRETBOARD_UI_TOKENS.numbersHeightPx)}px`,
+    '--fb-numbers-pad-top-px': `${Number(FRETBOARD_UI_TOKENS.numbersPadTopPx)}px`,
+    '--fb-numbers-margin-top': `${Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx)}px`,
+    '--fb-numbers-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx)}px`,
+    '--fb-actions-margin-top': `${Number(FRETBOARD_UI_TOKENS.actionsMarginTopPx)}px`,
+    '--fb-actions-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.actionsMarginBottomPx)}px`,
+    '--fb-rail-top-pad-px': `${Number(FRETBOARD_UI_TOKENS.railTopPadPx)}px`,
+    '--fb-playback-travel-line-shadow': FRETBOARD_THEME.css.playbackTravelLineShadow,
+    '--fb-now-cross-shadow': FRETBOARD_THEME.css.nowCrossShadow,
+    '--fb-now-ring-shadow': FRETBOARD_THEME.css.nowRingShadow,
+    '--fb-self-loop-shadow': FRETBOARD_THEME.css.selfLoopShadow,
+    '--fb-self-loop-head-shadow': FRETBOARD_THEME.css.selfLoopHeadShadow,
+    '--fb-tone-dot-symbol-fill': FRETBOARD_THEME.css.toneDotSymbolFill,
+    '--fb-tone-dot-symbol-stroke': FRETBOARD_THEME.css.toneDotSymbolStroke,
+    '--fb-tone-dot-pitch-fill': FRETBOARD_THEME.css.toneDotPitchFill,
+    '--fb-tone-dot-pitch-stroke': FRETBOARD_THEME.css.toneDotPitchStroke,
+    '--fb-next-note-preview-stroke': FRETBOARD_THEME.css.nextNotePreviewStroke,
+    '--fb-next-note-preview-shadow': FRETBOARD_THEME.css.nextNotePreviewShadow,
+    '--fb-fret-number-color': FRETBOARD_THEME.css.fretNumberColor,
+    '--fb-fret-number-shadow': FRETBOARD_THEME.css.fretNumberShadow,
+    '--fb-fret-number-marker-color': FRETBOARD_THEME.css.fretNumberMarkerColor,
+    '--fb-fret-number-marker-shadow': FRETBOARD_THEME.css.fretNumberMarkerShadow,
+    '--fb-tooltip-bg': FRETBOARD_THEME.css.tooltipBg,
+    '--fb-tooltip-text': FRETBOARD_THEME.css.tooltipText,
+    '--fb-hand-overlay-fill': FRETBOARD_THEME.css.handOverlayFill,
+    '--fb-hand-overlay-stroke': FRETBOARD_THEME.css.handOverlayStroke,
+    '--fb-hand-overlay-shadow': FRETBOARD_THEME.css.handOverlayShadow,
+    '--fb-hand-suggested-fill': FRETBOARD_THEME.css.handSuggestedFill,
+    '--fb-hand-suggested-stroke': FRETBOARD_THEME.css.handSuggestedStroke,
+    '--fb-hand-suggested-text-fill': FRETBOARD_THEME.css.handSuggestedTextFill,
+    '--fb-hand-suggested-text-stroke': FRETBOARD_THEME.css.handSuggestedTextStroke,
+    '--fb-hand-info-text': FRETBOARD_THEME.css.handInfoText,
+    '--fb-hand-info-warning-text': FRETBOARD_THEME.css.handInfoWarningText,
+    '--fb-chord-detected-text': FRETBOARD_THEME.css.chordDetectedText,
+    '--fb-chord-detected-bg': FRETBOARD_THEME.css.chordDetectedBg,
+    '--fb-chord-detected-border': FRETBOARD_THEME.css.chordDetectedBorder,
+    '--fb-chord-detected-shadow': FRETBOARD_THEME.css.chordDetectedShadow,
+    '--fb-shape-control-border': FRETBOARD_THEME.css.shapeControlBorder,
+    '--fb-shape-control-bg': FRETBOARD_THEME.css.shapeControlBg,
+    '--fb-shape-control-text': FRETBOARD_THEME.css.shapeControlText,
+    '--fb-shape-danger-border': FRETBOARD_THEME.css.shapeDangerBorder,
+    '--fb-shape-danger-text': FRETBOARD_THEME.css.shapeDangerText,
+    '--fb-shape-active-border': FRETBOARD_THEME.css.shapeActiveBorder,
+    '--fb-shape-active-bg': FRETBOARD_THEME.css.shapeActiveBg,
+    '--fb-shape-active-text': FRETBOARD_THEME.css.shapeActiveText,
+    '--fb-color-swatch-border': FRETBOARD_THEME.css.colorSwatchBorder,
+  }
+})
+
+function onViewportResize() {
+  viewportWidthPx.value = Number(globalThis?.innerWidth) || 1440
+}
+
+function dotMidXForFret(fret) {
+  const f = Math.max(0, Math.min(Number(fret) || 0, fretsPct.value.length - 1))
+  if (f === 0) return 0
+  const a = fretsPct.value[f - 1] ?? 0
+  const b = fretsPct.value[f] ?? 0
+  const mid = b - (b - a) / 2
+  return (mid / 100) * FB_WIDTH
+}
+
+const inlayDots = computed(() => {
+  const inlays = FRETBOARD_INLAYS.frets
+  const maxF = Math.max(0, Number(props.numFrets) || 0)
+  const inside = inlays.filter((f) => f <= maxF)
+
+  const out = []
+  const midY = FB_HEIGHT / 2
+  for (const f of inside) {
+    const x = dotMidXForFret(f)
+    const isDouble = FRETBOARD_INLAYS.doubleFrets.includes(f)
+    const r = FRETBOARD_INLAYS.radiusPx
+    if (isDouble) {
+      out.push({ key: `inlay-${f}-a`, x, y: midY - FRETBOARD_INLAYS.doubleOffsetYPx, r })
+      out.push({ key: `inlay-${f}-b`, x, y: midY + FRETBOARD_INLAYS.doubleOffsetYPx, r })
+    } else {
+      out.push({ key: `inlay-${f}`, x, y: midY, r })
+    }
+  }
+  return out
+})
+
 const harmonyGuideDots = computed(() => {
   const useChord = Boolean(showChord.value)
   const useScale = Boolean(showScale.value)
   if (!useChord && !useScale) return []
 
-  const chordSet = useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
-  const scaleSet = useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
+  const chordSet =
+    useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
+  const scaleSet =
+    useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
   if (!chordSet.size && !scaleSet.size) return []
 
-  const fromFret = Math.max(0, Number(patternFretRange.value?.fromFret) || 0, fretViewRange.value.from)
+  const fromFret = Math.max(
+    0,
+    Number(patternFretRange.value?.fromFret) || 0,
+    fretViewRange.value.from,
+  )
   const toFretRaw = Number(patternFretRange.value?.toFret)
   const toFretByPattern = Number.isFinite(toFretRaw) ? Math.max(fromFret, toFretRaw) : Infinity
   const toFret = Math.min(toFretByPattern, fretViewRange.value.to)
@@ -1697,7 +1806,7 @@ const suggestedHandPositionRange = computed(() => {
   if (!Number.isFinite(fretRaw)) return null
 
   const maxFret = Math.max(1, Number(props.numFrets) || 12)
-  const toSpan = 3
+  const toSpan = FRETBOARD_HAND_POSITION.suggestedSpanFrets
   const startMax = Math.max(1, maxFret - toSpan)
   const fromFret = clamp(Math.round(fretRaw) - 1, 1, startMax)
   const toFret = clamp(fromFret + toSpan, fromFret, maxFret)
@@ -1722,7 +1831,7 @@ const handPositionOverlayRect = computed(() => {
   const xRight = Number(lines[endFret] ?? FB_WIDTH)
   if (!(xRight > xLeft)) return null
 
-  const padY = 16
+  const padY = FRETBOARD_HAND_POSITION.activePadYPx
   const y = topY - padY
   const height = bottomY - topY + padY * 2
   return { x: xLeft, y, width: xRight - xLeft, height, rx: 10 }
@@ -1742,15 +1851,26 @@ const suggestedHandPositionOverlayRect = computed(() => {
   const xRight = Number(lines[toFret] ?? FB_WIDTH)
   if (!(xRight > xLeft)) return null
 
-  const padY = 10
+  const padY = FRETBOARD_HAND_POSITION.suggestedPadYPx
   const y = topY - padY
   const height = bottomY - topY + padY * 2
-  return { x: xLeft, y, width: xRight - xLeft, height, rx: 9, fromFret, toFret }
+  return {
+    x: xLeft,
+    y,
+    width: xRight - xLeft,
+    height,
+    rx: 9,
+    fromFret,
+    toFret,
+    labelX: xLeft + FRETBOARD_HAND_POSITION.suggestedLabelOffsetXPx,
+    labelY: y + FRETBOARD_HAND_POSITION.suggestedLabelOffsetYPx,
+  }
 })
 
 const handModeInfoText = computed(() => {
   const range = settings.showSuggestedPosition ? suggestedHandPositionRange.value : null
-  if (range) return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
+  if (range)
+    return t('fretboardShow.suggestedHandPosition', { from: range.fromFret, to: range.toFret })
   const hp = activeHandPosition.value
   if (!hp) return ''
   return t('fretboardShow.activeHandPosition', { fret: String(hp?.fret ?? '') })
@@ -1827,7 +1947,8 @@ function clientToSvgPoint(event) {
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null
 
   const x = ((clientX - rect.left) / rect.width) * FB_WIDTH
-  const y = ((clientY - rect.top) / rect.height) * FB_HEIGHT
+  const yRaw = boardY.value + ((clientY - rect.top) / rect.height) * boardH.value
+  const y = clamp(yRaw, 0, FB_HEIGHT)
   return { x, y }
 }
 
@@ -1842,6 +1963,14 @@ function hoveredPosFromEvent(event) {
 
 function onClick(event) {
   if (Date.now() < suppressClicksUntilMs) return
+  if (placementArmed.value) {
+    const p = overlayClientToPercent(event?.clientX, event?.clientY)
+    overlay.setPlacementArmed(false)
+    if (p) {
+      overlay.addTextItem({ ...p, text: '' })
+      return
+    }
+  }
   const pos = hoveredPosFromEvent(event)
   if (!pos) return
   const { fret, string } = pos
@@ -1949,8 +2078,8 @@ function onMouseLeave() {
   hideTooltip()
 }
 
-const DOT_BASE_R = 14.4
-const DOT_HOVER_R_FACTOR = 1.12
+const DOT_BASE_R = FRETBOARD_TONE_DOTS.baseRadiusPx
+const DOT_HOVER_R_FACTOR = FRETBOARD_TONE_DOTS.hoverRadiusFactor
 
 function posKeyForToneDot(d) {
   return `${Number(d?.string)}-${Number(d?.fret)}`
@@ -2036,11 +2165,6 @@ function onToneDotClick(d, event) {
   void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
 }
 
-function eraseAllNotes() {
-  store.clearNotes()
-  selection.clearSelection()
-}
-
 function clearLongPressTimer() {
   if (longPressTimer == null) return
   clearTimeout(longPressTimer)
@@ -2109,14 +2233,19 @@ function onToneDotPointerUp(event) {
       const src = noteByKey.value.get(String(s.noteKey))
       const srcFret = Number(src?.fret)
       const srcString = Number(src?.string)
+      const moved =
+        Number.isFinite(srcFret) &&
+        Number.isFinite(srcString) &&
+        (Number(target.fret) !== srcFret || Number(target.string) !== srcString)
       const maxFret = Math.max(0, Number(props.numFrets) || 12)
       const maxString = Math.max(1, Number(instrument.numStrings) || 6)
 
       const selectedItems = selectedMovableNotes({ includeKey: s.noteKey })
-      const useGroup = selectedItems.length > 1
-        && selectedItems.some((x) => String(x.key) === String(s.noteKey))
-        && Number.isFinite(srcFret)
-        && Number.isFinite(srcString)
+      const useGroup =
+        selectedItems.length > 1 &&
+        selectedItems.some((x) => String(x.key) === String(s.noteKey)) &&
+        Number.isFinite(srcFret) &&
+        Number.isFinite(srcString)
 
       if (useGroup) {
         const deltaFret = Number(target.fret) - srcFret
@@ -2131,6 +2260,25 @@ function onToneDotPointerUp(event) {
         store.setNotePosition(s.noteKey, { fret: target.fret, string: target.string })
       }
       selection.selectNote(s.noteKey)
+
+      if (moved && settings.soundPreviewEnabled) {
+        const midi = midiForFretString(
+          { fret: Number(target.fret), string: Number(target.string) },
+          tuning.value,
+        )
+        if (Number.isFinite(Number(midi))) {
+          const durationPlayheadMs = store.getNoteDurationMs(src)
+          const tempoValue = Number(transport.tempo) || 120
+          const tempoScale = 120 / tempoValue
+          const durScale = Number(settings.soundDurationScale)
+          const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+          const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+          void playMidi(midi, {
+            durationMs: durationAudioMs,
+            instrumentType: instrument.instrumentType,
+          })
+        }
+      }
     }
 
     // Prevent the subsequent click (which would otherwise add a note in edit mode).
@@ -2164,15 +2312,15 @@ function toneDotY(d) {
 }
 
 function harmonyGuideFill(d) {
-  if (d?.inChord && d?.inScale) return 'rgba(230, 154, 66, 0.38)'
-  if (d?.inChord) return 'rgba(230, 154, 66, 0.26)'
+  if (d?.inChord && d?.inScale) return FRETBOARD_THEME.harmonyGuides.fillBoth
+  if (d?.inChord) return FRETBOARD_THEME.harmonyGuides.fillChord
   return 'transparent'
 }
 
 function harmonyGuideStroke(d) {
-  if (d?.inChord && d?.inScale) return 'rgba(255, 202, 125, 0.98)'
-  if (d?.inChord) return 'rgba(255, 188, 96, 0.92)'
-  return 'rgba(135, 190, 255, 0.86)'
+  if (d?.inChord && d?.inScale) return FRETBOARD_THEME.harmonyGuides.strokeBoth
+  if (d?.inChord) return FRETBOARD_THEME.harmonyGuides.strokeChord
+  return FRETBOARD_THEME.harmonyGuides.strokeScale
 }
 
 function harmonyGuideStrokeWidth(d) {
@@ -2197,7 +2345,7 @@ function toneDotOffset(d) {
   // Only horizontal offsets (requested): keep y aligned to the string.
   // Stack direction: only to the left.
   // Queue front is centered (dx=0); subsequent items shift left by OX each.
-  const OX = 3.5
+  const OX = FRETBOARD_INTERACTION.toneDotStackOffsetXPx
   return { dx: -i * OX, dy: 0 }
 }
 
@@ -2237,11 +2385,60 @@ function noteValueForToneDot(d) {
   return deriveNoteValueFromLength(note)
 }
 
+const NOTE_TO_PC = {
+  C: 0,
+  'C#': 1,
+  DB: 1,
+  D: 2,
+  'D#': 3,
+  EB: 3,
+  E: 4,
+  F: 5,
+  'F#': 6,
+  GB: 6,
+  G: 7,
+  'G#': 8,
+  AB: 8,
+  A: 9,
+  'A#': 10,
+  BB: 10,
+  B: 11,
+}
+
+const INTERVAL_LABELS = ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', '7']
+
+function rootPitchClassForIntervals() {
+  const raw = String(scaleRoot.value || chordRoot.value || 'C').trim().toUpperCase()
+  return NOTE_TO_PC[raw] ?? 0
+}
+
+function intervalLabelForToneDot(d) {
+  const fret = Number(d?.fret)
+  const string = Number(d?.string)
+  const midi = midiForFretString({ fret, string }, tuning.value)
+  if (!Number.isFinite(Number(midi))) return ''
+  const pc = ((Number(midi) % 12) + 12) % 12
+  const rootPc = rootPitchClassForIntervals()
+  const intervalPc = (pc - rootPc + 12) % 12
+  return INTERVAL_LABELS[intervalPc] || ''
+}
+
 function toneDotSymbol(d) {
+  if (settings.showIntervalsOnDots) {
+    return intervalLabelForToneDot(d)
+  }
   const value = noteValueForToneDot(d)
   if (!value) return ''
   const item = noteValueItem(value)
   return item?.dotSymbol || item?.label || value
+}
+
+function toneDotIcon(d) {
+  if (settings.showIntervalsOnDots) return ''
+  const value = noteValueForToneDot(d)
+  if (!(value === '1/2' || value === '1')) return ''
+  const item = noteValueItem(value)
+  return String(item?.icon || '')
 }
 
 function toneDotPitchLabel(d) {
@@ -2278,72 +2475,87 @@ function toneDotOpacity(d) {
 function toneDotStroke(d) {
   const hk = hoverKeyForToneDot(d)
   const hoverStroke =
-    hoveredToneDotKey.value === hk ? 'rgba(20, 20, 20, 0.95)' : 'rgba(20, 20, 20, 0.7)'
+    hoveredToneDotKey.value === hk
+      ? FRETBOARD_THEME.toneDots.strokeHover
+      : FRETBOARD_THEME.toneDots.strokeDefault
 
   const nk = noteKeyForToneDot(d)
-  if (nk && String(selection.selectedNoteKey || '') === nk) return 'rgba(20, 20, 20, 0.95)'
+  if (nk && String(selection.selectedNoteKey || '') === nk) return FRETBOARD_THEME.toneDots.strokeHover
 
   return hoverStroke
 }
 
 function toneDotStrokeWidth(d) {
   const hk = hoverKeyForToneDot(d)
-  let w = hoveredToneDotKey.value === hk ? 4 : 2
+  let w = hoveredToneDotKey.value === hk ? 1.8 : 1.2
 
-  if (isToneDotHovered(d)) w = Math.max(w, 4)
+  if (isToneDotHovered(d)) w = Math.max(w, 1.8)
 
   const nk = noteKeyForToneDot(d)
-  if (nk && String(selection.selectedNoteKey || '') === nk) w = 4
+  if (nk && String(selection.selectedNoteKey || '') === nk) w = Math.max(w, 1.8)
   const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
-  if (Number.isFinite(dyn)) w += dyn * 1.25
-
-  const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
-  if (!Number.isFinite(startedAt)) return w
-
-  const dt = animNowMs.value - startedAt
-  const PULSE_MS = FRETBOARD_SHOW_DOT_PULSE_MS
-  if (!(dt >= 0 && dt <= PULSE_MS)) return w
-  const p = dt / PULSE_MS
-  const bump = Math.sin(Math.PI * p)
-  return w + FRETBOARD_SHOW_DOT_PULSE_STROKE_ADD * bump
+  if (Number.isFinite(dyn)) w += dyn * 0.35
+  return w
 }
 
 function toneDotR(d) {
   const hk = hoverKeyForToneDot(d)
   const nk = noteKeyForToneDot(d)
+  const isActive =
+    Boolean(nk) &&
+    (String(selection.selectedNoteKey || '') === String(nk) ||
+      highlightedNoteKeySet.value.has(String(nk)))
   const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
   const dynScale = Number.isFinite(dyn) ? 0.82 + dyn * 0.42 : 1
   const baseR = DOT_BASE_R * dynScale * (hoveredToneDotKey.value === hk ? DOT_HOVER_R_FACTOR : 1)
   const startedAt = nk ? pulseStartedAtByNoteKey.value.get(nk) : null
-  if (!Number.isFinite(startedAt)) return baseR
+  if (!Number.isFinite(startedAt)) {
+    if (isActive) return baseR * 1.12
+    return baseR
+  }
 
   const dt = animNowMs.value - startedAt
   const PULSE_MS = FRETBOARD_SHOW_DOT_PULSE_MS
-  if (!(dt >= 0 && dt <= PULSE_MS)) return baseR
+  if (!(dt >= 0 && dt <= PULSE_MS)) {
+    if (isActive) return baseR * 1.12
+    return baseR
+  }
   const p = dt / PULSE_MS
   const bump = Math.sin(Math.PI * p)
-  return baseR * (1 + FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR * bump)
+  const pulseR = baseR * (1 + FRETBOARD_SHOW_DOT_PULSE_RADIUS_FACTOR * bump)
+  if (isActive) return pulseR * 1.12
+  return pulseR
+}
+
+function toneDotStyle(d) {
+  const nk = noteKeyForToneDot(d)
+  if (!nk) return null
+  const selected = String(selection.selectedNoteKey || '') === nk
+  const highlighted = highlightedNoteKeySet.value.has(nk)
+  if (!selected && !highlighted) return null
+  return {
+    filter: selected
+      ? 'drop-shadow(0 0 5px rgba(255, 235, 170, 0.92)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))'
+      : 'drop-shadow(0 0 4px rgba(255, 220, 120, 0.86)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42))',
+  }
 }
 
 function previewR() {
   // Keep preview a touch smaller than a fully hovered active ToneDot.
-  return DOT_BASE_R * 1.02
+  return DOT_BASE_R * FRETBOARD_TONE_DOTS.previewRadiusFactor
 }
 
 onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
-  syncLeftRailHost()
-  syncRightRailHost()
-  requestAnimationFrame(() => {
-    syncLeftRailHost()
-    syncRightRailHost()
-  })
+  window.addEventListener('resize', onViewportResize)
 })
 
 onBeforeUnmount(() => {
   closeToneDotContextMenu()
+  stopTextDrag()
   stopAnim()
+  window.removeEventListener('resize', onViewportResize)
 })
 
 watch(
@@ -2367,25 +2579,69 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => Number(directionPreview.value?.startedAtMs) || 0,
+  (startedAtMs) => {
+    if (!(startedAtMs > 0)) return
+    startAnim()
+  },
+)
 </script>
 
 <style scoped>
-.fretboard-js {
-  width: 100%;
+.fretboard-body {
+  --fb-ui-scale: 1;
+  --fb-gap-px: 8px;
+  --fb-control-h-px: 26px;
+  --fb-font-sm-px: 12px;
+  --fb-gap: calc(var(--fb-gap-px) * var(--fb-ui-scale));
+  --fb-control-h: calc(var(--fb-control-h-px) * var(--fb-ui-scale));
+  --fb-font-sm: calc(var(--fb-font-sm-px) * var(--fb-ui-scale));
+  --fb-side-pad-left: 40px;
+  --fb-side-pad-right: 10px;
+  --fb-top-pad: 10px;
+  --fb-bottom-pad: 10px;
+  --fb-numbers-height-px: 28px;
+  --fb-numbers-pad-top-px: 6px;
+  --fb-numbers-margin-top: 10px;
+  --fb-numbers-margin-bottom: 10px;
+  --fb-actions-margin-top: -2px;
+  --fb-actions-margin-bottom: 8px;
+  --fb-rail-top-pad-px: 30px;
+  width: var(--fb-width-clamp, clamp(760px, 92vw, 1460px));
+  max-width: 100%;
+  margin-inline: auto;
+  padding-bottom: var(--fb-bottom-pad);
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--panel-side-gap, 6px);
   position: relative;
   overflow: visible;
-}
-
-.fb-main-column {
-  flex: 1 1 auto;
   min-width: 0;
 }
 
 .fb-view-mask rect {
   fill: var(--color-surface);
+}
+
+.fb-core-pad {
+  width: 100%;
+  padding-left: var(--fb-side-pad-left);
+  padding-right: var(--fb-side-pad-right);
+  padding-top: var(--fb-top-pad);
+  padding-bottom: 0;
+  margin-bottom: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.fb-core-resizable {
+  width: 100%;
+  padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
+  margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
+  transform-origin: top center;
+  overflow: visible;
 }
 
 .fb-stack {
@@ -2399,13 +2655,8 @@ watch(
   inset: 0;
 }
 
-.fb-bg {
-  z-index: 1;
-  pointer-events: none;
-}
-
 .fb-overlay {
-  z-index: 2;
+  z-index: 1;
   width: 100%;
   height: 100%;
   display: block;
@@ -2413,9 +2664,64 @@ watch(
   overflow: visible;
 }
 
+.fb-text-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.fb-text-item {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.fb-text-item-drag {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #9aa3ad;
+  border-radius: 4px;
+  background: #eef1f4;
+  color: #3a4350;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: move;
+}
+
+.fb-text-item-input {
+  height: 22px;
+  min-width: 80px;
+  max-width: 180px;
+  padding: 0 6px;
+  border: 1px solid #9aa3ad;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 92%);
+  color: #1b1f25;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fb-text-item-delete {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #b68888;
+  border-radius: 4px;
+  background: #f6e9e9;
+  color: #7b2a2a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .fb-playback-travel-line line {
   stroke-linecap: round;
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+  filter: var(--fb-playback-travel-line-shadow);
 }
 
 .fb-now-string-line {
@@ -2426,21 +2732,21 @@ watch(
 .fb-now-cross {
   stroke-width: 4.2;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 5px rgba(255, 245, 195, 0.75));
+  filter: var(--fb-now-cross-shadow);
 }
 
 .fb-now-ring {
   fill: none;
   stroke-width: 2.8;
   opacity: 0.95;
-  filter: drop-shadow(0 0 4px rgba(255, 226, 120, 0.72));
+  filter: var(--fb-now-ring-shadow);
 }
 
 .fb-playback-self-loop circle,
 .fb-playback-self-loop line {
   stroke-width: 3.1;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.7));
+  filter: var(--fb-self-loop-shadow);
 }
 
 .fb-playback-self-loop .self-loop-base {
@@ -2452,7 +2758,7 @@ watch(
 }
 
 .fb-playback-self-loop .self-loop-head {
-  filter: drop-shadow(0 0 3px rgba(255, 210, 50, 0.75));
+  filter: var(--fb-self-loop-head-shadow);
 }
 
 .fb-harmony-guides circle {
@@ -2460,8 +2766,8 @@ watch(
 }
 
 .fb-tone-dot-symbol {
-  fill: rgba(255, 255, 255, 0.98);
-  stroke: rgba(20, 20, 20, 0.75);
+  fill: var(--fb-tone-dot-symbol-fill);
+  stroke: var(--fb-tone-dot-symbol-stroke);
   stroke-width: 1.4;
   paint-order: stroke;
   pointer-events: none;
@@ -2472,9 +2778,14 @@ watch(
   user-select: none;
 }
 
+.fb-tone-dot-symbol-icon {
+  pointer-events: none;
+  user-select: none;
+}
+
 .fb-tone-dot-pitch {
-  fill: rgba(255, 255, 255, 0.95);
-  stroke: rgba(20, 20, 20, 0.72);
+  fill: var(--fb-tone-dot-pitch-fill);
+  stroke: var(--fb-tone-dot-pitch-stroke);
   stroke-width: 1.1;
   paint-order: stroke;
   pointer-events: none;
@@ -2487,30 +2798,30 @@ watch(
 
 .fb-next-note-preview {
   fill: none;
-  stroke: rgba(255, 243, 186, 0.9);
+  stroke: var(--fb-next-note-preview-stroke);
   stroke-width: 2.4;
   stroke-dasharray: 5 3;
-  filter: drop-shadow(0 0 4px rgba(255, 230, 120, 0.75));
+  filter: var(--fb-next-note-preview-shadow);
   pointer-events: none;
 }
 
 .fb-hand-position-overlay rect {
-  fill: rgba(165, 118, 55, 0.3);
-  stroke: rgba(112, 78, 34, 0.65);
+  fill: var(--fb-hand-overlay-fill);
+  stroke: var(--fb-hand-overlay-stroke);
   stroke-width: 2.2;
-  filter: drop-shadow(0 0 5px rgba(133, 91, 39, 0.45));
+  filter: var(--fb-hand-overlay-shadow);
 }
 
 .fb-hand-position-suggested rect {
-  fill: rgba(89, 148, 211, 0.17);
-  stroke: rgba(146, 197, 255, 0.9);
+  fill: var(--fb-hand-suggested-fill);
+  stroke: var(--fb-hand-suggested-stroke);
   stroke-width: 1.8;
   stroke-dasharray: 6 4;
 }
 
 .fb-hand-position-suggested text {
-  fill: rgba(219, 238, 255, 0.96);
-  stroke: rgba(15, 20, 26, 0.5);
+  fill: var(--fb-hand-suggested-text-fill);
+  stroke: var(--fb-hand-suggested-text-stroke);
   stroke-width: 1;
   paint-order: stroke;
   font-size: 10px;
@@ -2525,8 +2836,8 @@ watch(
   padding: 4px 8px;
   border-radius: 6px;
 
-  background: rgba(20, 20, 20, 0.9);
-  color: white;
+  background: var(--fb-tooltip-bg);
+  color: var(--fb-tooltip-text);
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
@@ -2539,10 +2850,10 @@ watch(
   position: relative;
   width: 100%;
   z-index: 6;
-  height: 28px;
-  margin-top: 20px;
-  margin-bottom: 10px;
-  padding-top: 6px;
+  height: var(--fb-numbers-height-px);
+  margin-top: var(--fb-numbers-margin-top);
+  margin-bottom: var(--fb-numbers-margin-bottom);
+  padding-top: var(--fb-numbers-pad-top-px);
   background: transparent;
   border-radius: 10px;
   overflow: visible;
@@ -2553,107 +2864,19 @@ watch(
   top: 6px;
   transform: translateX(-50%);
 
-  font-size: 13px;
+  font-size: calc(13px * var(--fb-ui-scale));
   font-weight: 800;
   line-height: 1;
 
-  color: rgba(34, 40, 48, 0.96);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 2px rgba(255, 255, 255, 0.8),
-    0 1px 2px rgba(0, 0, 0, 0.28);
+  color: var(--fb-fret-number-color);
+  text-shadow: var(--fb-fret-number-shadow);
   user-select: none;
 }
 
 .fb-fret-number.is-marker-fret {
-  color: rgba(140, 114, 35, 0.98);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.92),
-    0 0 2px rgba(255, 255, 255, 0.78),
-    0 1px 2px rgba(0, 0, 0, 0.3);
-  font-size: 14px;
-}
-
-.fb-fret-actions {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: -2px;
-  margin-bottom: 8px;
-}
-
-.fb-rail-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: 30px;
-}
-
-.fb-rail-controls-right {
-  align-items: stretch;
-  padding-inline: 6px;
-}
-
-.fb-fret-actions-erase {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fb-fret-actions :deep(.fb-top-control),
-.fb-rail-controls :deep(.fb-top-control) {
-  --v-btn-height: 26px;
-  min-height: 26px !important;
-  height: 26px !important;
-  min-width: 36px;
-  border-radius: 6px;
-  padding: 0 9px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.fb-fret-actions :deep(.fb-note-value-btn),
-.fb-rail-controls :deep(.fb-note-value-btn) {
-  position: relative;
-  padding-right: 22px;
-}
-
-.fb-note-glyph {
-  line-height: 1;
-  font-size: 15px;
-}
-
-.fb-note-caret {
-  position: absolute;
-  right: 5px;
-  bottom: 4px;
-  opacity: 0.75;
-}
-
-.fb-note-toggle-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.fb-fret-actions :deep(.fb-color-btn),
-.fb-rail-controls :deep(.fb-color-btn) {
-  position: relative;
-  padding-right: 18px;
-}
-
-.fb-color-swatch {
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.35);
+  color: var(--fb-fret-number-marker-color);
+  text-shadow: var(--fb-fret-number-marker-shadow);
+  font-size: calc(14px * var(--fb-ui-scale));
 }
 
 .fb-hand-mode-info {
@@ -2664,11 +2887,11 @@ watch(
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: rgba(225, 233, 242, 0.9);
+  color: var(--fb-hand-info-text);
 }
 
 .fb-hand-mode-info .is-warning {
-  color: rgba(255, 210, 138, 0.96);
+  color: var(--fb-hand-info-warning-text);
 }
 
 .fb-chord-shape-panel {
@@ -2683,22 +2906,22 @@ watch(
   min-width: 86px;
   font-size: 12px;
   font-weight: 800;
-  color: #fff7cf;
-  background: rgba(14, 22, 31, 0.86);
-  border: 1px solid rgba(255, 230, 153, 0.5);
+  color: var(--fb-chord-detected-text);
+  background: var(--fb-chord-detected-bg);
+  border: 1px solid var(--fb-chord-detected-border);
   border-radius: 6px;
   padding: 3px 8px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  text-shadow: var(--fb-chord-detected-shadow);
 }
 
 .fb-shape-btn,
 .fb-shape-select {
-  height: 26px;
+  height: var(--fb-control-h);
   border-radius: 6px;
-  border: 1px solid rgba(180, 198, 217, 0.35);
-  background: rgba(18, 25, 34, 0.55);
-  color: rgba(238, 245, 251, 0.95);
-  font-size: 12px;
+  border: 1px solid var(--fb-shape-control-border);
+  background: var(--fb-shape-control-bg);
+  color: var(--fb-shape-control-text);
+  font-size: var(--fb-font-sm);
   font-weight: 700;
 }
 
@@ -2714,14 +2937,14 @@ watch(
 }
 
 .fb-shape-btn.is-danger {
-  border-color: rgba(255, 160, 160, 0.45);
-  color: rgba(255, 196, 196, 0.95);
+  border-color: var(--fb-shape-danger-border);
+  color: var(--fb-shape-danger-text);
 }
 
 .fb-shape-btn.is-active {
-  border-color: rgba(255, 171, 108, 0.9);
-  background: rgba(160, 72, 18, 0.42);
-  color: rgba(255, 231, 206, 0.98);
+  border-color: var(--fb-shape-active-border);
+  background: var(--fb-shape-active-bg);
+  color: var(--fb-shape-active-text);
 }
 
 .fb-shape-select {

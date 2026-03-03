@@ -1,142 +1,103 @@
 # Komponenten-Diagramm (GuitarJemp)
 
-Dieses Dokument zeigt, wie die wichtigsten Komponenten/Stores/Composables zusammenarbeiten und welche Aufgaben sie haben.
+Aktueller Stand der strukturellen Abhaengigkeiten im Projekt.
 
-> Tipp: VS Code rendert Mermaid-Diagramme in Markdown (oder via Mermaid-Extension).
-
-## Bilder (SVG)
-
-- Komponentenübersicht (SVG): [docs/component-diagram.svg](component-diagram.svg)
-- Playback-Flow (SVG): [docs/playback-sequence.svg](playback-sequence.svg)
-
-## 1) High-Level: UI → State → Domain
+## Komponentendiagramm
 
 ```mermaid
-flowchart LR
-  App[App.vue\n(App Shell)]
+flowchart TB
+  App[App.vue]
+  WM[WindowManager.vue]
 
-  subgraph UI[UI-Komponenten]
-    FBEdit[FretboardEdit\n(Töne auswählen/ändern)]
-    FBShow[FretboardShow\n(Anzeige + Playback-Visuals)]
-    TL[Timeline\n(Container/Orchestrator)]
-    TLView[TimelineView\n(Presentational)]
-    TLC[PlaybackControls\n(Play/Pause, Seek Start, Loop)]
-    TLM[ModeSelector\n(Snap, Sound, Beat, Zoom)]
-    TLGrid[TimelineGrid\n(Head/Grid)]
-    TLTrack[TimelineTrack\n(Track + Scrub)]
-    Note[NoteEvent\n(Drag/Resize)]
-    ATW[ActiveTonesWindow\n(Aktive Töne)]
+  subgraph UI["UI-Komponenten"]
+    FB[FretboardView.vue]
+    TL[Timeline/index.js Container]
+    TLV[TimelineView.vue]
+    TT[TimelineTrack.vue]
+    NE[NoteEvent.vue]
+    TB[TransportBar.vue]
+    PC[PlaybackControls.vue]
   end
 
-  subgraph State[Pinia Stores]
-    Notes[useNotes\n(Noten: gridIndex,length,color...)]
-    Sel[useSelection\n(selectedNoteKey, Auswahl)]
-    Transport[useTransport\n(playState, playheadMs, tempo)]
-    Settings[useTimelineSettings\n(snap,sound,loop,zoom,...)]
-    Visuals[usePlaybackVisuals\n(highlight,pulse)]
-    Instr[useInstrument\n(tuningId,numStrings,...)]
+  subgraph Stores["Pinia Stores"]
+    SNotes[useNotes]
+    SSel[useSelection]
+    STransport[useTransport]
+    SSettings[useTimelineSettings]
+    SInstr[useInstrument]
+    SVisuals[usePlaybackVisuals]
+    SHand[useHandPositions]
+    SHarmony[useHarmonyMenu]
   end
 
-  subgraph Logic[Composables]
-    Playback[usePlayback\n(RAF Clock + seek/start/pause)]
-    Grid[useGrid\n(timePerBlock, helpers)]
+  subgraph Domain["Domain / Audio"]
+    DTuning[getTuning]
+    DPitch[midiForNote / midiForFretString]
+    DNames[midiToNoteName]
+    DAudio[playMidi]
+    DImport[parseMusicXmlToClip]
   end
 
-  subgraph Domain[Domain / Audio / Music]
-    Tunings[getTuning()]
-    Pitch[midiForNote()]
-    NotesName[midiToNoteName()]
-    Synth[playMidi()]
+  subgraph Config["Feature Config"]
+    CFBL[fretboardLayout.js]
+    CFBV[fretboardVisuals.js]
+    CFBT[fretboardTheme.js]
+    CFBH[fretboardBehavior.js]
+    CTL[timelineLayout.js]
+    CTB[timelineBehavior.js]
+    CTV[playbackVisuals.js]
   end
 
-  App --> FBEdit
-  App --> FBShow
-  App --> TL
-  App --> ATW
+  App --> WM
+  WM --> FB
+  WM --> TL
+  App --> TB
+  App --> DImport
 
-  TL --> TLView
-  TLView --> TLC
-  TLView --> TLM
-  TLView --> TLGrid
-  TLView --> TLTrack
-  TLTrack --> Note
+  TL --> TLV
+  TLV --> TT
+  TT --> NE
+  TB --> PC
 
-  %% State wiring
-  FBEdit <--> Notes
-  FBEdit <--> Sel
-  FBEdit <--> Settings
+  FB --> SNotes
+  FB --> SSel
+  FB --> STransport
+  FB --> SSettings
+  FB --> SInstr
+  FB --> SVisuals
+  FB --> SHand
+  FB --> SHarmony
 
-  FBShow --> Notes
-  FBShow --> Visuals
-  FBShow --> Transport
-  FBShow --> Instr
+  TL --> SNotes
+  TL --> SSel
+  TL --> STransport
+  TL --> SSettings
+  TL --> SInstr
+  TL --> SVisuals
+  TL --> SHand
 
-  TL --> Notes
-  TL --> Settings
-  TL --> Transport
-  TL --> Visuals
-  TL --> Instr
+  FB --> DTuning
+  FB --> DPitch
+  FB --> DNames
+  FB --> DAudio
 
-  %% Logic wiring
-  TL --> Playback
-  TL --> Grid
+  TL --> DTuning
+  TL --> DPitch
+  TL --> DAudio
 
-  %% Domain wiring
-  TL --> Tunings
-  TL --> Pitch
-  TL --> Synth
-  Note --> NotesName
-  Note --> Pitch
-  Note --> Synth
+  FB --> CFBL
+  FB --> CFBV
+  FB --> CFBT
+  FB --> CFBH
+  TL --> CTL
+  TL --> CTB
+  TL --> CTV
 ```
 
-## 2) Aufgaben der zentralen Bausteine (kurz)
+## Kurzinterpretation
 
-- **App.vue**: Layout/Shell, Modus-Umschaltung (Editor/Show), platziert Timeline + Fretboard + ActiveTones.
-- **Timeline (Container)**: Orchestriert Playback (Clock), Playhead, Looping, Audio-Triggering, und setzt Store-State.
-- **TimelineView**: Reine Darstellung/Komposition der Timeline-UI; leitet Events hoch.
-- **PlaybackControls**: UI-Buttons/Controls für Play/Pause und „Seek Start“ + Loop.
-- **ModeSelector**: UI für Snap/Sound/Beat/Zoom.
-- **TimelineTrack**: Rendert einen Track; erlaubt Scrubbing/Seek via Pointer.
-- **NoteEvent**: Rendert einzelne Note; Drag/Resize; (optional) Sound-Preview.
-- **FretboardEdit**: Bearbeiten/Auswählen der Töne/Noten.
-- **FretboardShow**: Zeigt ausgewählte Noten + Playback-Visuals (Opacity/Highlight/Pulse).
-
-## 3) Playback-Flow (Sequenz)
-
-```mermaid
-sequenceDiagram
-  participant User
-  participant TLC as PlaybackControls
-  participant TL as Timeline (Container)
-  participant PB as usePlayback
-  participant TS as useTransport
-  participant VS as usePlaybackVisuals
-  participant NS as useNotes
-  participant Synth as simpleSynth.playMidi
-
-  User->>TLC: klick Play/Pause
-  TLC->>TL: emit toggle-play
-  TL->>PB: start() oder pause()
-
-  loop while playing (RAF ticks)
-    PB->>TL: onTick(tMs)
-    TL->>TS: setPlayheadMs(tMs)
-    TL->>VS: prune(tMs)
-    TL->>NS: activeNotes lesen
-    TL->>Synth: playMidi(midi,duration)
-    TL->>VS: highlight(noteKey, untilMs)
-  end
-
-  User->>TLC: klick Seek Start
-  TLC->>TL: emit seek-start
-  TL->>PB: seek(0)
-  TL->>TS: setPlayheadMs(0)
-  TL->>VS: clear()/prune(0)
-```
-
-## 4) Zoom/Scroll-Konzept (Timeline)
-
-- **Zoom**: `zoomPxPerBlock` (px/Block) bestimmt die Mindestbreite des Track-Inhalts: `minWidth = totalBlocks * zoomPxPerBlock`.
-- **Horizontal scroll**: Wenn `minWidth` größer als Viewport, wird der Timeline-Bereich horizontal scrollbar.
-- **Sticky Labels**: Saiten-Labels bleiben links sichtbar, während der Inhalt scrollt.
+- `App.vue` orchestriert Layout und Startimport.
+- `WindowManager.vue` kapselt den horizontalen Split (Pane A/B + Divider).
+- `FretboardView.vue` und `Timeline` teilen sich zentrale Stores.
+- `Timeline` kapselt Playback/Editing-Logik; `TimelineView` ist der UI-Layer.
+- Domain-Funktionen (`tunings`, `pitch`, `audio`, `import`) sind von UI getrennt.

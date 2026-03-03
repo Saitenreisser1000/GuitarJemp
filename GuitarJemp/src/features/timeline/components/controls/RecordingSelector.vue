@@ -1,5 +1,5 @@
 <template>
-    <v-card class="pa-3" variant="flat" border tabindex="0" @keydown="onKeyDown">
+    <div class="recording-selector-shell pa-3" tabindex="0" @keydown="onKeyDown">
         <div class="d-flex align-center ga-3 flex-wrap">
             <v-text-field v-model="search" :label="t('recordingSelector.search')" density="compact" variant="outlined"
                 clearable hide-details class="flex-grow-1" style="min-width: 260px" :disabled="!canUse" />
@@ -60,7 +60,7 @@
         <div v-if="canUse" class="text-medium-emphasis mt-2" style="font-size: 12px">
             {{ t('recordingSelector.tip') }}
         </div>
-    </v-card>
+    </div>
 </template>
 
 <script setup>
@@ -73,6 +73,7 @@ import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { isSupabaseConfigured } from '@/infra/supabase/client'
+import { TIMELINE_RECORDING_SELECTOR } from '@/features/timeline/config/timelineBehavior'
 import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'RecordingSelector' })
@@ -88,11 +89,11 @@ const handPositions = useHandPositionsStore()
 const { t } = useI18n()
 
 const search = ref('')
-const kindFilter = ref('all')
-const visibilityFilter = ref('public')
+const kindFilter = ref(TIMELINE_RECORDING_SELECTOR.defaultKindFilter)
+const visibilityFilter = ref(TIMELINE_RECORDING_SELECTOR.defaultVisibilityFilter)
 
 const page = ref(0)
-const PAGE_SIZE = 20
+const PAGE_SIZE = TIMELINE_RECORDING_SELECTOR.pageSize
 
 const highlightedId = ref(null)
 
@@ -351,3 +352,11 @@ onMounted(async () => {
     await library.refresh()
 })
 </script>
+
+<style scoped>
+.recording-selector-shell {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+}
+</style>

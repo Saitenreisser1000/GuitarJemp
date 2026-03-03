@@ -19,7 +19,7 @@
           </v-btn>
         </template>
 
-        <v-card class="pa-3 d-flex flex-column ga-2" min-width="220" variant="flat" border>
+        <div class="timeline-options-menu pa-3 d-flex flex-column ga-2" :style="optionsMenuStyle">
           <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
           <div class="d-flex ga-2">
             <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
@@ -38,7 +38,7 @@
             :model-value="snapEnabled" @update:model-value="(v) => emit('update-snap', Boolean(v))" />
           <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')"
             :model-value="stringsCollapsed" @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
-        </v-card>
+        </div>
       </v-menu>
     </div>
   </div>
@@ -46,6 +46,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'TimelineTopRow' })
@@ -74,7 +75,10 @@ const emit = defineEmits([
 
 const { t } = useI18n()
 
-const beatBottomItems = [1, 2, 4, 8]
+const beatBottomItems = TIMELINE_LAYOUT.topRow.beatBottomItems
+const optionsMenuStyle = computed(() => ({
+  '--timeline-options-menu-min-w': `${TIMELINE_LAYOUT.topRow.optionsMenuMinWidthPx}px`,
+}))
 const pickupMax = computed(() => {
   const top = Number.parseInt(String(props.beatTop), 10)
   const maxByBeat = Number.isFinite(top) && top > 1 ? top - 1 : 1
@@ -139,6 +143,13 @@ function updatePickupBeatsFromOptions(v) {
   min-width: 22px;
   height: 22px;
   padding: 0;
+}
+
+.timeline-options-menu {
+  min-width: var(--timeline-options-menu-min-w, 220px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
 }
 
 @media (max-width: 860px) {

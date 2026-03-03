@@ -5,189 +5,149 @@
     </div>
 
     <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
-        <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
-          :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-          :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
-          @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
-          @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
-          @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
-          @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
-          @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
-          @zoom-right="decrementZoom" />
-        <div v-if="timelineVisible || transportVisible" class="timeline ui-panel"
-          :class="{ 'is-collapsed': stringsCollapsed }">
-          <div v-if="timelineVisible" class="timeline-columns">
-            <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
-              :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
-              :aria-label="t('timelineView.strings')">
-              <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
-                <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
-                  @click="() => emit('add-hand-position')">
-                  ✋+
-                </button>
-              </div>
-
-              <button v-for="track in visibleTracks" :key="`string-name-${track.stringIdx}`"
-                class="timeline-string-name timeline-string-name-btn"
-                :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }" type="button"
-                :title="track.label" @click="() => emit('update-active-string', track.stringIdx)">
-                {{ track.label }}
+      <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
+        :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
+        :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
+        @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
+        @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+        @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
+        @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
+        @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
+        @zoom-right="decrementZoom" />
+      <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
+        <div ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
+          <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
+            :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
+            :aria-label="t('timelineView.strings')">
+            <div v-if="handPositionVisible" class="timeline-string-name timeline-string-name-aux">
+              <button class="timeline-string-name-btn" type="button" :title="t('timelineView.handPosition')"
+                @click="() => emit('add-hand-position')">
+                ✋+
               </button>
             </div>
 
-            <div class="timeline-scroll timeline-column-card">
-              <div ref="scrollEl" class="timeline-scroll-viewport" @wheel="onTimelineWheel"
-                @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
-                @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
-                <div class="timeline-content">
-                <div v-if="loopEnabled" class="loop-bracket-layer">
-                  <div class="loop-bracket" :style="loopBracketStyle">
-                    <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
-                      @pointerdown="onLoopHandlePointerDown('start', $event)" />
-                    <div class="loop-bracket-bar" />
-                    <button class="loop-handle loop-handle-end" type="button" :title="t('timelineView.dragLoopEnd')"
-                      @pointerdown="onLoopHandlePointerDown('end', $event)" />
-                  </div>
-                </div>
-
-                <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
-                  <button v-for="marker in markerItems" :key="marker.id" class="timeline-marker" type="button"
-                    :style="{ left: `${marker.leftPx}px` }" :title="marker.title"
-                    @click="() => emit('seek-playhead', marker.timeMs)">
-                    <span class="timeline-marker-label">{{ marker.label }}</span>
-                  </button>
-                </div>
-
-                <div class="strings-timeline">
-                  <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
-                    :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
-                    :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
-                    :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
-                    :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
-                    :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
-                    :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
-                      (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
-                    " @update-note-length="
-                      (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
-                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
-                      (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
-                    " @group-resize-notes="
-                      (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
-                    " />
-
-                  <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
-                    :string-label="track.label" :active-string="activeString" :notes="track.notes"
-                    :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
-                    :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
-                    :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
-                    :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
-                    :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
-                    @update-active-string="(v) => emit('update-active-string', v)"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
-                      (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
-                    " @update-note-length="
-                      (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
-                    " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
-                      (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
-                    " @group-resize-notes="
-                      (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
-                    " />
-                </div>
-
-                <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
-                  <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
-                    :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
-                    <span class="timeline-length-marker-thin" />
-                    <span class="timeline-length-marker-thick" />
-                  </div>
-                </div>
-
-                  <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
-                </div>
-              </div>
-            </div>
+            <button v-for="track in visibleTracks" :key="`string-name-${track.stringIdx}`"
+              class="timeline-string-name timeline-string-name-btn"
+              :class="{ 'is-active': Number(activeString) === Number(track.stringIdx) }" type="button"
+              :title="track.label" @click="() => emit('update-active-string', track.stringIdx)">
+              {{ track.label }}
+            </button>
           </div>
-          <TimelineInfoBar v-if="timelineVisible" :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
-            @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
-            @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
-            @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)"
-            @decrement-bars-no-pickup="decrementBarsNoPickup" @increment-bars-no-pickup="incrementBarsNoPickup" />
 
-          <template v-if="transportVisible">
-            <Teleport v-if="fretboardVisible && hasFretboardTransportHost" to="#fretboard-transport-host">
-              <div class="timeline-transport timeline-transport-in-fretboard" :aria-label="t('timelineView.transport')">
-                <div class="timeline-transport-inner">
-                  <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-                    :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-                    :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-                    :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-                    :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-                    :practice-match-state="practiceMatchState" :record-active="recordActive"
-                    @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-                    @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-                    @update-click="(v) => emit('update-click', v)"
-                    @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                    @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-                    @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
-                </div>
-              </div>
-            </Teleport>
-            <div v-else class="timeline-transport" :aria-label="t('timelineView.transport')">
-              <div class="timeline-transport-inner">
-                <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
-                  :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
-                  :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
-                  :practice-available="practiceAvailable" :practice-target-label="practiceTargetLabel"
-                  :practice-detected-label="practiceDetectedLabel" :practice-hint-text="practiceHintText"
-                  :practice-match-state="practiceMatchState" :record-active="recordActive"
-                  @toggle-play="emit('toggle-play')" @seek-start="emit('seek-start')"
-                  @seek-playhead="(t) => emit('seek-playhead', t)" @update-tempo="(v) => emit('update-tempo', v)"
-                  @update-click="(v) => emit('update-click', v)"
-                  @update-count-in-enabled="(v) => emit('update-count-in-enabled', v)"
-                  @update-auto-follow="(v) => emit('update-auto-follow', v)" @update-loop="(v) => emit('update-loop', v)"
-                  @toggle-practice="emit('toggle-practice')" @toggle-record="emit('toggle-record')" />
+          <div ref="scrollEl" class="timeline-scroll-viewport timeline-column-card" @wheel="onTimelineWheel"
+            @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
+            @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
+            <div v-if="loopEnabled" class="loop-bracket-layer">
+              <div class="loop-bracket" :style="loopBracketStyle">
+                <button class="loop-handle loop-handle-start" type="button" :title="t('timelineView.dragLoopStart')"
+                  @pointerdown="onLoopHandlePointerDown('start', $event)" />
+                <div class="loop-bracket-bar" />
+                <button class="loop-handle loop-handle-end" type="button" :title="t('timelineView.dragLoopEnd')"
+                  @pointerdown="onLoopHandlePointerDown('end', $event)" />
               </div>
             </div>
-          </template>
+
+            <div v-if="markerItems.length" class="marker-layer" :aria-label="t('timelineView.markers')">
+              <button v-for="marker in markerItems" :key="marker.id" class="timeline-marker" type="button"
+                :style="{ left: `${marker.leftPx}px` }" :title="marker.title"
+                @click="() => emit('seek-playhead', marker.timeMs)">
+                <span class="timeline-marker-label">{{ marker.label }}</span>
+              </button>
+            </div>
+
+            <div class="strings-timeline">
+              <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
+                :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
+                :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
+                :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
+                :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
+                :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
+                :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
+                @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                  (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                " @update-note-length="
+                  (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
+                  (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+                " @group-resize-notes="
+                  (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+                " />
+
+              <TimelineTrack v-for="track in visibleTracks" :key="track.stringIdx" :string="track.stringIdx"
+                :string-label="track.label" :active-string="activeString" :notes="track.notes"
+                :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
+                :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
+                :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
+                :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
+                :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
+                @update-active-string="(v) => emit('update-active-string', v)"
+                @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
+                  (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
+                " @update-note-length="
+                  (key, lengthBlocks) => emit('update-note-length', key, lengthBlocks)
+                " @update-note-label="(key, label) => emit('update-note-label', key, label)" @group-move-notes="
+                  (anchorKey, deltaBlocks) => emit('group-move-notes', anchorKey, deltaBlocks)
+                " @group-resize-notes="
+                  (anchorKey, deltaBlocks) => emit('group-resize-notes', anchorKey, deltaBlocks)
+                " />
+            </div>
+
+            <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
+              <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
+                :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
+                <span class="timeline-length-marker-thin" />
+                <span class="timeline-length-marker-thick" />
+              </div>
+            </div>
+
+            <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
+          </div>
         </div>
+        <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
+          @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
+          @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+          @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
+          @increment-bars-no-pickup="incrementBarsNoPickup" />
+      </div>
     </section>
 
-    <aside v-if="libraryPanelVisible" class="secondary-menu-rail"
-        :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
-        :aria-label="t('libraryDialog.title')">
-        <v-card class="secondary-menu-shell ui-panel pa-2" variant="flat">
-          <div class="secondary-menu-head">
-            <div class="secondary-menu-head-row">
-              <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
-              <v-btn size="x-small" variant="text" class="secondary-menu-toggle" icon="mdi-arrow-left-right"
-                :title="'Sidebar width'" @click="cycleSecondaryMenuSize" />
-            </div>
-            <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
-              {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
-            </div>
+    <aside v-if="libraryEnabled && libraryPanelVisible" class="secondary-menu-rail"
+      :class="{ 'is-collapsed': secondaryMenuSize === 's', 'is-wide': secondaryMenuSize === 'l' }"
+      :aria-label="t('libraryDialog.title')">
+      <div class="secondary-menu-shell ui-panel pa-2">
+        <div class="secondary-menu-head">
+          <div class="secondary-menu-head-row">
+            <div class="secondary-menu-title">{{ t('libraryDialog.title') }}</div>
+            <v-btn size="x-small" variant="text" class="secondary-menu-toggle" icon="mdi-arrow-left-right"
+              :title="'Sidebar width'" @click="cycleSecondaryMenuSize" />
           </div>
-          <div class="secondary-menu">
-            <v-btn v-if="secondaryMenuSize !== 's'" block prepend-icon="mdi-book-open-page-variant" size="default"
-              variant="tonal" class="secondary-menu-btn secondary-menu-link" :title="t('modeSelector.openLibrary')"
-              :disabled="!libraryEnabled" @click="emit('open-library')">
-              {{ t('modeSelector.openLibrary') }}
-            </v-btn>
-            <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
-              :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
+          <div v-if="secondaryMenuSize !== 's'" class="secondary-menu-subtitle">
+            {{ libraryEnabled ? t('modeSelector.openLibrary') : t('modeSelector.librarySignIn') }}
           </div>
-        </v-card>
+        </div>
+        <div class="secondary-menu">
+          <v-btn v-if="secondaryMenuSize !== 's'" block prepend-icon="mdi-book-open-page-variant" size="default"
+            variant="tonal" class="secondary-menu-btn secondary-menu-link" :title="t('modeSelector.openLibrary')"
+            :disabled="!libraryEnabled" @click="emit('open-library')">
+            {{ t('modeSelector.openLibrary') }}
+          </v-btn>
+          <v-btn v-else icon="mdi-book-open-page-variant" size="small" variant="tonal" class="secondary-menu-btn"
+            :title="t('modeSelector.openLibrary')" :disabled="!libraryEnabled" @click="emit('open-library')" />
+        </div>
+      </div>
     </aside>
   </div>
 </template>
 
 <script setup>
-import PlaybackControls from './controls/PlaybackControls.vue'
 import TimelineInfoBar from './TimelineInfoBar.vue'
 import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSelectionStore } from '@/store/useSelection'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { TIMELINE_BEHAVIOR } from '@/features/timeline/config/timelineBehavior'
+import { TIMELINE_THEME } from '@/features/timeline/config/timelineTheme'
 import { useI18n } from '@/i18n'
 
 const props = defineProps({
@@ -220,13 +180,10 @@ const props = defineProps({
   numFrets: { type: Number, default: 12 },
 
   stringsCollapsed: { type: Boolean, default: false },
-  fretboardVisible: { type: Boolean, default: true },
-  chordMenuVisible: { type: Boolean, default: true },
   handPositionVisible: { type: Boolean, default: false },
   timelineVisible: { type: Boolean, default: true },
   transportVisible: { type: Boolean, default: true },
   libraryPanelVisible: { type: Boolean, default: true },
-  showChordShapePanel: { type: Boolean, default: false },
 
   zoomPxPerBlock: { type: Number, default: 50 },
 
@@ -247,7 +204,6 @@ const props = defineProps({
   markers: { type: Array, default: () => [] },
   ghostNotesEnabled: { type: Boolean, default: false },
   simGroupMode: { type: String, default: '' },
-  activeNotesVisible: { type: Boolean, default: true },
   libraryEnabled: { type: Boolean, default: true },
   isDarkTheme: { type: Boolean, default: false },
 })
@@ -275,9 +231,6 @@ const emit = defineEmits([
   'update-num-strings',
   'update-frets',
   'update-strings-collapsed',
-  'update-fretboard-visible',
-  'update-chord-menu-visible',
-  'update-show-chord-shape-panel',
   'update-zoom',
   'seek-playhead',
   'update-note-grid-index',
@@ -294,7 +247,6 @@ const emit = defineEmits([
   'update-timeline-visible',
   'update-transport-visible',
   'update-library-panel-visible',
-  'update-active-notes-visible',
   'open-library',
   'toggle-theme',
   'update-total-blocks',
@@ -308,12 +260,14 @@ const emit = defineEmits([
 ])
 const { t } = useI18n()
 
-const zoomPx = computed(() => Math.max(8, Number(props.zoomPxPerBlock) || 50))
-const ZOOM_UI_MIN = 12
-const ZOOM_UI_MAX = 120
-const ZOOM_UI_STEP = 2
+const zoomPx = computed(() =>
+  Math.max(TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock, Number(props.zoomPxPerBlock) || 50),
+)
+const ZOOM_UI_MIN = TIMELINE_LAYOUT.zoom.uiMinPxPerBlock
+const ZOOM_UI_MAX = TIMELINE_LAYOUT.zoom.uiMaxPxPerBlock
+const ZOOM_UI_STEP = TIMELINE_LAYOUT.zoom.uiStepPxPerBlock
 // Must match the visual left inset of `.timeline-track` (see TimelineTrack.vue: margin-left).
-const TRACK_START_OFFSET_PX = 6
+const TRACK_START_OFFSET_PX = TIMELINE_LAYOUT.tracks.startOffsetPx
 
 const visibleTracks = computed(() => {
   return Array.isArray(props.tracks) ? props.tracks : []
@@ -329,18 +283,40 @@ function isFirstVisibleTrack(track) {
 const selection = useSelectionStore()
 
 const timelineMainStyle = computed(() => {
-  const widths = { s: 64, m: 224, l: 320 }
+  const widths = TIMELINE_LAYOUT.secondaryMenu.sizes
   const secondaryMenuWidthPx = props.libraryPanelVisible
     ? widths[secondaryMenuSize.value] || widths.m
     : 0
   return {
     '--secondary-menu-w': `${secondaryMenuWidthPx}px`,
+    '--tl-main-bg': TIMELINE_THEME.main.mainBgMix,
+    '--tl-viewport-bg': TIMELINE_THEME.main.viewportBgMix,
+    '--tl-viewport-shadow': TIMELINE_THEME.main.viewportShadow,
+    '--tl-column-card-bg': TIMELINE_THEME.main.columnCardBgMix,
+    '--tl-string-names-bg': TIMELINE_THEME.main.stringNamesBgMix,
+    '--tl-aux-divider-color': TIMELINE_THEME.main.auxDividerColor,
+    '--tl-marker-color': TIMELINE_THEME.main.markerColor,
+    '--tl-loop-bar-color': TIMELINE_THEME.main.loopBarColor,
+    '--tl-loop-handle-bg': TIMELINE_THEME.main.loopHandleBg,
+    '--tl-resize-line-color': TIMELINE_THEME.main.resizeHandleLineColor,
+    '--tl-length-handle-color': TIMELINE_THEME.main.lengthHandleColor,
+    '--tl-marquee-bg': TIMELINE_THEME.main.marqueeBg,
+    '--tl-track-start-offset-px': `${TRACK_START_OFFSET_PX}px`,
+    '--tl-main-resize-handle-h': `${TIMELINE_LAYOUT.main.resizeHandleHeightPx}px`,
+    '--tl-string-name-col-w': `${TIMELINE_LAYOUT.tracks.stringNameColWidthPx}px`,
+    '--tl-row-h-default': `${TIMELINE_LAYOUT.tracks.defaultRowHeightPx}px`,
+    '--tl-loop-header-h': `${TIMELINE_LAYOUT.headers.loopHeaderPx}px`,
+    '--tl-marker-header-h': `${TIMELINE_LAYOUT.headers.markerHeaderPx}px`,
+    '--tl-marker-layer-h': `${TIMELINE_LAYOUT.headers.markerLayerHeightPx}px`,
+    '--tl-marker-layer-gap': `${TIMELINE_LAYOUT.headers.markerLayerBottomGapPx}px`,
+    '--tl-loop-layer-h': `${TIMELINE_LAYOUT.headers.loopBracketLayerHeightPx}px`,
+    height: '100%',
   }
 })
 
 const scrollEl = ref(null)
+const timelineColumnsEl = ref(null)
 const secondaryMenuSize = ref('m')
-const hasFretboardTransportHost = ref(false)
 const marqueeActive = ref(false)
 const marqueeStart = ref({ x: 0, y: 0 })
 const marqueeEnd = ref({ x: 0, y: 0 })
@@ -359,20 +335,79 @@ const loopDrag = ref({
   kind: '',
   pointerId: null,
 })
+const timelineColumnsHeightPx = ref(null)
+const timelineColumnsMeasuredHeightPx = ref(0)
+let timelineColumnsResizeObserver = null
+
+const timelineColumnsStyle = computed(() => {
+  const explicitHeight = Number(timelineColumnsHeightPx.value)
+  const measuredHeight = Number(timelineColumnsMeasuredHeightPx.value)
+  const hasExplicitHeight = explicitHeight > 0
+  const h = hasExplicitHeight ? explicitHeight : measuredHeight
+  if (!(h > 0)) return undefined
+
+  const hasLoopHeader = Boolean(props.loopEnabled)
+  const hasMarkerHeader = Array.isArray(props.markers) && props.markers.length > 0
+  const headerPx =
+    (hasLoopHeader ? TIMELINE_LAYOUT.headers.loopHeaderPx : 0) +
+    (hasMarkerHeader ? TIMELINE_LAYOUT.headers.markerHeaderPx : 0)
+  const rowCount = Math.max(
+    1,
+    Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0),
+  )
+  const availableRowsPx = Math.max(TIMELINE_LAYOUT.tracks.minRowsAreaPx, h - headerPx)
+  const rowPx = Math.max(TIMELINE_LAYOUT.tracks.minRowHeightPx, Math.floor(availableRowsPx / rowCount))
+
+  const style = { '--timeline-row-h': `${rowPx}px` }
+  if (hasExplicitHeight) style.height = `${h}px`
+  return style
+})
+
+function measureTimelineColumnsHeight() {
+  const h = Number(timelineColumnsEl.value?.clientHeight) || 0
+  timelineColumnsMeasuredHeightPx.value = Math.max(0, Math.floor(h))
+}
+
+function attachTimelineColumnsResizeObserver() {
+  timelineColumnsResizeObserver?.disconnect?.()
+  timelineColumnsResizeObserver = null
+  const el = timelineColumnsEl.value
+  if (!el || typeof ResizeObserver === 'undefined') {
+    measureTimelineColumnsHeight()
+    return
+  }
+  timelineColumnsResizeObserver = new ResizeObserver(() => {
+    measureTimelineColumnsHeight()
+  })
+  timelineColumnsResizeObserver.observe(el)
+  measureTimelineColumnsHeight()
+}
 
 function cycleSecondaryMenuSize() {
-  const order = ['s', 'm', 'l']
+  const order = TIMELINE_LAYOUT.secondaryMenu.order
   const current = order.indexOf(String(secondaryMenuSize.value || 'm'))
   secondaryMenuSize.value = order[(current + 1) % order.length]
 }
 
-async function syncFretboardTransportHost() {
-  if (typeof document === 'undefined') {
-    hasFretboardTransportHost.value = false
-    return
-  }
-  await nextTick()
-  hasFretboardTransportHost.value = Boolean(document.getElementById('fretboard-transport-host'))
+function columnsHeightBounds() {
+  const min = TIMELINE_LAYOUT.tracks.minColumnsHeightPx
+  const colsRect = timelineColumnsEl.value?.getBoundingClientRect?.()
+  if (!colsRect) return { min, max: min }
+
+  // Keep room for info bar + handle at the bottom.
+  // Use viewport as the upper bound so resizing remains reversible:
+  // shrinking the columns must not reduce future max-height.
+  const reservedBottomPx = TIMELINE_LAYOUT.tracks.columnsReservedBottomPx
+  const viewportBottom = Number(window?.innerHeight) || 0
+  const rawMax = Math.floor(viewportBottom - colsRect.top - reservedBottomPx)
+  return { min, max: Math.max(min, rawMax) }
+}
+
+function clampColumnsHeight(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return columnsHeightBounds().min
+  const { min, max } = columnsHeightBounds()
+  return Math.max(min, Math.min(max, Math.round(n)))
 }
 
 function toContentCoords(clientX, clientY) {
@@ -442,7 +477,7 @@ function scheduleMarqueeUpdate() {
 }
 
 function onMarqueePointerDown(e) {
-  if (String(props.activeTool) !== 'select') return
+  if (String(props.activeTool) !== TIMELINE_BEHAVIOR.selection.marqueeTool) return
   if (e?.button != null && e.button !== 0) return
   if (e?.target?.closest?.('button, input, label, a')) return
   if (e?.target?.closest?.('.timeline-length-handle-wrap')) return
@@ -530,7 +565,7 @@ function onLengthHandlePointerMove(e) {
   const el = scrollEl.value
   if (el) {
     const handleX = TRACK_START_OFFSET_PX + rawNext * zoom
-    const margin = 56
+    const margin = TIMELINE_LAYOUT.marquee.autoScrollMarginPx
     const viewLeft = Number(el.scrollLeft) || 0
     const viewRight = viewLeft + (Number(el.clientWidth) || 0)
 
@@ -663,7 +698,34 @@ function onLoopHandlePointerUp(e) {
 
 onBeforeUnmount(() => {
   if (marqueeRaf) cancelAnimationFrame(marqueeRaf)
+  timelineColumnsResizeObserver?.disconnect?.()
+  timelineColumnsResizeObserver = null
+  window.removeEventListener('resize', onWindowResizeColumns)
 })
+
+function onWindowResizeColumns() {
+  if (!(Number(timelineColumnsHeightPx.value) > 0)) return
+  timelineColumnsHeightPx.value = clampColumnsHeight(timelineColumnsHeightPx.value)
+  measureTimelineColumnsHeight()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', onWindowResizeColumns)
+  attachTimelineColumnsResizeObserver()
+})
+
+watch(timelineColumnsEl, () => {
+  attachTimelineColumnsResizeObserver()
+})
+
+watch(
+  () => props.timelineVisible,
+  () => {
+    requestAnimationFrame(() => {
+      attachTimelineColumnsResizeObserver()
+    })
+  },
+)
 
 const effectiveTotalBlocks = computed(() => {
   if (lengthDrag.value.active) {
@@ -704,8 +766,8 @@ const markerItems = computed(() => {
 
 const stringHeaderOffsetPx = computed(() => {
   let px = 0
-  if (props.loopEnabled) px += 18
-  if (markerItems.value.length) px += 18
+  if (props.loopEnabled) px += TIMELINE_LAYOUT.headers.loopHeaderPx
+  if (markerItems.value.length) px += TIMELINE_LAYOUT.headers.markerHeaderPx
   return px
 })
 
@@ -718,7 +780,16 @@ function onTimelineWheel(e) {
   const x = Number(e.clientX) - rect.left
   const anchorContentX = el.scrollLeft + x
   const current = zoomPx.value
-  const next = Math.max(8, Math.min(200, current + (Number(e.deltaY) < 0 ? 4 : -4)))
+  const next = Math.max(
+    TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock,
+    Math.min(
+      TIMELINE_LAYOUT.zoom.wheelMaxPxPerBlock,
+      current +
+        (Number(e.deltaY) < 0
+          ? TIMELINE_LAYOUT.zoom.wheelStepPxPerBlock
+          : -TIMELINE_LAYOUT.zoom.wheelStepPxPerBlock),
+    ),
+  )
   if (next === current) return
   emit('update-zoom', next)
   // Keep zoom anchored at cursor position.
@@ -771,40 +842,6 @@ watch(
   { flush: 'post' },
 )
 
-onMounted(() => {
-  syncFretboardTransportHost()
-})
-
-watch(
-  () => props.fretboardVisible,
-  () => {
-    syncFretboardTransportHost()
-  },
-  { immediate: true },
-)
-
-const timePerBlockMs = computed(() => {
-  const total = Number(props.totalDuration) || 0
-  const blocks = Number(props.totalBlocks) || 0
-  if (!(total > 0) || !(blocks > 0)) return 0
-  return total / blocks
-})
-
-function formatMs(tMs) {
-  const ms = Math.max(0, Number(tMs) || 0)
-  const totalSeconds = ms / 1000
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = Math.floor(totalSeconds % 60)
-  const hundredths = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100)
-
-  const mm = String(minutes).padStart(2, '0')
-  const ss = String(seconds).padStart(2, '0')
-  const hh = String(hundredths).padStart(2, '0')
-  return `${mm}:${ss}.${hh}`
-}
-
-const playheadTimeLabel = computed(() => formatMs(props.playhead))
-
 const beatsPerBarSafe = computed(() => {
   const v = Number.parseInt(String(props.beatTop), 10)
   return Number.isFinite(v) && v > 0 ? v : 1
@@ -818,17 +855,6 @@ const beatBottomSafe = computed(() => {
 const blocksPerBeatSafe = computed(() => 4 / beatBottomSafe.value)
 const blocksPerBarSafe = computed(() => beatsPerBarSafe.value * blocksPerBeatSafe.value)
 
-const pickupBeatsSafe = computed(() => {
-  const raw = Number.parseInt(String(props.pickupBeats), 10)
-  if (!Number.isFinite(raw)) return 1
-  const maxByBeat = Math.max(1, beatsPerBarSafe.value - 1)
-  return Math.max(1, Math.min(Math.min(9, raw), maxByBeat))
-})
-
-const pickupBlocksSafe = computed(() =>
-  props.pickupEnabled ? pickupBeatsSafe.value * blocksPerBeatSafe.value : 0,
-)
-
 const barsNoPickup = computed({
   get: () => {
     const blocksPerBar = Number(blocksPerBarSafe.value)
@@ -839,7 +865,7 @@ const barsNoPickup = computed({
   set: (v) => {
     const n = Number.parseInt(String(v), 10)
     if (!Number.isFinite(n)) return
-    const nextBars = Math.max(1, Math.min(512, n))
+    const nextBars = Math.max(1, Math.min(TIMELINE_LAYOUT.bars.maxCount, n))
     const total = nextBars * Number(blocksPerBarSafe.value || 1)
     emit('update-total-blocks', Number(total.toFixed(3)))
   },
@@ -859,54 +885,24 @@ function decrementBarsNoPickup() {
 }
 
 function incrementBarsNoPickup() {
-  barsNoPickup.value = Math.min(512, Number(barsNoPickup.value) + 1)
+  barsNoPickup.value = Math.min(TIMELINE_LAYOUT.bars.maxCount, Number(barsNoPickup.value) + 1)
 }
 
-const barBeatLabel = computed(() => {
-  const beatsPerBarRaw = Number.parseInt(String(props.beatTop), 10)
-  const beatsPerBar = Number.isFinite(beatsPerBarRaw) && beatsPerBarRaw > 0 ? beatsPerBarRaw : 1
-
-  const tpb = timePerBlockMs.value
-  if (!(tpb > 0)) return t('timelineView.barBeatFallback')
-
-  const totalBlocks = Math.max(1, Number(props.totalBlocks) || 1)
-  const blocksRaw = (Number(props.playhead) || 0) / tpb
-  // If we're exactly at the end, show the last bar (not "one past").
-  const blocks = Math.min(totalBlocks - 1e-9, Math.max(0, blocksRaw))
-  const beatBottom = Number.parseInt(String(props.beatBottom), 10)
-  const blocksPerBeat = 4 / ([1, 2, 4, 8].includes(beatBottom) ? beatBottom : 4)
-  const blocksPerBar = beatsPerBar * blocksPerBeat
-  const pickupOn = Boolean(props.pickupEnabled)
-  const rawPickupBeats = Number.parseInt(String(props.pickupBeats), 10)
-  const pickupBeats = Number.isFinite(rawPickupBeats)
-    ? Math.max(1, Math.min(Math.max(1, beatsPerBar - 1), Math.min(9, rawPickupBeats)))
-    : 1
-  const pickupBlocks = pickupOn ? pickupBeats * blocksPerBeat : 0
-
-  let bar = 1
-  let beat = 1
-  if (pickupOn && pickupBlocks > 0 && blocks < pickupBlocks) {
-    bar = 0
-    beat = Math.floor(blocks / blocksPerBeat) + 1
-  } else {
-    const shifted = pickupOn ? blocks - pickupBlocks : blocks
-    const blockIndex = Math.floor(Math.max(0, shifted))
-    bar = Math.floor(blockIndex / blocksPerBar) + 1
-    beat = Math.floor((blockIndex % blocksPerBar) / blocksPerBeat) + 1
-  }
-  return `${bar}|${beat}`
-})
 </script>
 
 <style scoped>
 .timeline-main {
   --secondary-menu-w: 224px;
+  --tl-ui-scale: 1;
   --main-grow-right: 0px;
   --main-menu-v-pad: var(--space-3);
   --app-menubar-h: 30px;
   --top-bars-h: calc(var(--v-layout-top, 0px) + var(--app-menubar-h));
-  position: relative;
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  position: relative;
   flex-direction: column;
   gap: var(--space-4);
   padding-bottom: var(--space-1);
@@ -1016,93 +1012,54 @@ const barBeatLabel = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 0;
   padding: var(--space-2) var(--space-2) 0;
   padding-right: calc(var(--secondary-menu-w) + var(--space-4));
   overflow: visible;
 }
 
-.timeline-transport {
-  position: fixed;
-  left: var(--fixed-panel-left, calc(var(--main-menu-w, 84px) + var(--space-4)));
-  right: var(--fixed-panel-right, calc(var(--main-menu-w, 84px) + var(--space-4)));
-  bottom: var(--space-4);
-  z-index: 29;
-  display: flex;
-  justify-content: stretch;
-  margin-top: 0;
-  padding: 0;
-  pointer-events: auto;
-}
-
-.timeline-transport-inner {
-  width: 100%;
-  max-width: none;
-  border: 1px solid var(--color-border);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
-  box-shadow: none;
-  overflow: visible;
-}
-
-.timeline-transport-in-fretboard {
-  position: static;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  z-index: auto;
-  margin-top: 0;
-}
-
 .timeline {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 0;
   border: 0;
-  background: color-mix(in srgb, var(--color-surface) 93%, var(--color-surface-2) 7%);
+  background: var(--tl-main-bg);
   box-shadow: none;
   overflow: hidden;
   padding: 6px;
 }
 
 .timeline.is-collapsed :deep(.timeline-track) {
-  /* Collapse height to one third of the normal row height (44px). */
-  height: calc(44px / 3);
+  /* Collapse height to one third of the row height. */
+  height: calc(var(--timeline-row-h, 44px) / 3);
 }
 
 .timeline.is-collapsed :deep(.note-label) {
   display: none;
 }
 
-.timeline-scroll {
-  position: relative;
-  flex: 1 1 auto;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
-}
-
-.timeline-scroll::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  box-shadow:
-    inset 0 4px 12px -5px rgb(0 0 0 / 52%),
-    inset 0 -4px 12px -5px rgb(0 0 0 / 48%),
-    inset 18px 0 18px -11px rgb(0 0 0 / 54%),
-    inset -18px 0 18px -11px rgb(0 0 0 / 50%);
-}
-
 .timeline-scroll-viewport {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+  background: var(--tl-viewport-bg);
+  box-shadow: var(--tl-viewport-shadow);
 }
 
 .timeline-columns {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   column-gap: var(--panel-side-gap, 6px);
   align-items: stretch;
@@ -1111,29 +1068,33 @@ const barBeatLabel = computed(() => {
 .timeline-column-card {
   border: 1px solid var(--color-border);
   border-radius: 0;
-  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  background: var(--tl-column-card-bg);
 }
 
 .timeline-string-names {
-  flex: 0 0 17px;
+  flex: 0 0 var(--tl-string-name-col-w, 17px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   padding: 0 1px;
   padding-top: var(--timeline-string-header-offset, 0px);
   border: 0;
-  background: color-mix(in srgb, var(--color-surface-2) 76%, var(--color-surface) 24%);
+  background: var(--tl-string-names-bg);
 }
 
 .timeline-string-name {
-  height: 44px;
+  height: var(--timeline-row-h, var(--tl-row-h-default));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.timeline :deep(.timeline-track) {
+  height: var(--timeline-row-h, var(--tl-row-h-default));
+}
+
 .timeline-string-name-aux {
-  border-bottom: 4px solid rgba(70, 70, 70, 0.75);
+  border-bottom: 4px solid var(--tl-aux-divider-color);
   margin-bottom: 4px;
 }
 
@@ -1144,7 +1105,7 @@ const barBeatLabel = computed(() => {
   border-radius: 0;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--tl-ui-scale));
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -1153,12 +1114,6 @@ const barBeatLabel = computed(() => {
 
 .timeline-string-name-btn.is-active {
   color: var(--color-text);
-}
-
-.timeline-content {
-  display: flex;
-  flex-direction: column;
-  position: relative;
 }
 
 .timeline-options {
@@ -1172,19 +1127,19 @@ const barBeatLabel = computed(() => {
 
 .marker-layer {
   position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  height: var(--tl-marker-layer-h);
+  margin-bottom: var(--tl-marker-layer-gap);
 }
 
 .timeline-marker {
   position: absolute;
   top: 0;
   width: 2px;
-  height: 16px;
+  height: var(--tl-marker-layer-h);
   transform: translateX(-50%);
   border: 0;
   padding: 0;
-  background: color-mix(in srgb, var(--color-primary) 65%, var(--color-text) 35%);
+  background: var(--tl-marker-color);
   cursor: pointer;
 }
 
@@ -1192,7 +1147,7 @@ const barBeatLabel = computed(() => {
   position: absolute;
   top: 0;
   left: 4px;
-  font-size: 9px;
+  font-size: calc(9px * var(--tl-ui-scale));
   font-weight: 700;
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -1200,8 +1155,8 @@ const barBeatLabel = computed(() => {
 
 .loop-bracket-layer {
   position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  height: var(--tl-loop-layer-h);
+  margin-bottom: var(--tl-marker-layer-gap);
 }
 
 .loop-bracket {
@@ -1217,7 +1172,7 @@ const barBeatLabel = computed(() => {
   flex: 1;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 70%, var(--color-surface) 30%);
+  background: var(--tl-loop-bar-color);
 }
 
 .loop-handle {
@@ -1225,7 +1180,7 @@ const barBeatLabel = computed(() => {
   height: 12px;
   border: 1px solid var(--color-border);
   border-radius: 3px;
-  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-surface) 20%);
+  background: var(--tl-loop-handle-bg);
   cursor: ew-resize;
   padding: 0;
 }
@@ -1257,7 +1212,7 @@ const barBeatLabel = computed(() => {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: calc(6px * var(--tl-ui-scale));
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -1269,12 +1224,12 @@ const barBeatLabel = computed(() => {
 
 .timeline-length-marker-thin {
   width: 1px;
-  background: #000;
+  background: var(--tl-length-handle-color);
 }
 
 .timeline-length-marker-thick {
   width: 3px;
-  background: #000;
+  background: var(--tl-length-handle-color);
 }
 
 .status-chip {
@@ -1287,14 +1242,23 @@ const barBeatLabel = computed(() => {
 .marquee {
   position: absolute;
   border: 2px dashed var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  background: var(--tl-marquee-bg);
   border-radius: 6px;
   pointer-events: none;
   z-index: 20;
 }
 
+@media (max-width: 1200px) {
+  .timeline-main {
+    --tl-ui-scale: 0.96;
+    width: 100%;
+  }
+}
+
 @media (max-width: 860px) {
   .timeline-main {
+    --tl-ui-scale: 0.92;
+    width: 100%;
     margin-right: 0;
   }
 
@@ -1315,16 +1279,9 @@ const barBeatLabel = computed(() => {
     padding-right: 0;
   }
 
-  .timeline-transport {
-    left: var(--fixed-panel-left, var(--space-2));
-    right: var(--fixed-panel-right, var(--space-2));
-    bottom: var(--space-2);
-  }
-
   .status-chip {
     width: auto;
     min-width: 132px;
   }
-
 }
 </style>

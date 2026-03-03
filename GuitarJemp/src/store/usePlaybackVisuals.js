@@ -9,6 +9,11 @@ export const usePlaybackVisualsStore = defineStore('playbackVisuals', () => {
   // Public, reactive pulse start timestamps (wall-clock) per note key.
   // Consumers can animate for a short duration after startedAtMs.
   const pulseStarts = ref([])
+  const directionPreview = ref({
+    noteKeys: [],
+    startedAtMs: 0,
+    durationMs: 1500,
+  })
 
   // Internal (non-reactive) time-indexed store
   const activeUntilByKey = new Map()
@@ -58,5 +63,26 @@ export const usePlaybackVisualsStore = defineStore('playbackVisuals', () => {
     pulseStarts.value = []
   }
 
-  return { highlightedNoteKeys, pulseStarts, highlight, prune, clear }
+  function triggerDirectionPreview(noteKeys, { durationMs = 1500 } = {}) {
+    const keys = Array.isArray(noteKeys)
+      ? noteKeys.map((k) => String(k || '')).filter(Boolean)
+      : []
+    if (keys.length < 2) return
+    const dur = Number(durationMs)
+    directionPreview.value = {
+      noteKeys: keys,
+      startedAtMs: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+      durationMs: Number.isFinite(dur) && dur > 0 ? dur : 1500,
+    }
+  }
+
+  return {
+    highlightedNoteKeys,
+    pulseStarts,
+    directionPreview,
+    highlight,
+    prune,
+    clear,
+    triggerDirectionPreview,
+  }
 })

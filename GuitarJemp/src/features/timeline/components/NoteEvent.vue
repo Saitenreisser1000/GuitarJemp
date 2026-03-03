@@ -173,24 +173,6 @@ const leftPercent = computed(() => {
   return ((clamped - 1) / total) * 100
 })
 
-const widthPercent = computed(() => {
-  const total = Math.max(1, Number(props.totalBlocks) || 1)
-  const baseLen = safeLengthBlocks.value
-  const useGroup = isGroupSelected.value && selection.groupResizeActive
-  const previewDelta =
-    isGroupSelected.value && selection.groupResizeActive
-      ? Number(selection.groupResizeDeltaBlocks || 0)
-      : 0
-  const previewLen = baseLen + previewDelta
-  const len = useGroup
-    ? previewLen
-    : isResizing.value
-      ? Number(dragLength.value ?? baseLen)
-      : baseLen
-  const safeLen = Number.isFinite(len) && len > 0 ? len : 1
-  return (safeLen / total) * 100
-})
-
 function parseColorToRgb(input) {
   const raw = String(input ?? '').trim()
   if (!raw) return null
@@ -555,7 +537,7 @@ onBeforeUnmount(() => {
   position: absolute;
   height: 100%;
   top: 0;
-  border-radius: 6px;
+  border-radius: 3px;
   border: 1px solid color-mix(in srgb, var(--note-base-color) 78%, var(--color-surface) 22%);
   display: flex;
   align-items: center;
@@ -639,8 +621,8 @@ onBeforeUnmount(() => {
   height: 100%;
   cursor: ew-resize;
   background: linear-gradient(to left, rgb(255 255 255 / 28%), rgb(255 255 255 / 5%));
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
 }
 
 .note-context-menu {

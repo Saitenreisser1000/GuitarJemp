@@ -9,24 +9,19 @@
     :loop-enabled="loopEnabled" :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
     :zoom-px-per-block="zoomPxPerBlock" :current-step="currentStep" :tracks="tracks" :num-strings="numStrings"
     :num-frets="numFrets" :strings-collapsed="stringsCollapsed" :sim-group-mode="simGroupMode"
-    :fretboard-visible="fretboardVisible" :chord-menu-visible="chordMenuVisible"
     :timeline-visible="timelineVisible" :transport-visible="transportVisible"
     :library-panel-visible="libraryPanelVisible"
-    :show-chord-shape-panel="showChordShapePanel"
     :hand-position-visible="handPositionVisible"
     :auto-follow-enabled="autoFollowEnabled" :ghost-notes-enabled="ghostNotesEnabled" :markers="markers"
-    :hand-position-notes="handPositionNotes" :active-notes-visible="activeNotesVisible"
+    :hand-position-notes="handPositionNotes"
     :practice-active="practiceActive" :practice-available="practiceAvailable"
     :practice-target-label="practiceTargetLabel" :practice-detected-label="practiceDetectedLabel"
     :practice-hint-text="practiceHintText" :practice-match-state="practiceMatchState"
     :record-active="recordActive"
     :library-enabled="libraryEnabled" :is-dark-theme="isDarkTheme"
-    @toggle-play="togglePlay"
-    @update-tempo="transport.setTempo" @seek-start="seekStart" @update-loop="settings.setLoopEnabled"
+    @update-loop="settings.setLoopEnabled"
     @update-mode="settings.setSelectedMode" @update-zoom="settings.setZoomPxPerBlock"
     @update-snap="settings.setSnapEnabled" @update-sound-preview="settings.setSoundPreviewEnabled"
-    @update-click="settings.setClickEnabled" @update-count-in-enabled="settings.setCountInEnabled"
-    @update-auto-follow="settings.setAutoFollowEnabled"
     @update-sound-duration-scale="settings.setSoundDurationScale" @update-active-string="settings.setActiveString"
     @update-active-tool="settings.setActiveTool" @update-beat-top="handleUpdateBeatTop"
     @update-beat-bottom="handleUpdateBeatBottom" @update-num-strings="instrument.setNumStrings"
@@ -35,13 +30,9 @@
     @update-pickup-enabled="handleUpdatePickupEnabled"
     @update-pickup-beats="handleUpdatePickupBeats"
     @update-strings-collapsed="settings.setStringsCollapsed" @update-sim-group-mode="settings.setSimGroupMode"
-    @update-fretboard-visible="(v) => emit('update-fretboard-visible', Boolean(v))"
-    @update-chord-menu-visible="(v) => emit('update-chord-menu-visible', Boolean(v))"
     @update-timeline-visible="(v) => emit('update-timeline-visible', Boolean(v))"
     @update-transport-visible="(v) => emit('update-transport-visible', Boolean(v))"
     @update-library-panel-visible="(v) => emit('update-library-panel-visible', Boolean(v))"
-    @update-show-chord-shape-panel="settings.setShowChordShapePanel"
-    @update-active-notes-visible="(v) => emit('update-active-notes-visible', Boolean(v))"
     @update-total-blocks="handleUpdateTotalBlocks"
     @open-library="emit('open-library')"
     @toggle-theme="emit('toggle-theme')"
@@ -54,8 +45,6 @@
     @redo="handleRedo" @add-marker-at-playhead="handleAddMarkerAtPlayhead"
     @loop-to-selection="handleLoopToSelection" @quantize-selection="handleQuantizeSelection"
     @scale-selection-length="handleScaleSelectionLength" @update-ghost-notes="settings.setGhostNotesEnabled"
-    @toggle-practice="togglePractice"
-    @toggle-record="toggleRecord"
     :compact="compact" />
 </template>
 
@@ -75,6 +64,7 @@ import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
 import { useCountInOverlay } from '@/features/timeline/composables/useCountInOverlay'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
+import { normalizeNoteValue } from '@/config/noteValues'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
 import { midiForNote } from '@/domain/music/pitch'
@@ -95,9 +85,6 @@ import {
 const props = defineProps({
   compact: { type: Boolean, default: false },
   numFrets: { type: Number, default: 12 },
-  activeNotesVisible: { type: Boolean, default: true },
-  fretboardVisible: { type: Boolean, default: true },
-  chordMenuVisible: { type: Boolean, default: true },
   timelineVisible: { type: Boolean, default: true },
   transportVisible: { type: Boolean, default: true },
   libraryPanelVisible: { type: Boolean, default: true },
@@ -109,9 +96,6 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update-frets',
-  'update-active-notes-visible',
-  'update-fretboard-visible',
-  'update-chord-menu-visible',
   'update-timeline-visible',
   'update-transport-visible',
   'update-library-panel-visible',
@@ -142,10 +126,10 @@ const {
   activeString,
   activeTool,
   stringsCollapsed,
-  showChordShapePanel,
   handPositionVisible,
   simGroupMode,
   loopEnabled,
+  shuffleEnabled,
   loopStartBlock,
   loopEndBlock,
   beatTop,
@@ -818,7 +802,10 @@ const autoTotalBlocks = computed(() => {
 const totalBlocks = computed(() => {
   const manual = Number(timelineLengthBlocks.value) || 0
   if (manual > 0) return manual
-  return autoTotalBlocks.value
+  const blocksPerBarValue = Math.max(1, Number(blocksPerBar()) || 1)
+  const defaultBars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
+  const defaultBlocks = Number((defaultBars * blocksPerBarValue).toFixed(3))
+  return Math.max(autoTotalBlocks.value, defaultBlocks)
 })
 
 const loopRangeBlocks = computed(() => {
@@ -874,6 +861,8 @@ const {
   clickEnabled,
   playMetronomeClick,
 })
+
+const PLAYBACK_LOOKAHEAD_MS = 140
 
 const practiceTargets = computed(() => {
   const t = tuning.value
@@ -1234,7 +1223,8 @@ function maybePlayClickAt(tMs) {
   if (!clickEnabled.value) return
 
   const t0Raw = lastClickTickMs
-  const t1Raw = Number(tMs)
+  const nowPlayheadMs = Number(tMs) || 0
+  const t1Raw = nowPlayheadMs + PLAYBACK_LOOKAHEAD_MS
   lastClickTickMs = t1Raw
 
   const t0 = Number.isFinite(t0Raw) ? t0Raw : -0.0001
@@ -1251,9 +1241,13 @@ function maybePlayClickAt(tMs) {
   const lastBeat = Math.floor(t1 / msPerBeat)
   if (lastBeat < firstBeat) return
 
+  const tempoValue = Number(tempo.value) || 120
+  const tempoScale = 120 / tempoValue
   for (let b = firstBeat; b <= lastBeat; b += 1) {
     if (b < 0) continue
-    void playMetronomeClick({ accent: isBarStartBeat(b) })
+    const beatTimeMs = b * msPerBeat
+    const startDelayMs = Math.max(0, (beatTimeMs - nowPlayheadMs) * tempoScale)
+    void playMetronomeClick({ accent: isBarStartBeat(b), startDelayMs })
   }
 }
 
@@ -1261,8 +1255,9 @@ function maybePlayNotesAt(tMs) {
   if (!soundPreviewEnabled.value) return
 
   const t0 = lastAudioTickMs
-  const t1 = tMs
-  lastAudioTickMs = tMs
+  const nowPlayheadMs = Number(tMs) || 0
+  const t1 = nowPlayheadMs + PLAYBACK_LOOKAHEAD_MS
+  lastAudioTickMs = t1
 
   const t = tuning.value
   if (!t) return
@@ -1278,7 +1273,7 @@ function maybePlayNotesAt(tMs) {
     const gridIndex = Number(note?.gridIndex)
     if (!Number.isFinite(gridIndex)) continue
 
-    const startMs = gridIndexToStartMs(gridIndex, timePerBlock)
+    const startMs = playbackStartMsForNote(note, timePerBlock)
     if (!(startMs > t0 && startMs <= t1)) continue
 
     const midi = midiForNote(note, t)
@@ -1290,13 +1285,43 @@ function maybePlayNotesAt(tMs) {
     const durScale = Number(soundDurationScale.value)
     const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
     const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+    const startDelayMs = Math.max(0, (startMs - nowPlayheadMs) * tempoScale)
 
     triggeredNoteKeys.add(key)
     // Keep the dot "active" for the exact timeline duration (playhead time)
-    playbackVisuals.highlight(key, tMs + durationPlayheadMs)
+    playbackVisuals.highlight(key, startMs + durationPlayheadMs)
     // But let the audio duration respect tempo (real time)
-    void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+    void playMidi(midi, {
+      durationMs: durationAudioMs,
+      startDelayMs,
+      instrumentType: instrument.instrumentType,
+    })
   }
+}
+
+function playbackStartMsForNote(note, timePerBlock) {
+  const gridIndex = Number(note?.gridIndex)
+  if (!Number.isFinite(gridIndex)) return NaN
+
+  const baseStartMs = gridIndexToStartMs(gridIndex, timePerBlock)
+  if (!shuffleEnabled.value) return baseStartMs
+  if (normalizeNoteValue(note?.noteValue) !== '1/8') return baseStartMs
+  if (Number(note?.subdivision) === 3) return baseStartMs
+
+  const beatBottomRaw = Number.parseInt(String(beatBottom.value), 10)
+  const beatBottomSafe = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
+  const blocksPerBeat = 4 / beatBottomSafe
+  if (!(blocksPerBeat > 0)) return baseStartMs
+
+  const blockStart = gridIndex - 1
+  const withinBeat = ((blockStart % blocksPerBeat) + blocksPerBeat) % blocksPerBeat
+  const offbeatPos = blocksPerBeat * 0.5
+  const isOffbeatEighth = Math.abs(withinBeat - offbeatPos) <= 1e-3
+  if (!isOffbeatEighth) return baseStartMs
+
+  const msPerBeat = timePerBlock * blocksPerBeat
+  const swingDelayMs = msPerBeat / 6 // 66/33: offbeat shifts from 1/2 to 2/3 beat
+  return baseStartMs + swingDelayMs
 }
 
 const playback = usePlayback({
@@ -1383,4 +1408,22 @@ watch(
     if (practiceTargetIndex.value >= len) practiceTargetIndex.value = Math.max(0, len - 1)
   },
 )
+
+defineExpose({
+  isPlaying,
+  playhead,
+  totalDuration,
+  practiceActive,
+  practiceAvailable,
+  practiceTargetLabel,
+  practiceDetectedLabel,
+  practiceHintText,
+  practiceMatchState,
+  recordActive,
+  togglePlay,
+  seekStart,
+  seekPlayhead,
+  togglePractice,
+  toggleRecord,
+})
 </script>

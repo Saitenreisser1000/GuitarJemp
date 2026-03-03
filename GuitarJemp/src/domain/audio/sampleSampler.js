@@ -1,22 +1,4 @@
-let audioCtx
-
-function getAudioContext() {
-  const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext
-  if (!Ctx) return null
-  if (!audioCtx) audioCtx = new Ctx()
-  return audioCtx
-}
-
-async function ensureRunning(ctx) {
-  if (!ctx) return
-  if (ctx.state === 'suspended') {
-    try {
-      await ctx.resume()
-    } catch {
-      // ignore
-    }
-  }
-}
+import { ensureAudioContextRunning, getSharedAudioContext } from './audioContext'
 
 function safeJsonClone(v) {
   if (v == null) return null
@@ -69,7 +51,7 @@ async function fetchArrayBuffer(url) {
 const presetCache = new Map()
 
 async function loadPresetInternal(manifestUrl) {
-  const ctx = getAudioContext()
+  const ctx = getSharedAudioContext()
   if (!ctx) throw new Error('WebAudio not available')
 
   const rawManifest = await fetchJson(manifestUrl)
@@ -107,11 +89,11 @@ export function preloadSamplerPreset(manifestUrl) {
 export async function playMidiWithSampler(
   manifestUrl,
   midi,
-  { durationMs = 250, gain = 0.25 } = {},
+  { durationMs = 250, gain = 0.25, startDelayMs = 0 } = {},
 ) {
-  const ctx = getAudioContext()
+  const ctx = getSharedAudioContext()
   if (!ctx) return false
-  await ensureRunning(ctx)
+  await ensureAudioContextRunning(ctx)
 
   const preset = await preloadSamplerPreset(manifestUrl)
   const sample = pickNearestSample(preset.samples, midi)
@@ -124,6 +106,8 @@ export async function playMidiWithSampler(
   src.playbackRate.value = midiToPlaybackRate(midi, sample.midi)
 
   const now = ctx.currentTime
+  const startDelaySec = Math.max(0, Number(startDelayMs) || 0) / 1000
+  const startAt = now + startDelaySec
   const dur = Math.max(30, Number(durationMs) || 250) / 1000
   const peak = Math.max(0.0001, Number(gain) || 0.25)
 
@@ -145,14 +129,27 @@ export async function playMidiWithSampler(
   }
 
   // Simple pluck-like envelope.
-  g.gain.setValueAtTime(0.0001, now)
-  g.gain.exponentialRampToValueAtTime(peak, now + 0.008)
-  g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+  g.gain.setValueAtTime(0.0001, startAt)
+  g.gain.exponentialRampToValueAtTime(peak, startAt + 0.008)
+  g.gain.exponentialRampToValueAtTime(0.0001, startAt + dur)
 
   src.connect(g)
   g.connect(ctx.destination)
 
-  src.start(now)
-  src.stop(now + dur + 0.05)
+  src.start(startAt)
+  src.stop(startAt + dur + 0.05)
   return true
+}
+
+export async function initSamplerEngine(manifestUrl) {
+  const ctx = getSharedAudioContext()
+  if (!ctx) return
+  await ensureAudioContextRunning(ctx)
+  const url = String(manifestUrl || '').trim()
+  if (!url) return
+  try {
+    await preloadSamplerPreset(url)
+  } catch {
+    // keep runtime fallback behavior
+  }
 }
