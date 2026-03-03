@@ -132,12 +132,20 @@ export async function playMidiWithSampler(
   const g = ctx.createGain()
 
   src.buffer = sample.buffer
-  src.playbackRate.value = midiToPlaybackRate(midi, sample.midi)
+  const playbackRate = midiToPlaybackRate(midi, sample.midi)
+  src.playbackRate.value = playbackRate
 
   const now = ctx.currentTime
   const startDelaySec = Math.max(0, Number(startDelayMs) || 0) / 1000
   const startAt = now + startDelaySec
-  const dur = Math.max(30, Number(durationMs) || 250) / 1000
+  const requestedDur = Math.max(0.09, (Number(durationMs) || 250) / 1000)
+  const sampleSeconds = Number(sample.buffer?.duration) || 0
+  const playableSeconds = playbackRate > 0 ? sampleSeconds / playbackRate : sampleSeconds
+  const releaseTailSec = 0.22
+  const totalDur = playableSeconds > 0
+    ? Math.max(0.04, Math.min(playableSeconds, requestedDur + releaseTailSec))
+    : requestedDur + releaseTailSec
+  const sustainUntil = Math.max(startAt + 0.03, startAt + totalDur - releaseTailSec)
   const peak = Math.max(0.0001, Number(gain) || 0.25)
 
   if (import.meta?.env?.DEV) {
@@ -157,16 +165,17 @@ export async function playMidiWithSampler(
     }
   }
 
-  // Simple pluck-like envelope.
+  // Keep body of the note alive, then fade with a short release tail.
   g.gain.setValueAtTime(0.0001, startAt)
   g.gain.exponentialRampToValueAtTime(peak, startAt + 0.008)
-  g.gain.exponentialRampToValueAtTime(0.0001, startAt + dur)
+  g.gain.setValueAtTime(peak, sustainUntil)
+  g.gain.exponentialRampToValueAtTime(0.0001, startAt + totalDur)
 
   src.connect(g)
   g.connect(ctx.destination)
 
   src.start(startAt)
-  src.stop(startAt + dur + 0.05)
+  src.stop(startAt + totalDur + 0.02)
   return true
 }
 
