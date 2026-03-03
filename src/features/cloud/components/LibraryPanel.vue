@@ -23,6 +23,7 @@ const { t } = useI18n()
 
 const listTab = ref('mine')
 const ownerNamesById = ref({})
+const search = ref('')
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -62,6 +63,25 @@ const visibleItems = computed(() => {
     default:
       return myItems.value
   }
+})
+
+const filteredItems = computed(() => {
+  const q = String(search.value || '').trim().toLowerCase()
+  if (!q) return visibleItems.value
+  return visibleItems.value.filter((item) => {
+    const title = String(item?.title || '').toLowerCase()
+    const kind = String(item?.kind || '').toLowerCase()
+    const visibility = String(item?.visibility || '').toLowerCase()
+    const category = String(item?.category || '').toLowerCase()
+    const owner = String(ownerDisplayNameFor(item) || '').toLowerCase()
+    return (
+      title.includes(q) ||
+      kind.includes(q) ||
+      visibility.includes(q) ||
+      category.includes(q) ||
+      owner.includes(q)
+    )
+  })
 })
 
 function applySnapshot(snap) {
@@ -178,6 +198,16 @@ onMounted(async () => {
         <v-btn variant="tonal" size="small" @click="library.refresh">{{ t('libraryDialog.refresh') }}</v-btn>
       </div>
 
+      <v-text-field
+        v-model="search"
+        density="compact"
+        variant="outlined"
+        hide-details
+        class="mb-2"
+        prepend-inner-icon="mdi-magnify"
+        label="Search"
+      />
+
       <v-table density="compact" class="library-table">
         <thead>
           <tr>
@@ -186,13 +216,15 @@ onMounted(async () => {
             <th>{{ t('libraryDialog.visibility') }}</th>
             <th>{{ t('libraryDialog.category') }}</th>
             <th>{{ t('libraryDialog.owner') }}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="item in visibleItems"
+            v-for="item in filteredItems"
             :key="item.id"
             class="library-row"
+            :class="{ 'is-active': String(library.currentItem?.id || '') === String(item.id || '') }"
             role="button"
             tabindex="0"
             @click="onLoad(item)"
@@ -204,9 +236,12 @@ onMounted(async () => {
             <td>{{ item.visibility }}</td>
             <td class="library-ellipsis">{{ item.category || '—' }}</td>
             <td class="text-medium-emphasis library-ellipsis">{{ ownerDisplayNameFor(item) }}</td>
+            <td class="text-right">
+              <v-btn size="x-small" variant="tonal" @click.stop="onLoad(item)">Load</v-btn>
+            </td>
           </tr>
-          <tr v-if="visibleItems.length === 0">
-            <td colspan="5" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
+          <tr v-if="filteredItems.length === 0">
+            <td colspan="6" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
           </tr>
         </tbody>
       </v-table>
@@ -236,6 +271,10 @@ onMounted(async () => {
 
 .library-table :deep(.library-row:hover) {
   background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+}
+
+.library-table :deep(.library-row.is-active) {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .library-table :deep(.library-row:focus-visible) {

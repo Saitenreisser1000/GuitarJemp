@@ -51,6 +51,7 @@ const newSongBpm = ref(120)
 const saveAsNewOpen = ref(false)
 const saveAsNewTitle = ref('')
 const saveAsNewVisibility = ref('private')
+const saveAsNewCategory = ref('')
 const saveAsNewBusy = ref(false)
 const saveBusy = ref(false)
 const preferencesOpen = ref(false)
@@ -242,7 +243,7 @@ async function saveAsNewToCloud() {
   if (!title) return
 
   const kind = String(library.currentItem?.kind ?? 'song')
-  const category = library.currentItem?.category ? String(library.currentItem.category) : ''
+  const category = String(saveAsNewCategory.value ?? '').trim()
   const visibility = String(saveAsNewVisibility.value ?? 'private')
 
   saveAsNewBusy.value = true
@@ -273,9 +274,11 @@ async function saveAsNewToCloud() {
 function openSaveAsNew() {
   const fromNameField = String(songName.value ?? '').trim()
   const base = String(library.currentItem?.title ?? '').trim()
+  const currentCategory = String(library.currentItem?.category ?? '').trim()
   if (fromNameField) saveAsNewTitle.value = fromNameField
   else saveAsNewTitle.value = base ? `${base} (copy)` : 'New Recording'
   saveAsNewVisibility.value = 'private'
+  saveAsNewCategory.value = currentCategory
   saveAsNewOpen.value = true
 }
 
@@ -671,6 +674,12 @@ onBeforeUnmount(() => {
               { title: 'Public', value: 'public' },
             ]"
             label="Visibility"
+            density="compact"
+            variant="outlined"
+          />
+          <v-text-field
+            v-model="saveAsNewCategory"
+            label="Category"
             density="compact"
             variant="outlined"
           />
