@@ -103,6 +103,7 @@ const isPhoneView = computed(() => viewMode.value === 'phone')
 const isWatchView = computed(() => viewMode.value === 'watch')
 const isCompactView = computed(() => isPhoneView.value || isWatchView.value)
 const showPhoneRotateOverlay = computed(() => isCompactView.value && isPortraitViewport.value)
+const PHONE_VIEW_BREAKPOINT_PX = 860
 
 function applyTheme(name) {
   const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
@@ -113,6 +114,13 @@ function applyTheme(name) {
 function updateViewportOrientationFlag() {
   if (typeof window === 'undefined') return
   isPortraitViewport.value = window.innerHeight > window.innerWidth
+}
+
+function shouldDefaultToPhoneView() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  const narrow = window.matchMedia(`(max-width: ${PHONE_VIEW_BREAKPOINT_PX}px)`).matches
+  const coarse = window.matchMedia('(pointer: coarse)').matches
+  return narrow && coarse
 }
 
 function updateFretboardResizeFromParentHeight(heightPx) {
@@ -346,6 +354,9 @@ function resetEditorToDefaultLength() {
 }
 
 onMounted(async () => {
+  if (viewMode.value === 'desktop' && shouldDefaultToPhoneView()) {
+    viewMode.value = 'phone'
+  }
   updateViewportOrientationFlag()
   window.addEventListener('resize', updateViewportOrientationFlag)
   window.addEventListener('orientationchange', updateViewportOrientationFlag)

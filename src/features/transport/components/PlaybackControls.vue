@@ -1,5 +1,11 @@
 <template>
-  <v-card class="transport-controls ui-panel pa-3" variant="flat" tabindex="0" @keydown.tab.prevent="onTapTempo">
+  <v-card
+    class="transport-controls ui-panel pa-3"
+    :class="{ 'is-phone-view': isPhoneView }"
+    variant="flat"
+    tabindex="0"
+    @keydown.tab.prevent="onTapTempo"
+  >
     <div class="transport-row transport-row-primary">
       <div class="transport-primary-controls">
         <div class="transport-col transport-col-left d-flex align-center ga-2 flex-wrap">
@@ -280,8 +286,15 @@ function onInputModeChange(v) {
 .transport-controls {
   min-height: 72px;
   padding-top: 16px !important;
+  padding-bottom: 16px !important;
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
   border: 0;
+}
+
+.transport-controls.is-phone-view {
+  min-height: 36px;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
 }
 
 .loop-switch {
@@ -364,6 +377,10 @@ function onInputModeChange(v) {
 
   .transport-col-right {
     justify-content: flex-start;
+  }
+
+  .transport-controls.is-phone-view .transport-primary-controls {
+    row-gap: 4px;
   }
 }
 </style>
