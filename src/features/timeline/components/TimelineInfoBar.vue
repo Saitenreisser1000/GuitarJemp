@@ -24,10 +24,6 @@
           <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
         </button>
 
-        <button class="timeline-tool timeline-tool-text" type="button" :title="t('timelineView.loopToSelection')"
-          @click="emit('loop-to-selection')">
-          {{ t('playback.loop') }}
-        </button>
       </div>
 
       <div class="bars-input-wrap d-flex align-center ga-2 ms-auto">

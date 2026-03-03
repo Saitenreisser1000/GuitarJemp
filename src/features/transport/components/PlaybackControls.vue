@@ -18,29 +18,40 @@
             <v-icon icon="mdi-skip-backward" />
           </v-btn>
 
-          <v-switch class="loop-switch" density="compact" hide-details inset :label="t('playback.loop')" :model-value="loopEnabled"
-            @update:model-value="(v) => emit('update-loop', Boolean(v))" />
-          <v-checkbox
-            class="shuffle-checkbox"
-            density="compact"
-            hide-details
-            label="Shuffle"
-            :model-value="shuffleEnabled"
-            @update:model-value="(v) => emit('update-shuffle', Boolean(v))"
-          />
-          <v-radio-group
+          <v-btn
+            icon
+            size="small"
+            :variant="loopEnabled ? 'flat' : 'tonal'"
+            :color="loopEnabled ? 'primary' : undefined"
+            :title="t('playback.loop')"
+            :aria-label="t('playback.loop')"
+            @click="emit('update-loop', !loopEnabled)"
+          >
+            <v-icon icon="mdi-repeat" />
+          </v-btn>
+          <v-btn
+            icon
+            size="small"
+            :variant="shuffleEnabled ? 'flat' : 'tonal'"
+            :color="shuffleEnabled ? 'primary' : undefined"
+            title="Shuffle"
+            aria-label="Shuffle"
+            @click="emit('update-shuffle', !shuffleEnabled)"
+          >
+            <v-icon icon="mdi-shuffle-variant" />
+          </v-btn>
+          <v-btn-toggle
             v-if="isPhoneView"
             class="phone-pane-switch"
-            density="compact"
-            hide-details
-            inline
             :model-value="phonePane"
+            mandatory
+            divided
             @update:model-value="(v) => emit('update-phone-pane', String(v || 'fretboard'))"
           >
-            <v-radio label="Fretboard" value="fretboard" />
-            <v-radio label="Timeline" value="timeline" />
-            <v-radio label="Library" value="library" />
-          </v-radio-group>
+            <v-btn value="fretboard" size="x-small" variant="tonal">Fretboard</v-btn>
+            <v-btn value="timeline" size="x-small" variant="tonal">Timeline</v-btn>
+            <v-btn value="library" size="x-small" variant="tonal">Library</v-btn>
+          </v-btn-toggle>
         </div>
 
         <div class="transport-col transport-col-middle" aria-hidden="true" />
@@ -328,31 +339,16 @@ function onInputModeChange(v) {
   margin-left: auto;
 }
 
-.loop-switch {
-  color: var(--color-text-muted);
-}
-
-.shuffle-checkbox {
-  color: var(--color-text-muted);
-}
-
 .phone-pane-switch {
   margin-left: 2px;
   color: var(--color-text-muted);
 }
 
-.phone-pane-switch :deep(.v-selection-control-group) {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-}
-
-.phone-pane-switch :deep(.v-selection-control) {
-  min-height: 24px;
-}
-
-.phone-pane-switch :deep(.v-label) {
-  font-size: 12px;
+.phone-pane-switch :deep(.v-btn) {
+  text-transform: none;
+  font-size: 11px;
+  min-width: 0;
+  padding-inline: 8px;
 }
 
 .transport-controls :deep(.v-slider-track__background) {
