@@ -3,7 +3,7 @@ export const TIMELINE_BEHAVIOR = {
     marqueeTool: 'select',
   },
   resize: {
-    defaultDirection: 1, // 1 = right, -1 = left
+    defaultDirection: 1,
   },
 }
 
