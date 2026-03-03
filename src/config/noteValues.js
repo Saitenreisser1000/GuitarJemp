@@ -1,4 +1,5 @@
-const NOTE_ICON_BASE = '/assets/notes'
+const APP_BASE = String(import.meta?.env?.BASE_URL || '/')
+const NOTE_ICON_BASE = `${APP_BASE.replace(/\/+$/, '')}/assets/notes`
 
 export const NOTE_VALUE_ITEMS = [
   {
