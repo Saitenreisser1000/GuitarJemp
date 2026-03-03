@@ -4,6 +4,7 @@
       <PlaybackControls :is-playing="isPlaying" :tempo="tempo" :click-enabled="clickEnabled"
         :count-in-enabled="countInEnabled" :auto-follow-enabled="autoFollowEnabled" :loop-enabled="loopEnabled"
         :shuffle-enabled="shuffleEnabled"
+        :instrument-type="instrumentType"
         :is-phone-view="isPhoneView"
         :phone-pane="phonePane"
         :playhead="playhead" :total-duration="totalDuration" :practice-active="practiceActive"
@@ -35,6 +36,7 @@ defineProps({
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   shuffleEnabled: { type: Boolean, default: false },
+  instrumentType: { type: String, default: 'guitar' },
   isPhoneView: { type: Boolean, default: false },
   phonePane: { type: String, default: 'fretboard' },
   playhead: { type: Number, required: true },

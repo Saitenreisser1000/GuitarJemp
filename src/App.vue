@@ -361,7 +361,6 @@ onMounted(async () => {
   window.addEventListener('resize', updateViewportOrientationFlag)
   window.addEventListener('orientationchange', updateViewportOrientationFlag)
   installAudioAutoWarmup({ instrumentType: instrument.instrumentType })
-  void initAudioEngine({ instrumentType: instrument.instrumentType })
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
   if (storedTheme === 'guitarjemp' || storedTheme === 'guitarjempDark') {
     applyTheme(storedTheme)
@@ -624,6 +623,7 @@ onBeforeUnmount(() => {
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
       :shuffle-enabled="timelineSettings.shuffleEnabled"
+      :instrument-type="instrument.instrumentType"
       :is-phone-view="isCompactView"
       :phone-pane="phonePane"
       :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"

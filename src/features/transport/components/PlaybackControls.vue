@@ -111,6 +111,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useI18n } from '@/i18n'
+import { initAudioEngine } from '@/domain/audio/simpleSynth'
 
 const TEMPO_MIN = 30
 const TEMPO_MAX = 200
@@ -123,6 +124,7 @@ const props = defineProps({
   autoFollowEnabled: { type: Boolean, default: true },
   loopEnabled: { type: Boolean, default: false },
   shuffleEnabled: { type: Boolean, default: false },
+  instrumentType: { type: String, default: 'guitar' },
   isPhoneView: { type: Boolean, default: false },
   phonePane: { type: String, default: 'fretboard' },
   playhead: { type: Number, required: true },
@@ -178,14 +180,17 @@ function onTempoInput(v) {
 }
 
 function togglePlayPause() {
+  void initAudioEngine({ instrumentType: props.instrumentType })
   emit('toggle-play')
 }
 
 function seekStart() {
+  void initAudioEngine({ instrumentType: props.instrumentType })
   emit('seek-start')
 }
 
 function onTapTempo() {
+  void initAudioEngine({ instrumentType: props.instrumentType })
   const now = performance.now()
   const MAX_GAP_MS = 2500
   const taps = tapTimesMs.value
@@ -212,6 +217,7 @@ function onTapTempo() {
 }
 
 function onInputModeChange(v) {
+  void initAudioEngine({ instrumentType: props.instrumentType })
   const next = String(v || 'off')
   const practiceOn = Boolean(props.practiceActive)
   const recordOn = Boolean(props.recordActive)
