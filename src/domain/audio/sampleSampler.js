@@ -16,6 +16,20 @@ function midiToPlaybackRate(targetMidi, rootMidi) {
   return Math.pow(2, (t - r) / 12)
 }
 
+function resolveAppUrl(url) {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith('//')) return raw
+
+  const base = String(import.meta?.env?.BASE_URL || '/')
+  if (raw.startsWith('/')) {
+    const normalizedBase = base.replace(/\/+$/, '')
+    const normalizedRaw = raw.replace(/^\/+/, '')
+    return `${normalizedBase}/${normalizedRaw}`
+  }
+  return raw
+}
+
 function pickNearestSample(samples, targetMidi) {
   const t = Number(targetMidi)
   if (!Number.isFinite(t) || !Array.isArray(samples) || samples.length === 0) return null
@@ -54,7 +68,8 @@ async function loadPresetInternal(manifestUrl) {
   const ctx = getSharedAudioContext()
   if (!ctx) throw new Error('WebAudio not available')
 
-  const rawManifest = await fetchJson(manifestUrl)
+  const resolvedManifestUrl = resolveAppUrl(manifestUrl)
+  const rawManifest = await fetchJson(resolvedManifestUrl)
   const manifest = safeJsonClone(rawManifest) || {}
   const samples = Array.isArray(manifest?.samples) ? manifest.samples : []
 
@@ -63,13 +78,15 @@ async function loadPresetInternal(manifestUrl) {
     const midi = Number(s?.midi)
     const url = String(s?.url || '')
     if (!Number.isFinite(midi) || !url) continue
-    const ab = await fetchArrayBuffer(url)
+    const resolvedSamplePath = resolveAppUrl(url)
+    const resolvedSampleUrl = new URL(resolvedSamplePath, resolvedManifestUrl).toString()
+    const ab = await fetchArrayBuffer(resolvedSampleUrl)
     const buffer = await ctx.decodeAudioData(ab)
-    decoded.push({ midi, url, buffer })
+    decoded.push({ midi, url: resolvedSampleUrl, buffer })
   }
 
   if (decoded.length === 0) throw new Error('No samples in manifest')
-  return { manifestUrl, samples: decoded }
+  return { manifestUrl: resolvedManifestUrl, samples: decoded }
 }
 
 export function preloadSamplerPreset(manifestUrl) {
