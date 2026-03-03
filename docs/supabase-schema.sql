@@ -75,6 +75,8 @@ end $$;
 
 alter table public.profiles enable row level security;
 alter table public.profile_directory enable row level security;
+alter table public.profiles force row level security;
+alter table public.profile_directory force row level security;
 
 -- Profile automatisch bei Signup anlegen.
 -- Das ist wichtig, wenn Email-Confirmation aktiv ist (dann gibt es beim Signup evtl. noch keine Session).
@@ -141,7 +143,8 @@ create policy "profiles_insert_own"
 
 create policy "profiles_update_own"
   on public.profiles for update
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- Directory: jeder authentifizierte User darf suchen/lesen
 create policy "profile_directory_select_authenticated"
@@ -155,7 +158,8 @@ create policy "profile_directory_upsert_own"
 
 create policy "profile_directory_update_own"
   on public.profile_directory for update
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- Optional: andere Profile lesen, aber nur minimale Daten (für Suche/Connections)
 -- (wenn du das willst, kannst du ein View statt policy verwenden).
@@ -179,11 +183,13 @@ create index if not exists connections_requester_idx on public.connections(reque
 create index if not exists connections_addressee_idx on public.connections(addressee_id);
 
 alter table public.connections enable row level security;
+alter table public.connections force row level security;
 
 -- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
 drop policy if exists "connections_select_participants" on public.connections;
 drop policy if exists "connections_insert_requester" on public.connections;
 drop policy if exists "connections_update_participants" on public.connections;
+drop policy if exists "connections_delete_participants" on public.connections;
 
 create policy "connections_select_participants"
   on public.connections for select
@@ -195,6 +201,11 @@ create policy "connections_insert_requester"
 
 create policy "connections_update_participants"
   on public.connections for update
+  using (auth.uid() = requester_id or auth.uid() = addressee_id)
+  with check (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create policy "connections_delete_participants"
+  on public.connections for delete
   using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
 -- Helper View: akzeptierte Connections (symmetrisch verwendbar)
@@ -225,6 +236,7 @@ create index if not exists library_items_owner_idx on public.library_items(owner
 create index if not exists library_items_visibility_idx on public.library_items(visibility);
 
 alter table public.library_items enable row level security;
+alter table public.library_items force row level security;
 
 -- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
 drop policy if exists "library_items_owner_select" on public.library_items;
@@ -260,7 +272,8 @@ create policy "library_items_owner_insert"
 
 create policy "library_items_owner_update"
   on public.library_items for update
-  using (auth.uid() = owner_id);
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
 
 create policy "library_items_owner_delete"
   on public.library_items for delete
@@ -297,6 +310,7 @@ create index if not exists library_item_shares_item_idx on public.library_item_s
 create index if not exists library_item_shares_user_idx on public.library_item_shares(shared_with_id);
 
 alter table public.library_item_shares enable row level security;
+alter table public.library_item_shares force row level security;
 
 -- Re-run safety: nur droppen, nachdem die Tabelle sicher existiert.
 drop policy if exists "library_item_shares_owner_insert" on public.library_item_shares;
