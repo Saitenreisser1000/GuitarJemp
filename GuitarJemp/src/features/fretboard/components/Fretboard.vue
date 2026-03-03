@@ -128,6 +128,26 @@
                       filter: playbackTravelLine.filter,
                     }" />
                 </g>
+                <g
+                  v-if="directionPreviewSegments.length"
+                  class="fb-direction-preview"
+                  style="pointer-events: none"
+                >
+                  <line
+                    v-for="seg in directionPreviewSegments"
+                    :key="`dir-preview-${seg.fromKey}-${seg.toKey}`"
+                    :x1="seg.x1"
+                    :y1="seg.y1"
+                    :x2="seg.x2"
+                    :y2="seg.y2"
+                    :stroke="seg.color"
+                    :style="{
+                      opacity: seg.opacity,
+                      strokeWidth: `${seg.strokeWidth}px`,
+                      filter: seg.filter,
+                    }"
+                  />
+                </g>
                 <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
                   <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
                     <line class="fb-now-string-line" :x1="NUT_WIDTH" :y1="m.y" :x2="FB_WIDTH" :y2="m.y"
@@ -398,7 +418,7 @@ watch(
   { immediate: true },
 )
 
-const { highlightedNoteKeys, pulseStarts } = storeToRefs(playbackVisuals)
+const { highlightedNoteKeys, pulseStarts, directionPreview } = storeToRefs(playbackVisuals)
 const playedNoteKeys = ref(new Set())
 
 const LONG_PRESS_MS = FRETBOARD_INTERACTION.longPressMs
@@ -1100,6 +1120,82 @@ const playbackTravelLine = computed(() => {
       : FRETBOARD_THEME.playbackTravel.normalFilter
 
   return { x1, y1, x2, y2, color, strokeWidth, filter }
+})
+
+const directionPreviewSegments = computed(() => {
+  if (isPlaying.value) return []
+  const preview = directionPreview.value
+  const keys = Array.isArray(preview?.noteKeys) ? preview.noteKeys : []
+  if (keys.length < 2) return []
+  const startedAt = Number(preview?.startedAtMs)
+  const durationMs = Number(preview?.durationMs)
+  if (!Number.isFinite(startedAt) || !Number.isFinite(durationMs) || durationMs <= 0) return []
+
+  const dt = animNowMs.value - startedAt
+  if (!(dt >= 0 && dt <= durationMs)) return []
+  const fade = 1 - dt / durationMs
+  const fadeOpacity = Math.max(0, Math.min(1, 0.85 * fade))
+  const segmentCount = keys.length - 1
+  const segmentDurationMs = durationMs / segmentCount
+  const activeSegmentIndex = Math.min(segmentCount - 1, Math.floor(dt / segmentDurationMs))
+  const activeSegmentElapsedMs = dt - activeSegmentIndex * segmentDurationMs
+  const activeProgress = Math.max(0, Math.min(1, activeSegmentElapsedMs / segmentDurationMs))
+
+  const out = []
+  for (let i = 0; i < segmentCount; i += 1) {
+    const fromKey = String(keys[i] || '')
+    const toKey = String(keys[i + 1] || '')
+    if (!fromKey || !toKey) continue
+    const fromDot = renderedToneDotByNoteKey.value.get(fromKey)
+    const toDot = renderedToneDotByNoteKey.value.get(toKey)
+    const fromNote = noteByKey.value.get(fromKey)
+    const toNote = noteByKey.value.get(toKey)
+    if (!fromDot || !toDot || !fromNote || !toNote) continue
+
+    const sameString = Number(fromNote?.string) === Number(toNote?.string)
+    const sameFret = Number(fromNote?.fret) === Number(toNote?.fret)
+    if (sameString && sameFret) continue
+
+    const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
+    const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
+    const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
+    const color =
+      deltaFret > 0
+        ? FRETBOARD_THEME.playbackTravel.upColor
+        : deltaFret < 0
+          ? FRETBOARD_THEME.playbackTravel.downColor
+          : FRETBOARD_THEME.playbackTravel.sameColor
+
+    const xStart = toneDotX(fromDot)
+    const yStart = toneDotY(fromDot)
+    const xEnd = toneDotX(toDot)
+    const yEnd = toneDotY(toDot)
+
+    const isCompleted = i < activeSegmentIndex
+    const isActive = i === activeSegmentIndex
+    if (!isCompleted && !isActive) continue
+
+    const x2 = isActive ? xStart + (xEnd - xStart) * activeProgress : xEnd
+    const y2 = isActive ? yStart + (yEnd - yStart) * activeProgress : yEnd
+
+    out.push({
+      fromKey,
+      toKey,
+      x1: xStart,
+      y1: yStart,
+      x2,
+      y2,
+      color,
+      opacity: isActive ? Math.max(0.55, fadeOpacity) : Math.max(0.18, fadeOpacity * 0.45),
+      strokeWidth: Math.min(6.5, (isActive ? 2.6 : 1.8) + absJump * 0.45),
+      filter:
+        absJump >= 4
+          ? FRETBOARD_THEME.playbackTravel.highJumpFilter
+          : FRETBOARD_THEME.playbackTravel.normalFilter,
+    })
+  }
+
+  return out
 })
 
 const playbackSelfLoop = computed(() => {
@@ -2481,6 +2577,14 @@ watch(
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => Number(directionPreview.value?.startedAtMs) || 0,
+  (startedAtMs) => {
+    if (!(startedAtMs > 0)) return
+    startAnim()
+  },
 )
 </script>
 
