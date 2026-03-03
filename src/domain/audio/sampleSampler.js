@@ -30,6 +30,16 @@ function resolveAppUrl(url) {
   return raw
 }
 
+function toAbsoluteUrl(url, baseUrl) {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+  try {
+    return new URL(raw, baseUrl).toString()
+  } catch {
+    return raw
+  }
+}
+
 function pickNearestSample(samples, targetMidi) {
   const t = Number(targetMidi)
   if (!Number.isFinite(t) || !Array.isArray(samples) || samples.length === 0) return null
@@ -68,7 +78,9 @@ async function loadPresetInternal(manifestUrl) {
   const ctx = getSharedAudioContext()
   if (!ctx) throw new Error('WebAudio not available')
 
-  const resolvedManifestUrl = resolveAppUrl(manifestUrl)
+  const manifestPath = resolveAppUrl(manifestUrl)
+  const appBaseUrl = toAbsoluteUrl(String(import.meta?.env?.BASE_URL || '/'), window.location.href)
+  const resolvedManifestUrl = toAbsoluteUrl(manifestPath, appBaseUrl)
   const rawManifest = await fetchJson(resolvedManifestUrl)
   const manifest = safeJsonClone(rawManifest) || {}
   const samples = Array.isArray(manifest?.samples) ? manifest.samples : []
@@ -79,7 +91,7 @@ async function loadPresetInternal(manifestUrl) {
     const url = String(s?.url || '')
     if (!Number.isFinite(midi) || !url) continue
     const resolvedSamplePath = resolveAppUrl(url)
-    const resolvedSampleUrl = new URL(resolvedSamplePath, resolvedManifestUrl).toString()
+    const resolvedSampleUrl = toAbsoluteUrl(resolvedSamplePath, resolvedManifestUrl)
     const ab = await fetchArrayBuffer(resolvedSampleUrl)
     const buffer = await ctx.decodeAudioData(ab)
     decoded.push({ midi, url: resolvedSampleUrl, buffer })
