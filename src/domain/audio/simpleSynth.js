@@ -3,6 +3,15 @@ import { playMidiWithSampler } from './sampleSampler'
 import { initSamplerEngine } from './sampleSampler'
 import { ensureAudioContextRunning, getSharedAudioContext } from './audioContext'
 
+const samplerWarnedKeys = new Set()
+
+function warnSamplerFallbackOnce(reason, meta = {}) {
+  const key = `${reason}:${meta?.manifestUrl || ''}`
+  if (samplerWarnedKeys.has(key)) return
+  samplerWarnedKeys.add(key)
+  console.warn(`[audio] Sampler fallback to synth: ${reason}`, meta)
+}
+
 export function midiToFrequency(midi) {
   const m = Number(midi)
   const safe = Number.isFinite(m) ? m : 69
@@ -72,24 +81,20 @@ export async function playMidi(
         startDelayMs,
       })
       if (ok) return
-      if (import.meta?.env?.DEV) {
-        console.warn('[audio] Sampler not used (ok=false), fallback to synth', {
-          presetId: resolvedPresetId,
-          instrumentType,
-          manifestUrl: preset.manifestUrl,
-          midi: effectiveMidi,
-        })
-      }
+      warnSamplerFallbackOnce('ok=false', {
+        presetId: resolvedPresetId,
+        instrumentType,
+        manifestUrl: preset.manifestUrl,
+        midi: effectiveMidi,
+      })
     } catch (err) {
-      if (import.meta?.env?.DEV) {
-        console.warn('[audio] Sampler failed, fallback to synth', {
-          presetId: resolvedPresetId,
-          instrumentType,
-          manifestUrl: preset.manifestUrl,
-          midi: effectiveMidi,
-          error: err,
-        })
-      }
+      warnSamplerFallbackOnce('exception', {
+        presetId: resolvedPresetId,
+        instrumentType,
+        manifestUrl: preset.manifestUrl,
+        midi: effectiveMidi,
+        error: err,
+      })
     }
   }
 

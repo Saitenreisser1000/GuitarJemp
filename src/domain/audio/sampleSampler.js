@@ -59,14 +59,14 @@ function pickNearestSample(samples, targetMidi) {
 }
 
 async function fetchJson(url) {
-  const cache = import.meta?.env?.DEV ? 'no-store' : 'force-cache'
+  const cache = import.meta?.env?.DEV ? 'no-store' : 'default'
   const res = await fetch(url, { cache })
   if (!res.ok) throw new Error(`Manifest not found (${res.status}): ${url}`)
   return res.json()
 }
 
 async function fetchArrayBuffer(url) {
-  const cache = import.meta?.env?.DEV ? 'no-store' : 'force-cache'
+  const cache = import.meta?.env?.DEV ? 'no-store' : 'default'
   const res = await fetch(url, { cache })
   if (!res.ok) throw new Error(`Sample not found (${res.status}): ${url}`)
   return res.arrayBuffer()
