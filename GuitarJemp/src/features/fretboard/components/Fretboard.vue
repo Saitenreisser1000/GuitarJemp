@@ -355,7 +355,7 @@ const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
-const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale } =
+const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale, scaleRoot, chordRoot } =
   storeToRefs(harmonyMenu)
 const { placementArmed, textItems } = storeToRefs(overlay)
 const isPlaying = computed(() => playState.value === 'playing')
@@ -2137,6 +2137,10 @@ function onToneDotPointerUp(event) {
       const src = noteByKey.value.get(String(s.noteKey))
       const srcFret = Number(src?.fret)
       const srcString = Number(src?.string)
+      const moved =
+        Number.isFinite(srcFret) &&
+        Number.isFinite(srcString) &&
+        (Number(target.fret) !== srcFret || Number(target.string) !== srcString)
       const maxFret = Math.max(0, Number(props.numFrets) || 12)
       const maxString = Math.max(1, Number(instrument.numStrings) || 6)
 
@@ -2160,6 +2164,25 @@ function onToneDotPointerUp(event) {
         store.setNotePosition(s.noteKey, { fret: target.fret, string: target.string })
       }
       selection.selectNote(s.noteKey)
+
+      if (moved && settings.soundPreviewEnabled) {
+        const midi = midiForFretString(
+          { fret: Number(target.fret), string: Number(target.string) },
+          tuning.value,
+        )
+        if (Number.isFinite(Number(midi))) {
+          const durationPlayheadMs = store.getNoteDurationMs(src)
+          const tempoValue = Number(transport.tempo) || 120
+          const tempoScale = 120 / tempoValue
+          const durScale = Number(settings.soundDurationScale)
+          const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+          const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+          void playMidi(midi, {
+            durationMs: durationAudioMs,
+            instrumentType: instrument.instrumentType,
+          })
+        }
+      }
     }
 
     // Prevent the subsequent click (which would otherwise add a note in edit mode).
@@ -2266,7 +2289,48 @@ function noteValueForToneDot(d) {
   return deriveNoteValueFromLength(note)
 }
 
+const NOTE_TO_PC = {
+  C: 0,
+  'C#': 1,
+  DB: 1,
+  D: 2,
+  'D#': 3,
+  EB: 3,
+  E: 4,
+  F: 5,
+  'F#': 6,
+  GB: 6,
+  G: 7,
+  'G#': 8,
+  AB: 8,
+  A: 9,
+  'A#': 10,
+  BB: 10,
+  B: 11,
+}
+
+const INTERVAL_LABELS = ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', '7']
+
+function rootPitchClassForIntervals() {
+  const raw = String(scaleRoot.value || chordRoot.value || 'C').trim().toUpperCase()
+  return NOTE_TO_PC[raw] ?? 0
+}
+
+function intervalLabelForToneDot(d) {
+  const fret = Number(d?.fret)
+  const string = Number(d?.string)
+  const midi = midiForFretString({ fret, string }, tuning.value)
+  if (!Number.isFinite(Number(midi))) return ''
+  const pc = ((Number(midi) % 12) + 12) % 12
+  const rootPc = rootPitchClassForIntervals()
+  const intervalPc = (pc - rootPc + 12) % 12
+  return INTERVAL_LABELS[intervalPc] || ''
+}
+
 function toneDotSymbol(d) {
+  if (settings.showIntervalsOnDots) {
+    return intervalLabelForToneDot(d)
+  }
   const value = noteValueForToneDot(d)
   if (!value) return ''
   const item = noteValueItem(value)
@@ -2274,6 +2338,7 @@ function toneDotSymbol(d) {
 }
 
 function toneDotIcon(d) {
+  if (settings.showIntervalsOnDots) return ''
   const value = noteValueForToneDot(d)
   if (!(value === '1/2' || value === '1')) return ''
   const item = noteValueItem(value)

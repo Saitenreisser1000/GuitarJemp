@@ -90,6 +90,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const showSuggestedPosition = ref(
     typeof stored.showSuggestedPosition === 'boolean' ? stored.showSuggestedPosition : false,
   )
+  const showIntervalsOnDots = ref(
+    typeof stored.showIntervalsOnDots === 'boolean' ? stored.showIntervalsOnDots : false,
+  )
   const eraseMode = ref(typeof stored.eraseMode === 'boolean' ? stored.eraseMode : false)
 
   function setSelectedMode(m) {
@@ -218,6 +221,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showSuggestedPosition.value = Boolean(v)
   }
 
+  function setShowIntervalsOnDots(v) {
+    showIntervalsOnDots.value = Boolean(v)
+  }
+
   function setSimGroupMode(v) {
     const raw = String(v || '')
     const next = raw === 'dot' ? 'dotted' : raw
@@ -255,6 +262,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showChordShapePanel,
     handPositionVisible,
     showSuggestedPosition,
+    showIntervalsOnDots,
     simGroupMode,
     eraseMode,
   })
@@ -286,6 +294,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showChordShapePanel,
     handPositionVisible,
     showSuggestedPosition,
+    showIntervalsOnDots,
     simGroupMode,
     eraseMode,
     setSelectedMode,
@@ -313,6 +322,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setShowChordShapePanel,
     setHandPositionVisible,
     setShowSuggestedPosition,
+    setShowIntervalsOnDots,
     setSimGroupMode,
     setEraseMode,
   }

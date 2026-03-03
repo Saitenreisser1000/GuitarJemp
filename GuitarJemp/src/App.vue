@@ -14,6 +14,7 @@ import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useLibraryStore } from '@/store/useLibrary'
+import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
@@ -23,6 +24,8 @@ const numFrets = ref(12)
 const corePadResizePx = ref(0)
 const fretboardMainEl = ref(null)
 const timelineRef = ref(null)
+const timelineUndoTick = ref(0)
+const timelineRedoTick = ref(0)
 const transportVisible = ref(true)
 const showFretboard = ref(true)
 const showTimeline = ref(true)
@@ -33,10 +36,22 @@ const phonePane = ref('fretboard')
 const isPortraitViewport = ref(false)
 const authOpen = ref(false)
 const connectionsOpen = ref(false)
+const newSongOpen = ref(false)
+const songDialogMode = ref('new')
+const newSongTitle = ref('')
+const newSongBeatTop = ref(4)
+const newSongBeatBottom = ref(4)
+const newSongKey = ref('C')
+const newSongBars = ref(2)
+const newSongPickupEnabled = ref(false)
+const newSongPickupBeats = ref(1)
+const newSongShuffleEnabled = ref(false)
+const newSongBpm = ref(120)
 const saveAsNewOpen = ref(false)
 const saveAsNewTitle = ref('')
 const saveAsNewVisibility = ref('private')
 const saveAsNewBusy = ref(false)
+const saveBusy = ref(false)
 const preferencesOpen = ref(false)
 const songName = ref('')
 const RESIZE_MIN = -100
@@ -53,10 +68,20 @@ const handPositions = useHandPositionsStore()
 const transport = useTransportStore()
 const timelineSettings = useTimelineSettingsStore()
 const library = useLibraryStore()
+const harmony = useHarmonyMenuStore()
 const theme = useTheme()
+const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
 const canSaveAsNew = computed(() => hasNotes.value)
+const canOverwriteCurrentLibraryItem = computed(() => {
+  const currentId = String(library.currentItem?.id ?? '').trim()
+  const ownerId = String(library.currentItem?.owner_id ?? '').trim()
+  const meId = String(auth.user?.id ?? '').trim()
+  if (!auth.isSignedIn) return false
+  if (!currentId || !ownerId || !meId) return false
+  return ownerId === meId
+})
 const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark))
 const preferenceToneDuration = computed({
   get: () => Number(timelineSettings.soundDurationScale) || 1,
@@ -69,6 +94,10 @@ const preferenceSoundPreview = computed({
 const preferenceDarkMode = computed({
   get: () => isDarkTheme.value,
   set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
+})
+const preferenceIntervalsOnDots = computed({
+  get: () => Boolean(timelineSettings.showIntervalsOnDots),
+  set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
 })
 const isPhoneView = computed(() => viewMode.value === 'phone')
 const isWatchView = computed(() => viewMode.value === 'watch')
@@ -143,6 +172,47 @@ function timelineToggleRecord() {
   timelineRef.value?.toggleRecord?.()
 }
 
+async function saveCurrentSong() {
+  if (saveBusy.value || saveAsNewBusy.value) return
+
+  const snapshot = buildSongSnapshot({
+    name: songName.value,
+    instrument,
+    transport,
+    timelineSettings,
+    notes,
+    handPositions,
+  })
+
+  if (!canOverwriteCurrentLibraryItem.value) {
+    openSaveAsNew()
+    return
+  }
+
+  const id = String(library.currentItem?.id ?? '').trim()
+  if (!id) {
+    openSaveAsNew()
+    return
+  }
+
+  saveBusy.value = true
+  const updated = await library.updateItem({ id, content: snapshot })
+  saveBusy.value = false
+
+  if (!updated) {
+    const msg = String(library.error?.message ?? library.error ?? 'Save failed')
+    window.alert(msg)
+  }
+}
+
+function triggerUndo() {
+  timelineUndoTick.value += 1
+}
+
+function triggerRedo() {
+  timelineRedoTick.value += 1
+}
+
 async function saveAsNewToCloud() {
   if (saveAsNewBusy.value) return
   if (!auth.isSignedIn) {
@@ -190,6 +260,75 @@ function openSaveAsNew() {
   else saveAsNewTitle.value = base ? `${base} (copy)` : 'New Recording'
   saveAsNewVisibility.value = 'private'
   saveAsNewOpen.value = true
+}
+
+function fillSongDialogFromCurrentState() {
+  newSongTitle.value = String(songName.value || '').trim()
+  newSongBeatTop.value = Number(timelineSettings.beatTop) || 4
+  newSongBeatBottom.value = Number(timelineSettings.beatBottom) || 4
+  const key = String(harmony.scaleRoot || harmony.chordRoot || 'C').toUpperCase()
+  newSongKey.value = SONG_KEY_OPTIONS.includes(key) ? key : 'C'
+  const barSize = Math.max(
+    1,
+    (Number(timelineSettings.beatTop) || 4) * (4 / (Number(timelineSettings.beatBottom) || 4)),
+  )
+  const bars = Math.max(1, Math.round((Number(timelineSettings.timelineLengthBlocks) || 0) / barSize))
+  newSongBars.value = bars || 2
+  newSongPickupEnabled.value = Boolean(timelineSettings.pickupEnabled)
+  newSongPickupBeats.value = Number(timelineSettings.pickupBeats) || 1
+  newSongShuffleEnabled.value = Boolean(timelineSettings.shuffleEnabled)
+  newSongBpm.value = Number(transport.tempo) || 120
+}
+
+function openNewSongDialog() {
+  songDialogMode.value = 'new'
+  fillSongDialogFromCurrentState()
+  newSongOpen.value = true
+}
+
+function openSongSettingsDialog() {
+  songDialogMode.value = 'edit'
+  fillSongDialogFromCurrentState()
+  newSongOpen.value = true
+}
+
+function applyNewSong() {
+  const title = String(newSongTitle.value || '').trim()
+  songName.value = title
+  const beatTop = Math.max(1, Math.floor(Number(newSongBeatTop.value) || 4))
+  const beatBottomRaw = Math.floor(Number(newSongBeatBottom.value) || 4)
+  const beatBottom = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
+  const bars = Math.max(1, Math.floor(Number(newSongBars.value) || 2))
+  const bpm = Math.max(30, Math.min(260, Math.floor(Number(newSongBpm.value) || 120)))
+  const pickupEnabled = Boolean(newSongPickupEnabled.value)
+  const pickupBeats = Math.max(1, Math.floor(Number(newSongPickupBeats.value) || 1))
+  const shuffleEnabled = Boolean(newSongShuffleEnabled.value)
+  const key = String(newSongKey.value || 'C').toUpperCase()
+
+  if (songDialogMode.value === 'new') {
+    notes.clearNotes()
+    selection.clearSelection()
+    handPositions.setHandPositions([])
+    transport.setPlayState('stopped')
+    transport.setPlayheadMs(0)
+  }
+  transport.setTempo(bpm)
+
+  timelineSettings.setBeatTop(beatTop)
+  timelineSettings.setBeatBottom(beatBottom)
+  timelineSettings.setPickupEnabled(pickupEnabled)
+  timelineSettings.setPickupBeats(pickupBeats)
+  timelineSettings.setShuffleEnabled(shuffleEnabled)
+  timelineSettings.setLoopEnabled(false)
+  const blocksPerBar = Math.max(1, Number((beatTop * (4 / beatBottom)).toFixed(3)))
+  timelineSettings.setTimelineLengthBlocks(Number((bars * blocksPerBar).toFixed(3)))
+
+  if (SONG_KEY_OPTIONS.includes(key)) {
+    harmony.scaleRoot = key
+    harmony.chordRoot = key
+  }
+
+  newSongOpen.value = false
 }
 
 function applyConfiguredDefaultTimelineLength() {
@@ -302,9 +441,9 @@ onBeforeUnmount(() => {
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">File</v-btn>
         </template>
           <v-list density="compact" min-width="220">
-            <v-list-item title="New" />
+            <v-list-item title="New" @click="openNewSongDialog" />
             <v-divider class="my-1" />
-            <v-list-item title="Save" />
+            <v-list-item title="Save" @click="saveCurrentSong" />
             <v-list-item title="Save As New" @click="openSaveAsNew" />
             <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
             <v-divider class="my-1" />
@@ -322,10 +461,19 @@ onBeforeUnmount(() => {
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Edit</v-btn>
         </template>
         <v-list density="compact" min-width="180">
-          <v-list-item title="Undo" />
-          <v-list-item title="Redo" />
+          <v-list-item title="Undo" @click="triggerUndo" />
+          <v-list-item title="Redo" @click="triggerRedo" />
           <v-divider class="my-1" />
           <v-list-item title="Preferences" @click="preferencesOpen = true" />
+        </v-list>
+      </v-menu>
+
+      <v-menu location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Song</v-btn>
+        </template>
+        <v-list density="compact" min-width="220">
+          <v-list-item title="Song Settings" @click="openSongSettingsDialog" />
         </v-list>
       </v-menu>
 
@@ -433,6 +581,8 @@ onBeforeUnmount(() => {
             :num-frets="numFrets"
             :library-panel-visible="false"
             :transport-visible="transportVisible"
+            :external-undo-tick="timelineUndoTick"
+            :external-redo-tick="timelineRedoTick"
             @update-transport-visible="(v) => (transportVisible = Boolean(v))"
           />
           <LibraryPanel v-else-if="isCompactView && phonePane === 'library'" />
@@ -441,6 +591,8 @@ onBeforeUnmount(() => {
           <LibraryPanel v-if="showLibraryInPaneB" />
           <Timeline v-else-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
             :transport-visible="transportVisible"
+            :external-undo-tick="timelineUndoTick"
+            :external-redo-tick="timelineRedoTick"
             @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
         </template>
         <template #sidebar>
@@ -517,6 +669,106 @@ onBeforeUnmount(() => {
       </v-card>
     </v-dialog>
 
+    <v-dialog v-model="newSongOpen" max-width="560">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center justify-space-between">
+          <span>{{ songDialogMode === 'new' ? 'New Song' : 'Song Settings' }}</span>
+          <v-btn icon="mdi-close" variant="text" @click="newSongOpen = false" />
+        </v-card-title>
+        <v-card-text class="d-flex flex-column ga-3">
+          <v-text-field
+            v-model="newSongTitle"
+            label="Title"
+            density="compact"
+            variant="outlined"
+            autofocus
+          />
+          <div class="d-flex ga-2">
+            <v-text-field
+              v-model="newSongBeatTop"
+              label="Beat Top"
+              density="compact"
+              variant="outlined"
+              type="number"
+              min="1"
+              class="flex-1-1"
+            />
+            <v-select
+              v-model="newSongBeatBottom"
+              :items="[1, 2, 4, 8]"
+              label="Beat Bottom"
+              density="compact"
+              variant="outlined"
+              class="flex-1-1"
+            />
+          </div>
+          <div class="d-flex ga-2">
+            <v-select
+              v-model="newSongKey"
+              :items="SONG_KEY_OPTIONS"
+              label="Key"
+              density="compact"
+              variant="outlined"
+              class="flex-1-1"
+            />
+            <v-text-field
+              v-model="newSongBars"
+              label="Bars"
+              density="compact"
+              variant="outlined"
+              type="number"
+              min="1"
+              class="flex-1-1"
+            />
+          </div>
+          <div class="d-flex ga-2 align-center">
+            <v-switch
+              v-model="newSongPickupEnabled"
+              density="compact"
+              hide-details
+              inset
+              label="Pickup"
+            />
+            <v-text-field
+              v-model="newSongPickupBeats"
+              label="Pickup Beats"
+              density="compact"
+              variant="outlined"
+              type="number"
+              min="1"
+              :disabled="!newSongPickupEnabled"
+              class="flex-1-1"
+            />
+          </div>
+          <div class="d-flex ga-2 align-center">
+            <v-switch
+              v-model="newSongShuffleEnabled"
+              density="compact"
+              hide-details
+              inset
+              label="Shuffle"
+            />
+            <v-text-field
+              v-model="newSongBpm"
+              label="BPM"
+              density="compact"
+              variant="outlined"
+              type="number"
+              min="30"
+              max="260"
+              class="flex-1-1"
+            />
+          </div>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" @click="newSongOpen = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" @click="applyNewSong">
+            {{ songDialogMode === 'new' ? 'Create' : 'Apply' }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="preferencesOpen" max-width="520">
       <v-card rounded="lg">
         <v-card-title class="d-flex align-center justify-space-between">
@@ -546,6 +798,13 @@ onBeforeUnmount(() => {
             hide-details
             inset
             label="Dark mode"
+          />
+          <v-switch
+            v-model="preferenceIntervalsOnDots"
+            density="compact"
+            hide-details
+            inset
+            label="Intervals on dots"
           />
           <v-switch
             density="compact"
@@ -781,5 +1040,9 @@ onBeforeUnmount(() => {
   margin-top: 8px;
   font-size: 14px;
   color: #cfcfcf;
+}
+
+.flex-1-1 {
+  flex: 1 1 0;
 }
 </style>
