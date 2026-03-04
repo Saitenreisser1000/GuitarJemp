@@ -2,7 +2,7 @@
   <div ref="rootEl" class="fretboard-body" :style="fretboardCssVars">
     <div class="fb-core-pad">
       <div class="fb-core-resizable" :style="coreResizableStyle">
-        <div class="fb-stack" :style="{ aspectRatio: `${FB_WIDTH} / ${boardH}` }">
+        <div class="fb-stack">
           <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
             preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
             @click="onClick">
@@ -324,7 +324,6 @@ import {
   FRETBOARD_DIMENSIONS,
   FRETBOARD_LAYOUT_BREAKPOINTS,
   FRETBOARD_LAYOUT_PRESETS,
-  FRETBOARD_RESIZE,
   FRETBOARD_UI_TOKENS,
 } from '@/features/fretboard/config/fretboardLayout'
 import {
@@ -359,7 +358,6 @@ const FB_HEIGHT = FRETBOARD_DIMENSIONS.height
 const NUT_WIDTH = FRETBOARD_DIMENSIONS.nutWidth
 const BOARD_OVERHANG = FRETBOARD_DIMENSIONS.boardOverhang
 const STRING_OVERHANG = FRETBOARD_DIMENSIONS.stringOverhang
-const CORE_RESIZE_SCALE_DIVISOR = FRETBOARD_RESIZE.coreScaleDivisor
 const rootEl = ref(null)
 const overlayEl = ref(null)
 const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
@@ -1563,13 +1561,8 @@ const strings = computed(() => {
 
 const boardY = computed(() => -BOARD_OVERHANG)
 const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
-const coreResizeScale = computed(() => {
-  const px = Number(props.coreResizePx) || 0
-  return Math.max(FRETBOARD_RESIZE.minScale, Math.min(FRETBOARD_RESIZE.maxScale, 1 + px / CORE_RESIZE_SCALE_DIVISOR))
-})
-const coreResizableStyle = computed(() => ({
-  transform: `scale(${coreResizeScale.value})`,
-}))
+const coreResizableStyle = computed(() => ({ transform: 'none' }))
+const STRING_LABEL_SAFE_LEFT_PAD_PX = 28
 
 const fretboardLayoutPreset = computed(() => {
   const vw = Number(viewportWidthPx.value) || 0
@@ -1621,9 +1614,13 @@ const fretboardLayoutPreset = computed(() => {
 const fretboardCssVars = computed(() => {
   const preset = fretboardLayoutPreset.value
   const width = preset?.width || FRETBOARD_LAYOUT_PRESETS.desktop.width
+  const sidePadLeft = Math.max(
+    STRING_LABEL_SAFE_LEFT_PAD_PX,
+    Number(preset?.sidePadLeft ?? 40),
+  )
   return {
     '--fb-ui-scale': String(preset?.uiScale ?? 1),
-    '--fb-side-pad-left': `${Number(preset?.sidePadLeft ?? 40)}px`,
+    '--fb-side-pad-left': `${sidePadLeft}px`,
     '--fb-side-pad-right': `${Number(preset?.sidePadRight ?? 10)}px`,
     '--fb-width-clamp': `clamp(${Number(width.minPx)}px, ${Number(width.preferredVw)}vw, ${Number(width.maxPx)}px)`,
     '--fb-gap-px': `${Number(FRETBOARD_UI_TOKENS.gapPx)}px`,
@@ -2663,6 +2660,8 @@ watch(
   position: relative;
   overflow: visible;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
 }
 
 .fb-view-mask rect {
@@ -2671,6 +2670,8 @@ watch(
 
 .fb-core-pad {
   width: 100%;
+  height: 100%;
+  min-height: 0;
   padding-left: var(--fb-side-pad-left);
   padding-right: var(--fb-side-pad-right);
   padding-top: var(--fb-top-pad);
@@ -2678,18 +2679,24 @@ watch(
   margin-bottom: 0;
   box-sizing: border-box;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 .fb-core-resizable {
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
   margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
-  transform-origin: top center;
+  transform-origin: top left;
   overflow: visible;
 }
 
 .fb-stack {
   width: 100%;
+  height: 100%;
+  min-height: 0;
   position: relative;
   overflow: visible;
 }

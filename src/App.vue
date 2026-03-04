@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import LayoutManager from '@/components/app/LayoutManager.vue'
 import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
@@ -58,10 +58,6 @@ const saveBusy = ref(false)
 const preferencesOpen = ref(false)
 const songName = ref('')
 const phoneAspectProfile = ref('auto')
-const RESIZE_MIN = -100
-const RESIZE_MAX = 260
-let fretboardResizeObserver = null
-let fretboardBaseContentHeightPx = 0
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
 const PHONE_ASPECT_STORAGE_KEY = 'guitarjemp.ui.phoneAspect'
 
@@ -151,30 +147,9 @@ function shouldDefaultToPhoneView() {
   return narrow && coarse
 }
 
-function updateFretboardResizeFromParentHeight(heightPx) {
-  if (isCompactView.value) {
-    corePadResizePx.value = 0
-    return
-  }
-  const h = Number(heightPx) || 0
-  if (!(h > 0)) return
-  const parentEl = fretboardMainEl.value
-  const contentEl = parentEl?.querySelector?.('.fretboard-body')
-  if (!(fretboardBaseContentHeightPx > 0)) {
-    const intrinsic = Number(contentEl?.scrollHeight) || 0
-    if (intrinsic > 0) fretboardBaseContentHeightPx = intrinsic
-  }
-  if (!(fretboardBaseContentHeightPx > 0)) {
-    corePadResizePx.value = 0
-    return
-  }
-  const raw = Math.round(h - fretboardBaseContentHeightPx)
-  corePadResizePx.value = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, raw))
-}
-
 const fretboardStyleVars = computed(() => ({
-  '--fb-core-resize-pad-bottom': `${Math.max(0, Number(corePadResizePx.value) || 0)}px`,
-  '--fb-core-resize-margin-bottom': `${Math.min(0, Number(corePadResizePx.value) || 0)}px`,
+  '--fb-core-resize-pad-bottom': '0px',
+  '--fb-core-resize-margin-bottom': '0px',
 }))
 
 const timelineIsPlaying = computed(() => Boolean(timelineRef.value?.isPlaying))
@@ -401,16 +376,7 @@ onMounted(async () => {
     phoneAspectProfile.value = storedPhoneAspect
   }
   applyConfiguredDefaultTimelineLength()
-  await nextTick()
-  const el = fretboardMainEl.value
-  if (!el || typeof ResizeObserver === 'undefined') return
-  updateFretboardResizeFromParentHeight(el.getBoundingClientRect().height)
-  fretboardResizeObserver = new ResizeObserver((entries) => {
-    const entry = entries?.[0]
-    const h = Number(entry?.contentRect?.height) || 0
-    updateFretboardResizeFromParentHeight(h)
-  })
-  fretboardResizeObserver.observe(el)
+  corePadResizePx.value = 0
 })
 
 watch(
@@ -420,22 +386,13 @@ watch(
   },
 )
 
-watch(isCompactView, async (compact) => {
-  if (compact) {
-    corePadResizePx.value = 0
-    return
-  }
-  await nextTick()
-  const el = fretboardMainEl.value
-  if (!el) return
-  updateFretboardResizeFromParentHeight(el.getBoundingClientRect().height)
+watch(isCompactView, (compact) => {
+  if (compact) corePadResizePx.value = 0
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportOrientationFlag)
   window.removeEventListener('orientationchange', updateViewportOrientationFlag)
-  fretboardResizeObserver?.disconnect?.()
-  fretboardResizeObserver = null
 })
 </script>
 
@@ -1065,6 +1022,7 @@ onBeforeUnmount(() => {
 
 .fretboard-main :deep(.fretboard-body) {
   width: 100%;
+  height: 100%;
 }
 
 .app-layout.is-compact-view :deep(.layout-manager) {
