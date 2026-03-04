@@ -365,7 +365,9 @@ const coreResizableEl = ref(null)
 const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
 const viewportHeightPx = ref(Number(globalThis?.innerHeight) || 900)
 const stackMinHeightPx = ref(0)
+const stackMaxHeightPx = ref(0)
 const coreMinHeightPx = ref(0)
+const coreMaxHeightPx = ref(0)
 const dotRoundCompX = ref(1)
 let coreResizeObserver = null
 
@@ -1569,7 +1571,10 @@ const boardY = computed(() => -BOARD_OVERHANG)
 const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
 const coreResizableStyle = computed(() => ({ transform: 'none' }))
 const STRING_LABEL_SAFE_LEFT_PAD_PX = 28
-const MIN_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.minHeightPerWidth) || (1 / 3)
+const RAW_MIN_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.minHeightPerWidth) || (1 / 6)
+const RAW_MAX_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.maxHeightPerWidth) || (1 / 3)
+const MIN_HEIGHT_PER_WIDTH = Math.min(RAW_MIN_HEIGHT_PER_WIDTH, RAW_MAX_HEIGHT_PER_WIDTH)
+const MAX_HEIGHT_PER_WIDTH = Math.max(RAW_MIN_HEIGHT_PER_WIDTH, RAW_MAX_HEIGHT_PER_WIDTH)
 
 const fretboardLayoutPreset = computed(() => {
   const vw = Number(viewportWidthPx.value) || 0
@@ -1648,8 +1653,11 @@ const fretboardCssVars = computed(() => {
     '--fb-actions-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.actionsMarginBottomPx)}px`,
     '--fb-rail-top-pad-px': `${Number(FRETBOARD_UI_TOKENS.railTopPadPx)}px`,
     '--fb-min-height-per-width': String(MIN_HEIGHT_PER_WIDTH),
+    '--fb-max-height-per-width': String(MAX_HEIGHT_PER_WIDTH),
     '--fb-stack-min-height-px': `${Math.max(0, Number(stackMinHeightPx.value) || 0)}px`,
+    '--fb-stack-max-height-px': `${Math.max(0, Number(stackMaxHeightPx.value) || 0)}px`,
     '--fb-core-min-height-px': `${Math.max(0, Number(coreMinHeightPx.value) || 0)}px`,
+    '--fb-core-max-height-px': `${Math.max(0, Number(coreMaxHeightPx.value) || 0)}px`,
     '--fb-playback-travel-line-shadow': FRETBOARD_THEME.css.playbackTravelLineShadow,
     '--fb-now-cross-shadow': FRETBOARD_THEME.css.nowCrossShadow,
     '--fb-now-ring-shadow': FRETBOARD_THEME.css.nowRingShadow,
@@ -1701,13 +1709,16 @@ function updateStackMinHeightPx() {
   const w = Number(coreResizableEl.value?.getBoundingClientRect?.().width) || 0
   if (!(w > 0)) return
   const minStackHeight = w * MIN_HEIGHT_PER_WIDTH
+  const maxStackHeight = w * MAX_HEIGHT_PER_WIDTH
   const fretNumbersBlockHeight =
     Number(FRETBOARD_UI_TOKENS.numbersHeightPx || 0) +
     Number(FRETBOARD_UI_TOKENS.numbersPadTopPx || 0) +
     Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx || 0) +
     Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx || 0)
   stackMinHeightPx.value = minStackHeight
+  stackMaxHeightPx.value = maxStackHeight
   coreMinHeightPx.value = minStackHeight + fretNumbersBlockHeight
+  coreMaxHeightPx.value = maxStackHeight + fretNumbersBlockHeight
 }
 
 function updateDotRoundCompensation() {
@@ -2741,6 +2752,7 @@ watch(
   width: 100%;
   flex: 1 1 auto;
   min-height: var(--fb-core-min-height-px, 0px);
+  max-height: var(--fb-core-max-height-px, none);
   padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
   margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
   transform-origin: top left;
@@ -2751,6 +2763,7 @@ watch(
   width: 100%;
   height: max(0px, calc(100% - var(--fb-fret-numbers-block-px, 0px)));
   min-height: var(--fb-stack-min-height-px, 0px);
+  max-height: var(--fb-stack-max-height-px, none);
   position: relative;
   overflow: visible;
 }

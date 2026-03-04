@@ -97,4 +97,5 @@ export const FRETBOARD_UI_TOKENS = {
 
 export const FRETBOARD_PANE_CONSTRAINTS = {
   minHeightPerWidth: 1 / 6,
+  maxHeightPerWidth: 1 / 4,
 }

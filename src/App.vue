@@ -33,6 +33,7 @@ const showFretboard = ref(true)
 const showTimeline = ref(true)
 const showTransportBar = ref(true)
 const showLibraryInPaneB = ref(false)
+const sidebarVisible = ref(true)
 const viewMode = ref('desktop')
 const phonePane = ref('fretboard')
 const isPortraitViewport = ref(false)
@@ -403,6 +404,7 @@ onBeforeUnmount(() => {
       'is-phone-view': isPhoneView,
       'is-watch-view': isWatchView,
       'is-compact-view': isCompactView,
+      'is-sidebar-hidden': !sidebarVisible,
     }"
   >
     <AuthDialog v-model="authOpen" />
@@ -504,6 +506,16 @@ onBeforeUnmount(() => {
           </v-btn-toggle>
         </v-card>
       </v-menu>
+      <v-btn
+        v-if="!isCompactView"
+        variant="text"
+        size="small"
+        class="app-menu-btn"
+        :active="sidebarVisible"
+        @click="sidebarVisible = !sidebarVisible"
+      >
+        Toolbar
+      </v-btn>
 
       <div class="app-menu-right">
         <v-chip v-if="auth.isSignedIn && !isPhoneView" size="small" color="success" variant="tonal">
@@ -1041,6 +1053,14 @@ onBeforeUnmount(() => {
 
 .app-layout.is-compact-view :deep(.wm-pane-a) {
   flex-basis: 100% !important;
+}
+
+.app-layout.is-sidebar-hidden :deep(.layout-manager) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-layout.is-sidebar-hidden :deep(.layout-sidebar) {
+  display: none;
 }
 
 .app-layout.is-compact-view .app-menu-center {
