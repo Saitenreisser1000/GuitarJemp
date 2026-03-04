@@ -30,6 +30,48 @@ export const FRETBOARD_LAYOUT_PRESETS = {
     sidePadLeft: 16,
     sidePadRight: 8,
     width: { minPx: 620, preferredVw: 98, maxPx: 1080 },
+    phoneAspectProfiles: [
+      {
+        label: '16:9',
+        ratio: 16 / 9,
+        uiScale: 0.84,
+        sidePadLeft: 14,
+        sidePadRight: 8,
+        width: { minPx: 600, preferredVw: 97, maxPx: 1020 },
+      },
+      {
+        label: '18:9',
+        ratio: 18 / 9,
+        uiScale: 0.86,
+        sidePadLeft: 14,
+        sidePadRight: 8,
+        width: { minPx: 610, preferredVw: 98, maxPx: 1060 },
+      },
+      {
+        label: '19.5:9',
+        ratio: 19.5 / 9,
+        uiScale: 0.88,
+        sidePadLeft: 16,
+        sidePadRight: 8,
+        width: { minPx: 620, preferredVw: 99, maxPx: 1100 },
+      },
+      {
+        label: '20:9',
+        ratio: 20 / 9,
+        uiScale: 0.89,
+        sidePadLeft: 16,
+        sidePadRight: 8,
+        width: { minPx: 620, preferredVw: 99, maxPx: 1120 },
+      },
+      {
+        label: '21:9',
+        ratio: 21 / 9,
+        uiScale: 0.9,
+        sidePadLeft: 18,
+        sidePadRight: 8,
+        width: { minPx: 630, preferredVw: 100, maxPx: 1160 },
+      },
+    ],
   },
 }
 

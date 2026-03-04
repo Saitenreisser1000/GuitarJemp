@@ -350,6 +350,7 @@ const props = defineProps({
   numFrets: { type: Number, required: true },
   editable: { type: Boolean, default: false },
   coreResizePx: { type: Number, default: 0 },
+  isPhoneView: { type: Boolean, default: false },
 })
 
 const FB_WIDTH = FRETBOARD_DIMENSIONS.width
@@ -361,6 +362,7 @@ const CORE_RESIZE_SCALE_DIVISOR = FRETBOARD_RESIZE.coreScaleDivisor
 const rootEl = ref(null)
 const overlayEl = ref(null)
 const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
+const viewportHeightPx = ref(Number(globalThis?.innerHeight) || 900)
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -1570,6 +1572,38 @@ const coreResizableStyle = computed(() => ({
 
 const fretboardLayoutPreset = computed(() => {
   const vw = Number(viewportWidthPx.value) || 0
+  if (props.isPhoneView) {
+    const mobilePreset = FRETBOARD_LAYOUT_PRESETS.mobile
+    const profiles = Array.isArray(mobilePreset?.phoneAspectProfiles)
+      ? mobilePreset.phoneAspectProfiles
+      : []
+    const w = Math.max(1, Number(viewportWidthPx.value) || 1)
+    const h = Math.max(1, Number(viewportHeightPx.value) || 1)
+    const aspect = Math.max(w, h) / Math.min(w, h)
+
+    let closest = null
+    let bestDelta = Infinity
+    for (const profile of profiles) {
+      const ratio = Number(profile?.ratio)
+      if (!(ratio > 0)) continue
+      const delta = Math.abs(ratio - aspect)
+      if (delta < bestDelta) {
+        bestDelta = delta
+        closest = profile
+      }
+    }
+
+    if (!closest) return mobilePreset
+    return {
+      ...mobilePreset,
+      ...closest,
+      width: {
+        ...(mobilePreset.width || {}),
+        ...(closest.width || {}),
+      },
+    }
+  }
+
   if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.mobileMax) return FRETBOARD_LAYOUT_PRESETS.mobile
   if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.tabletMax) return FRETBOARD_LAYOUT_PRESETS.tablet
   return FRETBOARD_LAYOUT_PRESETS.desktop
@@ -1639,6 +1673,7 @@ const fretboardCssVars = computed(() => {
 
 function onViewportResize() {
   viewportWidthPx.value = Number(globalThis?.innerWidth) || 1440
+  viewportHeightPx.value = Number(globalThis?.innerHeight) || 900
 }
 
 function dotMidXForFret(fret) {

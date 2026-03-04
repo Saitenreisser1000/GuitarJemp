@@ -593,10 +593,22 @@ onBeforeUnmount(() => {
       <LayoutManager class="app-window-manager">
         <template #pane-a>
           <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+            <Fretboard
+              :num-frets="numFrets"
+              :editable="true"
+              :core-resize-px="corePadResizePx"
+              :is-phone-view="false"
+              :style="fretboardStyleVars"
+            />
           </div>
           <div v-else-if="isCompactView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx" :style="fretboardStyleVars" />
+            <Fretboard
+              :num-frets="numFrets"
+              :editable="!isWatchView"
+              :core-resize-px="corePadResizePx"
+              :is-phone-view="isPhoneView"
+              :style="fretboardStyleVars"
+            />
           </div>
           <Timeline
             v-else-if="isCompactView && phonePane === 'timeline' && showTimeline"
