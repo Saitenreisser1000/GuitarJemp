@@ -1016,8 +1016,8 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .fretboard-main :deep(.fretboard-body) {

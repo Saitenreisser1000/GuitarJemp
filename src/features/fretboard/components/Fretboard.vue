@@ -1,7 +1,7 @@
 <template>
   <div ref="rootEl" class="fretboard-body" :style="fretboardCssVars">
     <div class="fb-core-pad">
-      <div class="fb-core-resizable" :style="coreResizableStyle">
+      <div ref="coreResizableEl" class="fb-core-resizable" :style="coreResizableStyle">
         <div class="fb-stack">
           <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
             preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
@@ -323,6 +323,7 @@ import {
 import {
   FRETBOARD_DIMENSIONS,
   FRETBOARD_LAYOUT_BREAKPOINTS,
+  FRETBOARD_PANE_CONSTRAINTS,
   FRETBOARD_LAYOUT_PRESETS,
   FRETBOARD_UI_TOKENS,
 } from '@/features/fretboard/config/fretboardLayout'
@@ -360,8 +361,12 @@ const BOARD_OVERHANG = FRETBOARD_DIMENSIONS.boardOverhang
 const STRING_OVERHANG = FRETBOARD_DIMENSIONS.stringOverhang
 const rootEl = ref(null)
 const overlayEl = ref(null)
+const coreResizableEl = ref(null)
 const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
 const viewportHeightPx = ref(Number(globalThis?.innerHeight) || 900)
+const stackMinHeightPx = ref(0)
+const coreMinHeightPx = ref(0)
+let coreResizeObserver = null
 
 const store = useNotesStore()
 const instrument = useInstrumentStore()
@@ -1563,6 +1568,7 @@ const boardY = computed(() => -BOARD_OVERHANG)
 const boardH = computed(() => FB_HEIGHT + BOARD_OVERHANG * 2)
 const coreResizableStyle = computed(() => ({ transform: 'none' }))
 const STRING_LABEL_SAFE_LEFT_PAD_PX = 28
+const MIN_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.minHeightPerWidth) || (1 / 3)
 
 const fretboardLayoutPreset = computed(() => {
   const vw = Number(viewportWidthPx.value) || 0
@@ -1613,7 +1619,6 @@ const fretboardLayoutPreset = computed(() => {
 
 const fretboardCssVars = computed(() => {
   const preset = fretboardLayoutPreset.value
-  const width = preset?.width || FRETBOARD_LAYOUT_PRESETS.desktop.width
   const sidePadLeft = Math.max(
     STRING_LABEL_SAFE_LEFT_PAD_PX,
     Number(preset?.sidePadLeft ?? 40),
@@ -1622,7 +1627,7 @@ const fretboardCssVars = computed(() => {
     '--fb-ui-scale': String(preset?.uiScale ?? 1),
     '--fb-side-pad-left': `${sidePadLeft}px`,
     '--fb-side-pad-right': `${Number(preset?.sidePadRight ?? 10)}px`,
-    '--fb-width-clamp': `clamp(${Number(width.minPx)}px, ${Number(width.preferredVw)}vw, ${Number(width.maxPx)}px)`,
+    '--fb-width-clamp': '100%',
     '--fb-gap-px': `${Number(FRETBOARD_UI_TOKENS.gapPx)}px`,
     '--fb-control-h-px': `${Number(FRETBOARD_UI_TOKENS.controlHeightPx)}px`,
     '--fb-font-sm-px': `${Number(FRETBOARD_UI_TOKENS.fontSmallPx)}px`,
@@ -1632,9 +1637,18 @@ const fretboardCssVars = computed(() => {
     '--fb-numbers-pad-top-px': `${Number(FRETBOARD_UI_TOKENS.numbersPadTopPx)}px`,
     '--fb-numbers-margin-top': `${Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx)}px`,
     '--fb-numbers-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx)}px`,
+    '--fb-fret-numbers-block-px': `${
+      Number(FRETBOARD_UI_TOKENS.numbersHeightPx || 0) +
+      Number(FRETBOARD_UI_TOKENS.numbersPadTopPx || 0) +
+      Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx || 0) +
+      Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx || 0)
+    }px`,
     '--fb-actions-margin-top': `${Number(FRETBOARD_UI_TOKENS.actionsMarginTopPx)}px`,
     '--fb-actions-margin-bottom': `${Number(FRETBOARD_UI_TOKENS.actionsMarginBottomPx)}px`,
     '--fb-rail-top-pad-px': `${Number(FRETBOARD_UI_TOKENS.railTopPadPx)}px`,
+    '--fb-min-height-per-width': String(MIN_HEIGHT_PER_WIDTH),
+    '--fb-stack-min-height-px': `${Math.max(0, Number(stackMinHeightPx.value) || 0)}px`,
+    '--fb-core-min-height-px': `${Math.max(0, Number(coreMinHeightPx.value) || 0)}px`,
     '--fb-playback-travel-line-shadow': FRETBOARD_THEME.css.playbackTravelLineShadow,
     '--fb-now-cross-shadow': FRETBOARD_THEME.css.nowCrossShadow,
     '--fb-now-ring-shadow': FRETBOARD_THEME.css.nowRingShadow,
@@ -1680,6 +1694,19 @@ const fretboardCssVars = computed(() => {
 function onViewportResize() {
   viewportWidthPx.value = Number(globalThis?.innerWidth) || 1440
   viewportHeightPx.value = Number(globalThis?.innerHeight) || 900
+}
+
+function updateStackMinHeightPx() {
+  const w = Number(coreResizableEl.value?.getBoundingClientRect?.().width) || 0
+  if (!(w > 0)) return
+  const minStackHeight = w * MIN_HEIGHT_PER_WIDTH
+  const fretNumbersBlockHeight =
+    Number(FRETBOARD_UI_TOKENS.numbersHeightPx || 0) +
+    Number(FRETBOARD_UI_TOKENS.numbersPadTopPx || 0) +
+    Number(FRETBOARD_UI_TOKENS.numbersMarginTopPx || 0) +
+    Number(FRETBOARD_UI_TOKENS.numbersMarginBottomPx || 0)
+  stackMinHeightPx.value = minStackHeight
+  coreMinHeightPx.value = minStackHeight + fretNumbersBlockHeight
 }
 
 function dotMidXForFret(fret) {
@@ -2590,6 +2617,13 @@ onMounted(() => {
   animNowMs.value = performance.now()
   loadChordShapes()
   window.addEventListener('resize', onViewportResize)
+  updateStackMinHeightPx()
+  if (coreResizableEl.value && typeof ResizeObserver !== 'undefined') {
+    coreResizeObserver = new ResizeObserver(() => {
+      updateStackMinHeightPx()
+    })
+    coreResizeObserver.observe(coreResizableEl.value)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -2597,6 +2631,8 @@ onBeforeUnmount(() => {
   stopTextDrag()
   stopAnim()
   window.removeEventListener('resize', onViewportResize)
+  coreResizeObserver?.disconnect?.()
+  coreResizeObserver = null
 })
 
 watch(
@@ -2686,7 +2722,7 @@ watch(
 .fb-core-resizable {
   width: 100%;
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: var(--fb-core-min-height-px, 0px);
   padding-bottom: var(--fb-core-resize-pad-bottom, 0px);
   margin-bottom: var(--fb-core-resize-margin-bottom, 0px);
   transform-origin: top left;
@@ -2695,8 +2731,8 @@ watch(
 
 .fb-stack {
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  height: max(0px, calc(100% - var(--fb-fret-numbers-block-px, 0px)));
+  min-height: var(--fb-stack-min-height-px, 0px);
   position: relative;
   overflow: visible;
 }

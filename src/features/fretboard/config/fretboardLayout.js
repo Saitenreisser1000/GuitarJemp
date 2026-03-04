@@ -89,8 +89,12 @@ export const FRETBOARD_UI_TOKENS = {
   numbersHeightPx: 28,
   numbersPadTopPx: 3,
   numbersMarginTopPx: 4,
-  numbersMarginBottomPx: 10,
+  numbersMarginBottomPx: -2,
   actionsMarginTopPx: -2,
   actionsMarginBottomPx: 8,
   railTopPadPx: 30,
+}
+
+export const FRETBOARD_PANE_CONSTRAINTS = {
+  minHeightPerWidth: 1 / 6,
 }
