@@ -351,6 +351,7 @@ const props = defineProps({
   editable: { type: Boolean, default: false },
   coreResizePx: { type: Number, default: 0 },
   isPhoneView: { type: Boolean, default: false },
+  phoneAspectProfile: { type: String, default: 'auto' },
 })
 
 const FB_WIDTH = FRETBOARD_DIMENSIONS.width
@@ -1581,25 +1582,33 @@ const fretboardLayoutPreset = computed(() => {
     const h = Math.max(1, Number(viewportHeightPx.value) || 1)
     const aspect = Math.max(w, h) / Math.min(w, h)
 
-    let closest = null
-    let bestDelta = Infinity
-    for (const profile of profiles) {
-      const ratio = Number(profile?.ratio)
-      if (!(ratio > 0)) continue
-      const delta = Math.abs(ratio - aspect)
-      if (delta < bestDelta) {
-        bestDelta = delta
-        closest = profile
+    const preferredLabel = String(props.phoneAspectProfile || 'auto')
+    let chosen = null
+
+    if (preferredLabel !== 'auto') {
+      chosen = profiles.find((p) => String(p?.label || '') === preferredLabel) || null
+    }
+
+    if (!chosen) {
+      let bestDelta = Infinity
+      for (const profile of profiles) {
+        const ratio = Number(profile?.ratio)
+        if (!(ratio > 0)) continue
+        const delta = Math.abs(ratio - aspect)
+        if (delta < bestDelta) {
+          bestDelta = delta
+          chosen = profile
+        }
       }
     }
 
-    if (!closest) return mobilePreset
+    if (!chosen) return mobilePreset
     return {
       ...mobilePreset,
-      ...closest,
+      ...chosen,
       width: {
         ...(mobilePreset.width || {}),
-        ...(closest.width || {}),
+        ...(chosen.width || {}),
       },
     }
   }

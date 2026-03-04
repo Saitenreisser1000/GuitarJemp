@@ -17,6 +17,7 @@ import { useLibraryStore } from '@/store/useLibrary'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { FRETBOARD_LAYOUT_PRESETS } from '@/features/fretboard/config/fretboardLayout'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
 import { useI18n } from '@/i18n'
 import { useTheme } from 'vuetify'
@@ -56,11 +57,13 @@ const saveAsNewBusy = ref(false)
 const saveBusy = ref(false)
 const preferencesOpen = ref(false)
 const songName = ref('')
+const phoneAspectProfile = ref('auto')
 const RESIZE_MIN = -100
 const RESIZE_MAX = 260
 let fretboardResizeObserver = null
 let fretboardBaseContentHeightPx = 0
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
+const PHONE_ASPECT_STORAGE_KEY = 'guitarjemp.ui.phoneAspect'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -103,10 +106,25 @@ const preferenceIntervalsOnDots = computed({
   set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
 })
 const languageItems = computed(() => languages.map((l) => ({ title: l.label, value: l.code })))
+const phoneAspectItems = computed(() => {
+  const profiles = Array.isArray(FRETBOARD_LAYOUT_PRESETS.mobile?.phoneAspectProfiles)
+    ? FRETBOARD_LAYOUT_PRESETS.mobile.phoneAspectProfiles
+    : []
+  return [{ title: 'Auto', value: 'auto' }, ...profiles.map((p) => ({ title: p.label, value: p.label }))]
+})
 const preferenceLanguage = computed({
   get: () => String(locale.value || 'en'),
   set: (v) => {
     void setLocale(String(v || 'en'))
+  },
+})
+const preferencePhoneAspect = computed({
+  get: () => String(phoneAspectProfile.value || 'auto'),
+  set: (v) => {
+    const next = String(v || 'auto')
+    const allowed = new Set(phoneAspectItems.value.map((i) => String(i.value)))
+    phoneAspectProfile.value = allowed.has(next) ? next : 'auto'
+    localStorage.setItem(PHONE_ASPECT_STORAGE_KEY, phoneAspectProfile.value)
   },
 })
 const isPhoneView = computed(() => viewMode.value === 'phone')
@@ -377,6 +395,11 @@ onMounted(async () => {
   if (storedTheme === 'guitarjemp' || storedTheme === 'guitarjempDark') {
     applyTheme(storedTheme)
   }
+  const storedPhoneAspect = String(localStorage.getItem(PHONE_ASPECT_STORAGE_KEY) || '').trim()
+  const allowedPhoneAspects = new Set(phoneAspectItems.value.map((i) => String(i.value)))
+  if (allowedPhoneAspects.has(storedPhoneAspect)) {
+    phoneAspectProfile.value = storedPhoneAspect
+  }
   applyConfiguredDefaultTimelineLength()
   await nextTick()
   const el = fretboardMainEl.value
@@ -598,6 +621,7 @@ onBeforeUnmount(() => {
               :editable="true"
               :core-resize-px="corePadResizePx"
               :is-phone-view="false"
+              :phone-aspect-profile="phoneAspectProfile"
               :style="fretboardStyleVars"
             />
           </div>
@@ -607,6 +631,7 @@ onBeforeUnmount(() => {
               :editable="!isWatchView"
               :core-resize-px="corePadResizePx"
               :is-phone-view="isPhoneView"
+              :phone-aspect-profile="phoneAspectProfile"
               :style="fretboardStyleVars"
             />
           </div>
@@ -860,6 +885,13 @@ onBeforeUnmount(() => {
             v-model="preferenceLanguage"
             :items="languageItems"
             label="Language"
+            density="compact"
+            variant="outlined"
+          />
+          <v-select
+            v-model="preferencePhoneAspect"
+            :items="phoneAspectItems"
+            label="Phone aspect ratio"
             density="compact"
             variant="outlined"
           />
