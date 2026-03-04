@@ -116,9 +116,9 @@
               <!-- ToneDots -->
               <g class="fb-tone-dots">
                 <g v-if="harmonyGuideDots.length" class="fb-harmony-guides" style="pointer-events: none">
-                  <circle v-for="d in harmonyGuideDots"
+                  <ellipse v-for="d in harmonyGuideDots"
                     :key="`guide-${d.string}-${d.fret}-${d.inChord ? 1 : 0}-${d.inScale ? 1 : 0}`" :cx="toneDotX(d)"
-                    :cy="toneDotY(d)" :r="harmonyGuideRadius(d)" :fill="harmonyGuideFill(d)"
+                    :cy="toneDotY(d)" :rx="dotRx(harmonyGuideRadius(d))" :ry="harmonyGuideRadius(d)" :fill="harmonyGuideFill(d)"
                     :stroke="harmonyGuideStroke(d)" :stroke-width="harmonyGuideStrokeWidth(d)" />
                 </g>
                 <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
@@ -170,12 +170,12 @@
                 </g>
 
                 <!-- Hover preview for inactive positions (editor only) -->
-                <circle v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)"
-                  :cy="toneDotY(hoveredPreviewToneDot)" :r="previewR()" fill="transparent"
+                <ellipse v-if="hoveredPreviewToneDot" :cx="toneDotX(hoveredPreviewToneDot)"
+                  :cy="toneDotY(hoveredPreviewToneDot)" :rx="dotRx(previewR())" :ry="previewR()" fill="transparent"
                   :stroke="FRETBOARD_THEME.svg.hoverPreviewStroke" stroke-width="3" style="pointer-events: none" />
 
                 <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
-                  <circle :cx="toneDotX(d)" :cy="toneDotY(d)" :r="toneDotR(d)" :fill="toneDotFill(d)"
+                  <ellipse :cx="toneDotX(d)" :cy="toneDotY(d)" :rx="dotRx(toneDotR(d))" :ry="toneDotR(d)" :fill="toneDotFill(d)"
                     :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
                     :style="toneDotStyle(d)"
                     @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
@@ -199,12 +199,12 @@
                   </text>
                 </g>
 
-                <circle v-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
-                  :cy="toneDotY(nextNotePreviewDot)" :r="toneDotR(nextNotePreviewDot) + 7" />
+                <ellipse v-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
+                  :cy="toneDotY(nextNotePreviewDot)" :rx="dotRx(toneDotR(nextNotePreviewDot) + 7)" :ry="toneDotR(nextNotePreviewDot) + 7" />
 
                 <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
-                <circle v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)"
-                  :r="toneDotR(dragPreviewToneDot)" fill="transparent" :stroke="FRETBOARD_THEME.svg.dragPreviewStroke" stroke-width="4"
+                <ellipse v-if="dragPreviewToneDot" :cx="toneDotX(dragPreviewToneDot)" :cy="toneDotY(dragPreviewToneDot)"
+                  :rx="dotRx(toneDotR(dragPreviewToneDot))" :ry="toneDotR(dragPreviewToneDot)" fill="transparent" :stroke="FRETBOARD_THEME.svg.dragPreviewStroke" stroke-width="4"
                   style="pointer-events: none" />
               </g>
               <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
@@ -366,6 +366,7 @@ const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 1440)
 const viewportHeightPx = ref(Number(globalThis?.innerHeight) || 900)
 const stackMinHeightPx = ref(0)
 const coreMinHeightPx = ref(0)
+const dotRoundCompX = ref(1)
 let coreResizeObserver = null
 
 const store = useNotesStore()
@@ -1709,6 +1710,21 @@ function updateStackMinHeightPx() {
   coreMinHeightPx.value = minStackHeight + fretNumbersBlockHeight
 }
 
+function updateDotRoundCompensation() {
+  const rect = overlayEl.value?.getBoundingClientRect?.()
+  const w = Number(rect?.width) || 0
+  const h = Number(rect?.height) || 0
+  if (!(w > 0) || !(h > 0)) return
+  const virtualRatio = Number(FB_WIDTH) / Math.max(1, Number(boardH.value) || 1)
+  const actualRatio = w / h
+  const compensation = virtualRatio / Math.max(0.0001, actualRatio)
+  dotRoundCompX.value = Math.max(0.25, Math.min(4, compensation))
+}
+
+function dotRx(radius) {
+  return Math.max(0, Number(radius) || 0) * (Number(dotRoundCompX.value) || 1)
+}
+
 function dotMidXForFret(fret) {
   const f = Math.max(0, Math.min(Number(fret) || 0, fretsPct.value.length - 1))
   if (f === 0) return 0
@@ -2618,9 +2634,11 @@ onMounted(() => {
   loadChordShapes()
   window.addEventListener('resize', onViewportResize)
   updateStackMinHeightPx()
+  updateDotRoundCompensation()
   if (coreResizableEl.value && typeof ResizeObserver !== 'undefined') {
     coreResizeObserver = new ResizeObserver(() => {
       updateStackMinHeightPx()
+      updateDotRoundCompensation()
     })
     coreResizeObserver.observe(coreResizableEl.value)
   }
