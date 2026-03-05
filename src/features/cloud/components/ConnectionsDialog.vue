@@ -81,7 +81,7 @@ watch(
                                 <tbody>
                                     <tr v-for="row in connections.accepted" :key="row.id">
                                         <td class="text-medium-emphasis">
-                                            {{ row.requester_id }} ↔ {{ row.addressee_id }}
+                                            {{ connections.userLabel(row.requester_id) }} ↔ {{ connections.userLabel(row.addressee_id) }}
                                         </td>
                                         <td>{{ t('connectionsDialog.accepted') }}</td>
                                         <td class="text-right">
@@ -113,7 +113,7 @@ watch(
                                 </thead>
                                 <tbody>
                                     <tr v-for="row in connections.incoming" :key="row.id">
-                                        <td class="text-medium-emphasis">{{ row.requester_id }}</td>
+                                        <td class="text-medium-emphasis">{{ connections.userLabel(row.requester_id) }}</td>
                                         <td class="text-right">
                                             <v-btn size="small" color="primary"
                                                 @click="connections.acceptRequest(row.id)">
@@ -141,7 +141,7 @@ watch(
                                 </thead>
                                 <tbody>
                                     <tr v-for="row in connections.outgoing" :key="row.id">
-                                        <td class="text-medium-emphasis">{{ row.addressee_id }}</td>
+                                        <td class="text-medium-emphasis">{{ connections.userLabel(row.addressee_id) }}</td>
                                         <td class="text-right">
                                             <v-btn size="small" variant="tonal"
                                                 @click="connections.removeConnection(row.id)">

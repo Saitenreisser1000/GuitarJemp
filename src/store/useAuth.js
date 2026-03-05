@@ -200,6 +200,48 @@ export const useAuthStore = defineStore('auth', () => {
     recoveryMode.value = false
   }
 
+  async function updateProfile({ displayName, avatarUrl } = {}) {
+    error.value = null
+    if (!supabase || !user.value) {
+      error.value = new Error('Not signed in.')
+      return false
+    }
+
+    const nextDisplayName = String(displayName ?? '').trim()
+    const nextAvatarUrl = String(avatarUrl ?? '').trim()
+
+    const { data, error: authErr } = await supabase.auth.updateUser({
+      data: {
+        display_name: nextDisplayName || null,
+        avatar_url: nextAvatarUrl || null,
+      },
+    })
+
+    if (authErr) {
+      error.value = authErr
+      return false
+    }
+
+    if (data?.user && session.value) {
+      session.value = { ...session.value, user: data.user }
+    }
+
+    if (nextDisplayName) {
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ display_name: nextDisplayName })
+        .eq('id', user.value.id)
+
+      if (profileErr && !isMissingTableError(profileErr)) {
+        error.value = profileErr
+        return false
+      }
+    }
+
+    await fetchProfile()
+    return true
+  }
+
   return {
     session,
     user,
@@ -214,5 +256,6 @@ export const useAuthStore = defineStore('auth', () => {
     signOut,
     requestPasswordReset,
     updatePassword,
+    updateProfile,
   }
 })

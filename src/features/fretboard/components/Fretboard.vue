@@ -324,7 +324,6 @@ import {
   FRETBOARD_DIMENSIONS,
   FRETBOARD_LAYOUT_BREAKPOINTS,
   FRETBOARD_PANE_CONSTRAINTS,
-  FRETBOARD_LAYOUT_PRESETS,
   FRETBOARD_UI_TOKENS,
 } from '@/features/fretboard/config/fretboardLayout'
 import {
@@ -351,7 +350,6 @@ const props = defineProps({
   editable: { type: Boolean, default: false },
   coreResizePx: { type: Number, default: 0 },
   isPhoneView: { type: Boolean, default: false },
-  phoneAspectProfile: { type: String, default: 'auto' },
 })
 
 const FB_WIDTH = FRETBOARD_DIMENSIONS.width
@@ -1575,52 +1573,16 @@ const RAW_MIN_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.minHeightPerW
 const RAW_MAX_HEIGHT_PER_WIDTH = Number(FRETBOARD_PANE_CONSTRAINTS.maxHeightPerWidth) || (1 / 3)
 const MIN_HEIGHT_PER_WIDTH = Math.min(RAW_MIN_HEIGHT_PER_WIDTH, RAW_MAX_HEIGHT_PER_WIDTH)
 const MAX_HEIGHT_PER_WIDTH = Math.max(RAW_MIN_HEIGHT_PER_WIDTH, RAW_MAX_HEIGHT_PER_WIDTH)
+const DESKTOP_LAYOUT_PRESET = { uiScale: 1, sidePadLeft: 40, sidePadRight: 10 }
+const TABLET_LAYOUT_PRESET = { uiScale: 0.94, sidePadLeft: 28, sidePadRight: 10 }
+const MOBILE_LAYOUT_PRESET = { uiScale: 0.86, sidePadLeft: 16, sidePadRight: 8 }
 
 const fretboardLayoutPreset = computed(() => {
   const vw = Number(viewportWidthPx.value) || 0
-  if (props.isPhoneView) {
-    const mobilePreset = FRETBOARD_LAYOUT_PRESETS.mobile
-    const profiles = Array.isArray(mobilePreset?.phoneAspectProfiles)
-      ? mobilePreset.phoneAspectProfiles
-      : []
-    const w = Math.max(1, Number(viewportWidthPx.value) || 1)
-    const h = Math.max(1, Number(viewportHeightPx.value) || 1)
-    const aspect = Math.max(w, h) / Math.min(w, h)
-
-    const preferredLabel = String(props.phoneAspectProfile || 'auto')
-    let chosen = null
-
-    if (preferredLabel !== 'auto') {
-      chosen = profiles.find((p) => String(p?.label || '') === preferredLabel) || null
-    }
-
-    if (!chosen) {
-      let bestDelta = Infinity
-      for (const profile of profiles) {
-        const ratio = Number(profile?.ratio)
-        if (!(ratio > 0)) continue
-        const delta = Math.abs(ratio - aspect)
-        if (delta < bestDelta) {
-          bestDelta = delta
-          chosen = profile
-        }
-      }
-    }
-
-    if (!chosen) return mobilePreset
-    return {
-      ...mobilePreset,
-      ...chosen,
-      width: {
-        ...(mobilePreset.width || {}),
-        ...(chosen.width || {}),
-      },
-    }
-  }
-
-  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.mobileMax) return FRETBOARD_LAYOUT_PRESETS.mobile
-  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.tabletMax) return FRETBOARD_LAYOUT_PRESETS.tablet
-  return FRETBOARD_LAYOUT_PRESETS.desktop
+  if (props.isPhoneView) return MOBILE_LAYOUT_PRESET
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.mobileMax) return MOBILE_LAYOUT_PRESET
+  if (vw <= FRETBOARD_LAYOUT_BREAKPOINTS.tabletMax) return TABLET_LAYOUT_PRESET
+  return DESKTOP_LAYOUT_PRESET
 })
 
 const fretboardCssVars = computed(() => {

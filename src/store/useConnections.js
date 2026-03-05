@@ -7,6 +7,7 @@ export const useConnectionsStore = defineStore('connections', () => {
   const incoming = ref([])
   const outgoing = ref([])
   const accepted = ref([])
+  const profileNamesById = ref({})
 
   const searchResults = ref([])
   const loading = ref(false)
@@ -18,6 +19,12 @@ export const useConnectionsStore = defineStore('connections', () => {
 
   function clearError() {
     error.value = null
+  }
+
+  function userLabel(userId) {
+    const id = String(userId ?? '').trim()
+    if (!id) return 'Unknown user'
+    return String(profileNamesById.value[id] || id)
   }
 
   function normalizeRows(rows) {
@@ -90,7 +97,36 @@ export const useConnectionsStore = defineStore('connections', () => {
       return
     }
 
-    splitConnections(data)
+    const rows = normalizeRows(data)
+    splitConnections(rows)
+    await hydrateProfileNames(rows)
+  }
+
+  async function hydrateProfileNames(rows) {
+    if (!isSupabaseConfigured || !supabase) return
+    const ids = new Set()
+    for (const row of normalizeRows(rows)) {
+      const requesterId = String(row?.requester_id ?? '').trim()
+      const addresseeId = String(row?.addressee_id ?? '').trim()
+      if (requesterId) ids.add(requesterId)
+      if (addresseeId) ids.add(addresseeId)
+    }
+    if (!ids.size) return
+
+    const { data, error: err } = await supabase
+      .from('profile_directory')
+      .select('id, display_name')
+      .in('id', [...ids])
+
+    if (err) return
+
+    const next = { ...profileNamesById.value }
+    for (const row of normalizeRows(data)) {
+      const id = String(row?.id ?? '').trim()
+      if (!id) continue
+      next[id] = String(row?.display_name || id)
+    }
+    profileNamesById.value = next
   }
 
   async function searchProfiles(query) {
@@ -98,16 +134,21 @@ export const useConnectionsStore = defineStore('connections', () => {
     searchResults.value = []
 
     const q = String(query ?? '').trim()
-    if (q.length < 2) return
     if (!isSupabaseConfigured || !supabase) return
     if (!userId.value) return
 
     loading.value = true
-    const { data, error: err } = await supabase
+    let queryBuilder = supabase
       .from('profile_directory')
       .select('id, display_name, created_at')
-      .ilike('display_name', `%${q}%`)
+      .order('created_at', { ascending: false })
       .limit(20)
+
+    if (q.length >= 2) {
+      queryBuilder = queryBuilder.ilike('display_name', `%${q}%`)
+    }
+
+    const { data, error: err } = await queryBuilder
 
     loading.value = false
 
@@ -209,6 +250,8 @@ export const useConnectionsStore = defineStore('connections', () => {
     searchResults,
     loading,
     error,
+    profileNamesById,
+    userLabel,
     refresh,
     searchProfiles,
     sendRequest,

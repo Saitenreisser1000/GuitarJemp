@@ -5,7 +5,7 @@ import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
 import FretboardContextMenu from '@/features/fretboard/components/FretboardContextMenu.vue'
-import { AuthDialog, ConnectionsDialog, LibraryPanel } from '@/features/cloud'
+import { AuthDialog, ConnectionsDialog, LibraryPanel, DashboardDetailPanel, UserDashboardMain } from '@/features/cloud'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
 import { useNotesStore } from '@/store/useNotes'
@@ -14,10 +14,16 @@ import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useTransportStore } from '@/store/useTransport'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useLibraryStore } from '@/store/useLibrary'
+import { useConnectionsStore } from '@/store/useConnections'
+import { useShareContactsStore } from '@/store/useShareContacts'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
+import { buildExchangeClip } from '@/domain/exchange/clipExchange'
+import { toMusicXml } from '@/domain/exchange/musicxml'
+import { toMidiBytes } from '@/domain/exchange/midi'
+import { toPdfBytes } from '@/domain/exchange/pdf'
+import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
-import { FRETBOARD_LAYOUT_PRESETS } from '@/features/fretboard/config/fretboardLayout'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
 import { useI18n } from '@/i18n'
 import { useTheme } from 'vuetify'
@@ -34,6 +40,8 @@ const showTimeline = ref(true)
 const showTransportBar = ref(true)
 const showLibraryInPaneB = ref(false)
 const sidebarVisible = ref(true)
+const mainView = ref('workspace')
+const dashboardPanel = ref('library')
 const viewMode = ref('desktop')
 const phonePane = ref('fretboard')
 const isPortraitViewport = ref(false)
@@ -57,10 +65,9 @@ const saveAsNewCategory = ref('')
 const saveAsNewBusy = ref(false)
 const saveBusy = ref(false)
 const preferencesOpen = ref(false)
+const profileSaveBusy = ref(false)
 const songName = ref('')
-const phoneAspectProfile = ref('auto')
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
-const PHONE_ASPECT_STORAGE_KEY = 'guitarjemp.ui.phoneAspect'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -70,12 +77,44 @@ const handPositions = useHandPositionsStore()
 const transport = useTransportStore()
 const timelineSettings = useTimelineSettingsStore()
 const library = useLibraryStore()
+const connections = useConnectionsStore()
+const shareContacts = useShareContactsStore()
 const harmony = useHarmonyMenuStore()
 const theme = useTheme()
 const { locale, languages, setLocale } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
+const currentUserDisplayName = computed(
+  () =>
+    String(
+      auth.profile?.display_name ||
+      auth.user?.user_metadata?.display_name ||
+      auth.user?.email ||
+      'User',
+    ),
+)
+const currentUserAvatarUrl = computed(() => {
+  const direct = String(auth.user?.user_metadata?.avatar_url || '').trim()
+  if (direct) return direct
+  const name = encodeURIComponent(currentUserDisplayName.value)
+  return `https://ui-avatars.com/api/?name=${name}&background=1f2937&color=ffffff&size=64&bold=true`
+})
+const shareContactsForMenu = computed(() =>
+  (shareContacts.contacts || []).map((c) => {
+    const name = String(c?.name || '').trim()
+    const email = String(c?.email || '').trim()
+    const whatsapp = String(c?.whatsapp || '').trim()
+    return {
+      id: String(c?.id || `${name}-${email}-${whatsapp}`),
+      name: name || 'Unbenannter Kontakt',
+      email,
+      whatsapp,
+      hasEmail: Boolean(email),
+      hasWhatsApp: Boolean(whatsapp),
+    }
+  }),
+)
 const canSaveAsNew = computed(() => hasNotes.value)
 const canOverwriteCurrentLibraryItem = computed(() => {
   const currentId = String(library.currentItem?.id ?? '').trim()
@@ -103,25 +142,10 @@ const preferenceIntervalsOnDots = computed({
   set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
 })
 const languageItems = computed(() => languages.map((l) => ({ title: l.label, value: l.code })))
-const phoneAspectItems = computed(() => {
-  const profiles = Array.isArray(FRETBOARD_LAYOUT_PRESETS.mobile?.phoneAspectProfiles)
-    ? FRETBOARD_LAYOUT_PRESETS.mobile.phoneAspectProfiles
-    : []
-  return [{ title: 'Auto', value: 'auto' }, ...profiles.map((p) => ({ title: p.label, value: p.label }))]
-})
 const preferenceLanguage = computed({
   get: () => String(locale.value || 'en'),
   set: (v) => {
     void setLocale(String(v || 'en'))
-  },
-})
-const preferencePhoneAspect = computed({
-  get: () => String(phoneAspectProfile.value || 'auto'),
-  set: (v) => {
-    const next = String(v || 'auto')
-    const allowed = new Set(phoneAspectItems.value.map((i) => String(i.value)))
-    phoneAspectProfile.value = allowed.has(next) ? next : 'auto'
-    localStorage.setItem(PHONE_ASPECT_STORAGE_KEY, phoneAspectProfile.value)
   },
 })
 const isPhoneView = computed(() => viewMode.value === 'phone')
@@ -217,12 +241,148 @@ async function saveCurrentSong() {
   }
 }
 
+function normalizeDashboardPanel(panel) {
+  const allowed = new Set(['library', 'profile', 'categories', 'connections', 'share'])
+  const next = String(panel || 'library')
+  return allowed.has(next) ? next : 'library'
+}
+
+async function openDashboard(initialPanel = 'library') {
+  if (auth.isSignedIn) {
+    await Promise.all([library.refresh(), connections.refresh()])
+  }
+  dashboardPanel.value = normalizeDashboardPanel(initialPanel)
+  mainView.value = 'dashboard'
+}
+
+function closeDashboard() {
+  mainView.value = 'workspace'
+}
+
+function selectDashboardPanel(panel) {
+  dashboardPanel.value = normalizeDashboardPanel(panel)
+}
+
+async function openShareManager() {
+  await openDashboard('share')
+}
+
+function getShareUrl() {
+  if (typeof window === 'undefined') return 'https://saitenreisser1000.github.io/GuitarJemp/'
+  return window.location.href
+}
+
+function normalizeWhatsappNumber(raw) {
+  const source = String(raw || '').trim()
+  if (!source) return ''
+  const plus = source.startsWith('+') ? '+' : ''
+  const digits = source.replace(/[^\d]/g, '')
+  if (!digits) return ''
+  return `${plus}${digits}`
+}
+
+function buildShareMessage(name) {
+  const safeName = String(name || 'there').trim() || 'there'
+  return `Hi ${safeName}, check this GuitarJemp page: ${getShareUrl()}`
+}
+
+function shareByMail(contact) {
+  const email = String(contact?.email || '').trim()
+  if (!email) return
+  const subject = encodeURIComponent('GuitarJemp Link')
+  const body = encodeURIComponent(buildShareMessage(contact?.name))
+  const href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`
+  if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener')
+}
+
+function shareByWhatsApp(contact) {
+  const number = normalizeWhatsappNumber(contact?.whatsapp)
+  if (!number) return
+  const text = encodeURIComponent(buildShareMessage(contact?.name))
+  const target = number.startsWith('+') ? number.slice(1) : number
+  const href = `https://wa.me/${target}?text=${text}`
+  if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener')
+}
+
+function shareContact(contact, mode) {
+  const nextMode = String(mode || '')
+  if (nextMode === 'email') {
+    shareByMail(contact)
+    return
+  }
+  if (nextMode === 'whatsapp') {
+    shareByWhatsApp(contact)
+    return
+  }
+  if (nextMode === 'both') {
+    shareByMail(contact)
+    setTimeout(() => shareByWhatsApp(contact), 180)
+  }
+}
+
+async function saveDashboardProfile(payload) {
+  if (profileSaveBusy.value) return
+  profileSaveBusy.value = true
+  const ok = await auth.updateProfile(payload || {})
+  profileSaveBusy.value = false
+  if (!ok) {
+    const msg = String(auth.error?.message ?? auth.error ?? 'Profile save failed')
+    window.alert(msg)
+    return
+  }
+  if (auth.isSignedIn) {
+    await Promise.all([library.refresh(), connections.refresh()])
+  }
+}
+
 function triggerUndo() {
   timelineUndoTick.value += 1
 }
 
 function triggerRedo() {
   timelineRedoTick.value += 1
+}
+
+function exportBaseName() {
+  const raw = String(songName.value || 'guitarjemp-export').trim()
+  const normalized = raw
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return normalized || 'guitarjemp-export'
+}
+
+function buildCurrentExportClip() {
+  return buildExchangeClip({
+    notes: notes.activeNotes,
+    instrument,
+    transport,
+    settings: timelineSettings,
+  })
+}
+
+function exportMusicXml() {
+  const clip = buildCurrentExportClip()
+  const xml = toMusicXml(clip, { title: exportBaseName() })
+  downloadTextFile(`${exportBaseName()}.musicxml`, xml, 'application/vnd.recordare.musicxml+xml;charset=utf-8')
+}
+
+function exportMidi() {
+  const clip = buildCurrentExportClip()
+  const bytes = toMidiBytes(clip)
+  downloadBinaryFile(`${exportBaseName()}.mid`, bytes, 'audio/midi')
+}
+
+function exportPdf() {
+  const clip = buildCurrentExportClip()
+  const keySignature = String(harmony.scaleRoot || harmony.chordRoot || newSongKey.value || 'C').toUpperCase()
+  const bytes = toPdfBytes(clip, {
+    title: String(songName.value || exportBaseName()),
+    keySignature,
+    fretCount: Number(numFrets.value) || 12,
+  })
+  downloadBinaryFile(`${exportBaseName()}.pdf`, bytes, 'application/pdf')
 }
 
 async function saveAsNewToCloud() {
@@ -371,11 +531,6 @@ onMounted(async () => {
   if (storedTheme === 'guitarjemp' || storedTheme === 'guitarjempDark') {
     applyTheme(storedTheme)
   }
-  const storedPhoneAspect = String(localStorage.getItem(PHONE_ASPECT_STORAGE_KEY) || '').trim()
-  const allowedPhoneAspects = new Set(phoneAspectItems.value.map((i) => String(i.value)))
-  if (allowedPhoneAspects.has(storedPhoneAspect)) {
-    phoneAspectProfile.value = storedPhoneAspect
-  }
   applyConfiguredDefaultTimelineLength()
   corePadResizePx.value = 0
 })
@@ -438,6 +593,13 @@ onBeforeUnmount(() => {
           <v-list-subheader>Song</v-list-subheader>
           <v-list-item title="Song Settings" @click="openSongSettingsDialog" />
           <v-divider class="my-1" />
+          <v-list-subheader>Account</v-list-subheader>
+          <v-list-item
+            prepend-icon="mdi-view-dashboard-outline"
+            title="Dashboard"
+            @click="openDashboard"
+          />
+          <v-divider class="my-1" />
           <v-list-subheader>View</v-list-subheader>
           <v-list-item title="Desktop" @click="viewMode = 'desktop'" />
           <v-list-item title="Phone" @click="viewMode = 'phone'" />
@@ -455,9 +617,9 @@ onBeforeUnmount(() => {
             <v-list-item title="Save As New" @click="openSaveAsNew" />
             <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
             <v-divider class="my-1" />
-            <v-list-item title="Export MusicXML" />
-          <v-list-item title="Export MIDI" />
-          <v-list-item title="Export PDF" />
+            <v-list-item title="Export MusicXML" :disabled="!hasNotes" @click="exportMusicXml" />
+          <v-list-item title="Export MIDI" :disabled="!hasNotes" @click="exportMidi" />
+          <v-list-item title="Export PDF" :disabled="!hasNotes" @click="exportPdf" />
           <v-divider class="my-1" />
           <v-list-item title="Import (Replace)" />
           <v-list-item title="Import (Append)" />
@@ -516,10 +678,80 @@ onBeforeUnmount(() => {
       >
         Toolbar
       </v-btn>
+      <v-btn
+        variant="text"
+        size="small"
+        class="app-menu-btn"
+        :active="mainView === 'dashboard'"
+        @click="mainView === 'dashboard' ? closeDashboard() : openDashboard()"
+      >
+        Dashboard
+      </v-btn>
+      <v-menu v-if="mainView !== 'dashboard'" location="bottom start">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Share</v-btn>
+        </template>
+        <v-list density="compact" min-width="220">
+          <v-list-item
+            prepend-icon="mdi-account-edit-outline"
+            title="Kontakte verwalten"
+            @click="openShareManager"
+          />
+          <v-divider class="my-1" />
+          <v-list-subheader>Kontakte</v-list-subheader>
+          <v-list-group v-for="contact in shareContactsForMenu" :key="contact.id" :value="contact.id">
+            <template #activator="{ props: groupProps }">
+              <v-list-item
+                v-bind="groupProps"
+                :title="contact.name"
+                prepend-icon="mdi-account"
+              >
+                <template #append>
+                  <div class="d-inline-flex align-center ga-1">
+                    <v-icon v-if="contact.hasEmail" size="16" icon="mdi-email-outline" />
+                    <v-icon v-if="contact.hasWhatsApp" size="16" icon="mdi-whatsapp" />
+                  </div>
+                </template>
+              </v-list-item>
+            </template>
+            <v-list-item
+              v-if="contact.hasEmail"
+              title="Per Mail senden"
+              prepend-icon="mdi-email-outline"
+              @click="shareContact(contact, 'email')"
+            />
+            <v-list-item
+              v-if="contact.hasWhatsApp"
+              title="Per WhatsApp senden"
+              prepend-icon="mdi-whatsapp"
+              @click="shareContact(contact, 'whatsapp')"
+            />
+            <v-list-item
+              v-if="contact.hasEmail && contact.hasWhatsApp"
+              title="Per Mail + WhatsApp senden"
+              prepend-icon="mdi-send-circle-outline"
+              @click="shareContact(contact, 'both')"
+            />
+            <v-list-item
+              v-if="!contact.hasEmail && !contact.hasWhatsApp"
+              title="Keine Mail/WhatsApp hinterlegt"
+              prepend-icon="mdi-alert-circle-outline"
+              disabled
+            />
+          </v-list-group>
+          <v-list-item v-if="shareContactsForMenu.length === 0" title="Keine Kontakte" />
+        </v-list>
+      </v-menu>
 
       <div class="app-menu-right">
-        <v-chip v-if="auth.isSignedIn && !isPhoneView" size="small" color="success" variant="tonal">
-          {{ auth.profile?.display_name || auth.user?.user_metadata?.display_name || 'User' }}
+        <v-chip
+          v-if="auth.isSignedIn && !isPhoneView"
+          size="small"
+          color="success"
+          variant="tonal"
+          :prepend-avatar="currentUserAvatarUrl"
+        >
+          {{ currentUserDisplayName }}
         </v-chip>
         <v-menu v-if="isCompactView && !isWatchView" location="bottom end" :close-on-content-click="false">
           <template #activator="{ props: menuProps }">
@@ -565,24 +797,58 @@ onBeforeUnmount(() => {
               :disabled="!auth.isSignedIn"
               @click="connectionsOpen = true"
             />
+            <v-list-item
+              prepend-icon="mdi-view-dashboard-outline"
+              title="Dashboard"
+              @click="openDashboard"
+            />
           </v-list>
         </v-menu>
       </div>
 
-      <div v-if="!isPhoneView" class="app-menu-center">
-        <v-text-field
-          v-model="songName"
-          density="compact"
-          variant="outlined"
-          hide-details
-          class="app-menu-name-input"
-          placeholder="Name"
-        />
-      </div>
     </div>
 
-    <main v-if="!showPhoneRotateOverlay" class="app-content">
-      <LayoutManager class="app-window-manager">
+    <main v-if="!showPhoneRotateOverlay || mainView === 'dashboard'" class="app-content">
+      <div v-if="mainView === 'dashboard'" class="app-dashboard-main">
+        <UserDashboardMain
+          :signed-in="auth.isSignedIn"
+          :user="auth.user"
+          :profile="auth.profile"
+          :instrument-type="instrument.instrumentType"
+          :library-items="library.items"
+          :accepted-count="connections.accepted.length"
+          :incoming-count="connections.incoming.length"
+          :outgoing-count="connections.outgoing.length"
+          :share-count="shareContacts.contacts.length"
+          :song-name="songName"
+          :active-panel="dashboardPanel"
+          @open-auth="authOpen = true"
+          @open-connections="connectionsOpen = true"
+          @open-preferences="preferencesOpen = true"
+          @select-panel="selectDashboardPanel"
+          @close-dashboard="closeDashboard"
+        />
+        <div class="app-dashboard-right">
+          <LibraryPanel v-if="dashboardPanel === 'library'" />
+          <DashboardDetailPanel
+            v-else
+            :panel="dashboardPanel"
+            :signed-in="auth.isSignedIn"
+            :user="auth.user"
+            :profile="auth.profile"
+            :instrument-type="instrument.instrumentType"
+            :library-items="library.items"
+            :accepted="connections.accepted"
+            :incoming="connections.incoming"
+            :outgoing="connections.outgoing"
+            :user-label-fn="connections.userLabel"
+            :profile-saving="profileSaveBusy"
+            @open-auth="authOpen = true"
+            @save-profile="saveDashboardProfile"
+          />
+        </div>
+      </div>
+      <LayoutManager v-else class="app-window-manager">
         <template #pane-a>
           <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
             <Fretboard
@@ -590,7 +856,6 @@ onBeforeUnmount(() => {
               :editable="true"
               :core-resize-px="corePadResizePx"
               :is-phone-view="false"
-              :phone-aspect-profile="phoneAspectProfile"
               :style="fretboardStyleVars"
             />
           </div>
@@ -600,7 +865,6 @@ onBeforeUnmount(() => {
               :editable="!isWatchView"
               :core-resize-px="corePadResizePx"
               :is-phone-view="isPhoneView"
-              :phone-aspect-profile="phoneAspectProfile"
               :style="fretboardStyleVars"
             />
           </div>
@@ -638,7 +902,7 @@ onBeforeUnmount(() => {
         <div class="app-phone-rotate-text">Bitte Gerät drehen, um den Phone-View zu nutzen.</div>
       </div>
     </main>
-    <TransportBar v-if="showTransportBar" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
+    <TransportBar v-if="showTransportBar && mainView !== 'dashboard'" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
       :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
       :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
       :shuffle-enabled="timelineSettings.shuffleEnabled"
@@ -857,13 +1121,6 @@ onBeforeUnmount(() => {
             density="compact"
             variant="outlined"
           />
-          <v-select
-            v-model="preferencePhoneAspect"
-            :items="phoneAspectItems"
-            label="Phone aspect ratio"
-            density="compact"
-            variant="outlined"
-          />
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn variant="text" @click="preferencesOpen = false">Close</v-btn>
@@ -916,15 +1173,6 @@ onBeforeUnmount(() => {
   border-right: 1px solid rgb(255 255 255 / 18%);
 }
 
-.app-menu-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(360px, 40vw);
-  pointer-events: none;
-}
-
 .app-menu-right {
   margin-left: auto;
   display: inline-flex;
@@ -942,24 +1190,6 @@ onBeforeUnmount(() => {
   max-height: min(60vh, 420px);
   overflow: auto;
   padding: 8px;
-}
-
-.app-menu-name-input {
-  pointer-events: auto;
-}
-
-.app-menu-name-input :deep(.v-field) {
-  background: rgb(255 255 255 / 92%);
-  min-height: 24px;
-  height: 24px;
-}
-
-.app-menu-name-input :deep(.v-field__input) {
-  min-height: 24px;
-  height: 24px;
-  padding-top: 0;
-  padding-bottom: 0;
-  font-size: 12px;
 }
 
 .app-menu-btn {
@@ -988,6 +1218,20 @@ onBeforeUnmount(() => {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.app-dashboard-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-dashboard-right {
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid #d6d6d6;
+  overflow: hidden;
 }
 
 .app-window-manager {
@@ -1063,8 +1307,16 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.app-layout.is-compact-view .app-menu-center {
-  width: min(240px, 56vw);
+@media (max-width: 900px) {
+  .app-dashboard-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .app-dashboard-right {
+    border-left: 0;
+    border-top: 1px solid #d6d6d6;
+  }
 }
 
 .app-phone-rotate-lock {
