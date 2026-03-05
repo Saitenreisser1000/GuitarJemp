@@ -268,17 +268,31 @@ async function openShareManager() {
 }
 
 function getShareUrl() {
-  if (typeof window === 'undefined') return 'https://saitenreisser1000.github.io/GuitarJemp/'
-  return window.location.href
+  const fallback = 'https://saitenreisser1000.github.io/GuitarJemp/'
+  if (typeof window === 'undefined') return fallback
+  const href = String(window.location.href || '').trim()
+  const host = String(window.location.hostname || '').toLowerCase()
+  if (!href) return fallback
+  if (host === 'localhost' || host === '127.0.0.1') return fallback
+  return href
 }
 
 function normalizeWhatsappNumber(raw) {
   const source = String(raw || '').trim()
   if (!source) return ''
-  const plus = source.startsWith('+') ? '+' : ''
-  const digits = source.replace(/[^\d]/g, '')
+  const normalized = source.replace(/[\s\-().]/g, '')
+  let digits = normalized
+
+  if (digits.startsWith('+')) digits = digits.slice(1)
+  else if (digits.startsWith('00')) digits = digits.slice(2)
+
+  digits = digits.replace(/[^\d]/g, '')
   if (!digits) return ''
-  return `${plus}${digits}`
+
+  // wa.me requires international format without leading + or local trunk "0".
+  if (digits.startsWith('0')) return ''
+  if (digits.length < 7) return ''
+  return digits
 }
 
 function buildShareMessage(name) {
@@ -292,16 +306,25 @@ function shareByMail(contact) {
   const subject = encodeURIComponent('GuitarJemp Link')
   const body = encodeURIComponent(buildShareMessage(contact?.name))
   const href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`
-  if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener')
+  if (typeof window === 'undefined') return
+  const opened = window.open(href, '_blank', 'noopener')
+  if (!opened) window.location.assign(href)
 }
 
 function shareByWhatsApp(contact) {
   const number = normalizeWhatsappNumber(contact?.whatsapp)
-  if (!number) return
+  if (!number) {
+    window.alert('Bitte WhatsApp-Nummer im internationalen Format eintragen (z. B. +43664...).')
+    return
+  }
   const text = encodeURIComponent(buildShareMessage(contact?.name))
-  const target = number.startsWith('+') ? number.slice(1) : number
-  const href = `https://wa.me/${target}?text=${text}`
-  if (typeof window !== 'undefined') window.open(href, '_blank', 'noopener')
+  const hrefPrimary = `https://wa.me/${number}?text=${text}`
+  const hrefFallback = `https://web.whatsapp.com/send?phone=${number}&text=${text}`
+  if (typeof window === 'undefined') return
+  const opened = window.open(hrefPrimary, '_blank', 'noopener')
+  if (opened) return
+  const openedFallback = window.open(hrefFallback, '_blank', 'noopener')
+  if (!openedFallback) window.location.assign(hrefFallback)
 }
 
 function shareContact(contact, mode) {
