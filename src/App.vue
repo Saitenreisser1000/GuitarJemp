@@ -192,8 +192,12 @@ const effectiveIsPortrait = computed(() => {
 })
 const showPhoneRotateOverlay = computed(() => isCompactView.value && effectiveIsPortrait.value)
 const appLayoutStyle = computed(() => ({
-  '--app-vh': `${Math.max(0.01, Number(effectiveViewportHeightPx.value) / 100 || 1)}px`,
-  '--app-debug-width': `${Math.max(320, Number(effectiveViewportWidthPx.value) || 1280)}px`,
+  '--app-vh': debugViewportFrameActive.value
+    ? `${Math.max(0.01, Number(effectiveViewportHeightPx.value) / 100 || 1)}px`
+    : null,
+  '--app-debug-width': debugViewportFrameActive.value
+    ? `${Math.max(320, Number(effectiveViewportWidthPx.value) || 1280)}px`
+    : null,
   '--app-safe-bottom': 'env(safe-area-inset-bottom, 0px)',
 }))
 
@@ -1296,7 +1300,7 @@ onBeforeUnmount(() => {
   height: 100vh;
   height: 100dvh;
   min-height: 100svh;
-  height: calc(var(--app-vh, 1vh) * 100);
+  height: calc(var(--app-vh, 1dvh) * 100);
   width: 100%;
   padding-bottom: var(--app-safe-bottom);
   box-sizing: border-box;
