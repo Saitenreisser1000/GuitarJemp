@@ -45,6 +45,11 @@ const dashboardPanel = ref('library')
 const viewMode = ref('desktop')
 const phonePane = ref('fretboard')
 const isPortraitViewport = ref(false)
+const viewportHeightUnitPx = ref(1)
+const debugViewportOpen = ref(false)
+const debugViewportPreset = ref('off')
+const debugViewportWidthPx = ref(null)
+const debugViewportHeightPx = ref(null)
 const authOpen = ref(false)
 const connectionsOpen = ref(false)
 const newSongOpen = ref(false)
@@ -149,11 +154,48 @@ const preferenceLanguage = computed({
     void setLocale(String(v || 'en'))
   },
 })
-const isPhoneView = computed(() => viewMode.value === 'phone')
-const isWatchView = computed(() => viewMode.value === 'watch')
-const isCompactView = computed(() => isPhoneView.value || isWatchView.value)
-const showPhoneRotateOverlay = computed(() => isCompactView.value && isPortraitViewport.value)
 const PHONE_VIEW_BREAKPOINT_PX = 860
+const isDevMode = computed(() => Boolean(import.meta.env.DEV))
+const VIEWPORT_DEBUG_PRESETS = [
+  { key: 'off', label: 'Off', widthPx: null, heightPx: null },
+  { key: 'iphone-se', label: 'iPhone SE (667x375)', widthPx: 667, heightPx: 375 },
+  { key: 'iphone-14-pro', label: 'iPhone 14 Pro (852x393)', widthPx: 852, heightPx: 393 },
+  { key: 'pixel-7', label: 'Pixel 7 (915x412)', widthPx: 915, heightPx: 412 },
+  { key: 'galaxy-s20', label: 'Galaxy S20 (800x360)', widthPx: 800, heightPx: 360 },
+]
+const debugViewportFrameActive = computed(
+  () => isDevMode.value && String(debugViewportPreset.value || 'off') !== 'off',
+)
+const effectiveViewportHeightPx = computed(() => {
+  const debugHeight = Number(debugViewportHeightPx.value)
+  if (Number.isFinite(debugHeight) && debugHeight > 0) return debugHeight
+  return (Number(viewportHeightUnitPx.value) || 1) * 100
+})
+const effectiveViewportWidthPx = computed(() => {
+  const debugWidth = Number(debugViewportWidthPx.value)
+  if (Number.isFinite(debugWidth) && debugWidth > 0) return debugWidth
+  if (typeof window === 'undefined') return 1280
+  return Number(window.innerWidth) || 1280
+})
+const effectiveViewMode = computed(() => {
+  if (debugViewportFrameActive.value) return 'phone'
+  return String(viewMode.value || 'desktop')
+})
+const isPhoneView = computed(() => effectiveViewMode.value === 'phone')
+const isWatchView = computed(() => effectiveViewMode.value === 'watch')
+const isCompactView = computed(() => isPhoneView.value || isWatchView.value)
+const effectiveIsPortrait = computed(() => {
+  if (debugViewportFrameActive.value) {
+    return Number(effectiveViewportHeightPx.value) > Number(effectiveViewportWidthPx.value)
+  }
+  return Boolean(isPortraitViewport.value)
+})
+const showPhoneRotateOverlay = computed(() => isCompactView.value && effectiveIsPortrait.value)
+const appLayoutStyle = computed(() => ({
+  '--app-vh': `${Math.max(0.01, Number(effectiveViewportHeightPx.value) / 100 || 1)}px`,
+  '--app-debug-width': `${Math.max(320, Number(effectiveViewportWidthPx.value) || 1280)}px`,
+  '--app-safe-bottom': 'env(safe-area-inset-bottom, 0px)',
+}))
 
 function applyTheme(name) {
   const next = name === 'guitarjempDark' ? 'guitarjempDark' : 'guitarjemp'
@@ -164,6 +206,22 @@ function applyTheme(name) {
 function updateViewportOrientationFlag() {
   if (typeof window === 'undefined') return
   isPortraitViewport.value = window.innerHeight > window.innerWidth
+}
+
+function updateViewportHeightUnit() {
+  if (typeof window === 'undefined') return
+  const vv = window.visualViewport
+  const height = Number(vv?.height) || Number(window.innerHeight)
+  if (!Number.isFinite(height) || height <= 0) return
+  viewportHeightUnitPx.value = height / 100
+}
+
+function applyViewportDebugPreset(presetKey) {
+  const key = String(presetKey || 'off')
+  const preset = VIEWPORT_DEBUG_PRESETS.find((p) => p.key === key) || VIEWPORT_DEBUG_PRESETS[0]
+  debugViewportPreset.value = preset.key
+  debugViewportWidthPx.value = Number.isFinite(preset.widthPx) ? Number(preset.widthPx) : null
+  debugViewportHeightPx.value = Number.isFinite(preset.heightPx) ? Number(preset.heightPx) : null
 }
 
 function shouldDefaultToPhoneView() {
@@ -552,7 +610,12 @@ onMounted(async () => {
   if (viewMode.value === 'desktop' && shouldDefaultToPhoneView()) {
     viewMode.value = 'phone'
   }
+  updateViewportHeightUnit()
   updateViewportOrientationFlag()
+  window.visualViewport?.addEventListener?.('resize', updateViewportHeightUnit)
+  window.visualViewport?.addEventListener?.('scroll', updateViewportHeightUnit)
+  window.addEventListener('resize', updateViewportHeightUnit)
+  window.addEventListener('orientationchange', updateViewportHeightUnit)
   window.addEventListener('resize', updateViewportOrientationFlag)
   window.addEventListener('orientationchange', updateViewportOrientationFlag)
   installAudioAutoWarmup({ instrumentType: instrument.instrumentType })
@@ -576,6 +639,10 @@ watch(isCompactView, (compact) => {
 })
 
 onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener?.('resize', updateViewportHeightUnit)
+  window.visualViewport?.removeEventListener?.('scroll', updateViewportHeightUnit)
+  window.removeEventListener('resize', updateViewportHeightUnit)
+  window.removeEventListener('orientationchange', updateViewportHeightUnit)
   window.removeEventListener('resize', updateViewportOrientationFlag)
   window.removeEventListener('orientationchange', updateViewportOrientationFlag)
 })
@@ -584,11 +651,13 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="app-layout"
+    :style="appLayoutStyle"
     :class="{
       'is-phone-view': isPhoneView,
       'is-watch-view': isWatchView,
       'is-compact-view': isCompactView,
       'is-sidebar-hidden': !sidebarVisible,
+      'is-debug-viewport': debugViewportFrameActive,
     }"
   >
     <AuthDialog v-model="authOpen" />
@@ -938,24 +1007,26 @@ onBeforeUnmount(() => {
         <div class="app-phone-rotate-text">Bitte Gerät drehen, um den Phone-View zu nutzen.</div>
       </div>
     </main>
-    <TransportBar v-if="showTransportBar && mainView !== 'dashboard'" :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
-      :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
-      :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
-      :shuffle-enabled="timelineSettings.shuffleEnabled"
-      :instrument-type="instrument.instrumentType"
-      :is-phone-view="isCompactView"
-      :phone-pane="phonePane"
-      :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
-      :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
-      :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
-      :practice-hint-text="timelinePracticeHintText" :practice-match-state="timelinePracticeMatchState"
-      :record-active="timelineRecordActive" @toggle-play="timelineTogglePlay" @seek-start="timelineSeekStart"
-      @seek-playhead="timelineSeekPlayhead" @update-tempo="transport.setTempo"
-      @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
-      @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
-      @update-shuffle="timelineSettings.setShuffleEnabled"
-      @update-phone-pane="(v) => (phonePane = String(v || 'fretboard'))"
-      @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
+    <div v-if="showTransportBar && mainView !== 'dashboard'" class="app-transport-wrap">
+      <TransportBar :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
+        :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
+        :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
+        :shuffle-enabled="timelineSettings.shuffleEnabled"
+        :instrument-type="instrument.instrumentType"
+        :is-phone-view="isCompactView"
+        :phone-pane="phonePane"
+        :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
+        :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
+        :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
+        :practice-hint-text="timelinePracticeHintText" :practice-match-state="timelinePracticeMatchState"
+        :record-active="timelineRecordActive" @toggle-play="timelineTogglePlay" @seek-start="timelineSeekStart"
+        @seek-playhead="timelineSeekPlayhead" @update-tempo="transport.setTempo"
+        @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
+        @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
+        @update-shuffle="timelineSettings.setShuffleEnabled"
+        @update-phone-pane="(v) => (phonePane = String(v || 'fretboard'))"
+        @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
+    </div>
 
     <v-dialog v-model="saveAsNewOpen" max-width="520">
       <v-card rounded="lg">
@@ -1187,6 +1258,34 @@ onBeforeUnmount(() => {
     <footer class="app-footer">
       <span>GuitarJemp ©</span>
     </footer>
+
+    <div v-if="isDevMode" class="app-viewport-debug" :class="{ 'is-open': debugViewportOpen }">
+      <v-btn
+        size="x-small"
+        variant="tonal"
+        class="app-viewport-debug-toggle"
+        prepend-icon="mdi-cellphone-cog"
+        @click="debugViewportOpen = !debugViewportOpen"
+      >
+        Viewport
+      </v-btn>
+      <div v-if="debugViewportOpen" class="app-viewport-debug-panel">
+        <div class="app-viewport-debug-title">Device Landscape Preset</div>
+        <v-select
+          :model-value="debugViewportPreset"
+          :items="VIEWPORT_DEBUG_PRESETS.map((p) => ({ title: p.label, value: p.key }))"
+          density="compact"
+          hide-details
+          variant="outlined"
+          @update:model-value="(v) => applyViewportDebugPreset(v)"
+        />
+        <div class="app-viewport-debug-info">
+          <div>effective width: {{ Math.round(effectiveViewportWidthPx) }}px</div>
+          <div>effective: {{ Math.round(effectiveViewportHeightPx) }}px</div>
+          <div>live: {{ Math.round(viewportHeightUnitPx * 100) }}px</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1195,7 +1294,20 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  min-height: 100svh;
+  height: calc(var(--app-vh, 1vh) * 100);
   width: 100%;
+  padding-bottom: var(--app-safe-bottom);
+  box-sizing: border-box;
+}
+
+.app-layout.is-debug-viewport {
+  width: min(100%, var(--app-debug-width));
+  max-width: var(--app-debug-width);
+  margin: 0 auto;
+  outline: 1px dashed rgb(255 255 255 / 28%);
+  outline-offset: -1px;
 }
 
 .app-footer {
@@ -1278,6 +1390,13 @@ onBeforeUnmount(() => {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.app-transport-wrap {
+  flex: 0 0 auto;
+  min-height: 0;
+  width: 100%;
+  padding-bottom: 0;
 }
 
 .app-dashboard-main {
@@ -1371,6 +1490,19 @@ onBeforeUnmount(() => {
   flex-basis: 100% !important;
 }
 
+.app-layout.is-compact-view .app-footer {
+  display: none;
+}
+
+.app-layout.is-compact-view .app-menu-bar {
+  min-height: 38px;
+  padding: 4px 8px;
+}
+
+.app-layout.is-compact-view .app-transport-wrap {
+  padding-bottom: var(--app-safe-bottom);
+}
+
 .app-layout.is-sidebar-hidden :deep(.layout-manager) {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -1421,5 +1553,41 @@ onBeforeUnmount(() => {
 
 .flex-1-1 {
   flex: 1 1 0;
+}
+
+.app-viewport-debug {
+  position: fixed;
+  right: 12px;
+  bottom: calc(14px + var(--app-safe-bottom));
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.app-viewport-debug-toggle {
+  text-transform: none;
+}
+
+.app-viewport-debug-panel {
+  width: min(280px, 84vw);
+  padding: 8px;
+  border: 1px solid rgb(0 0 0 / 16%);
+  border-radius: 10px;
+  background: rgb(20 20 20 / 90%);
+  color: #f6f6f6;
+  backdrop-filter: blur(4px);
+}
+
+.app-viewport-debug-title {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.app-viewport-debug-info {
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.82;
 }
 </style>
