@@ -93,6 +93,14 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const showIntervalsOnDots = ref(
     typeof stored.showIntervalsOnDots === 'boolean' ? stored.showIntervalsOnDots : false,
   )
+  const idleDotConnectionsVisible = ref(
+    typeof stored.idleDotConnectionsVisible === 'boolean' ? stored.idleDotConnectionsVisible : true,
+  )
+  const idleDotConnectionsOpacity = ref(
+    Number.isFinite(stored.idleDotConnectionsOpacity)
+      ? Math.min(1, Math.max(0, Number(stored.idleDotConnectionsOpacity)))
+      : 0.12,
+  )
   const eraseMode = ref(typeof stored.eraseMode === 'boolean' ? stored.eraseMode : false)
 
   function setSelectedMode(m) {
@@ -225,6 +233,15 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showIntervalsOnDots.value = Boolean(v)
   }
 
+  function setIdleDotConnectionsVisible(v) {
+    idleDotConnectionsVisible.value = Boolean(v)
+  }
+
+  function setIdleDotConnectionsOpacity(v) {
+    const n = Number(v)
+    idleDotConnectionsOpacity.value = Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0.12
+  }
+
   function setSimGroupMode(v) {
     const raw = String(v || '')
     const next = raw === 'dot' ? 'dotted' : raw
@@ -263,6 +280,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    idleDotConnectionsVisible,
+    idleDotConnectionsOpacity,
     simGroupMode,
     eraseMode,
   })
@@ -295,6 +314,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    idleDotConnectionsVisible,
+    idleDotConnectionsOpacity,
     simGroupMode,
     eraseMode,
     setSelectedMode,
@@ -323,6 +344,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setHandPositionVisible,
     setShowSuggestedPosition,
     setShowIntervalsOnDots,
+    setIdleDotConnectionsVisible,
+    setIdleDotConnectionsOpacity,
     setSimGroupMode,
     setEraseMode,
   }

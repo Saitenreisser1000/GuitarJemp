@@ -121,6 +121,18 @@
                     :cy="toneDotY(d)" :rx="dotRx(harmonyGuideRadius(d))" :ry="harmonyGuideRadius(d)" :fill="harmonyGuideFill(d)"
                     :stroke="harmonyGuideStroke(d)" :stroke-width="harmonyGuideStrokeWidth(d)" />
                 </g>
+                <g v-if="idleConnectionSegments.length" class="fb-idle-dot-connections" style="pointer-events: none">
+                  <line
+                    v-for="seg in idleConnectionSegments"
+                    :key="`idle-${seg.fromKey}-${seg.toKey}`"
+                    :x1="seg.x1"
+                    :y1="seg.y1"
+                    :x2="seg.x2"
+                    :y2="seg.y2"
+                    :stroke="seg.color"
+                    :style="{ opacity: seg.opacity, strokeWidth: `${seg.strokeWidth}px` }"
+                  />
+                </g>
                 <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
                   <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
                     :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" :style="{
@@ -1202,6 +1214,53 @@ const directionPreviewSegments = computed(() => {
     })
   }
 
+  return out
+})
+
+const idleConnectionSegments = computed(() => {
+  if (isPlaying.value) return []
+  if (!settings.idleDotConnectionsVisible) return []
+  const opacity = Math.min(1, Math.max(0, Number(settings.idleDotConnectionsOpacity) || 0))
+  if (opacity <= 0) return []
+
+  const entries = timelineNoteEntries.value
+  if (entries.length < 2) return []
+
+  const out = []
+  for (let i = 1; i < entries.length; i += 1) {
+    const prev = entries[i - 1]
+    const curr = entries[i]
+    const fromKey = String(prev?.key || '')
+    const toKey = String(curr?.key || '')
+    if (!fromKey || !toKey) continue
+    if (fromKey === toKey) continue
+
+    const fromDot = renderedToneDotByNoteKey.value.get(fromKey)
+    const toDot = renderedToneDotByNoteKey.value.get(toKey)
+    const fromNote = noteByKey.value.get(fromKey)
+    const toNote = noteByKey.value.get(toKey)
+    if (!fromDot || !toDot || !fromNote || !toNote) continue
+
+    const sameString = Number(fromNote?.string) === Number(toNote?.string)
+    const sameFret = Number(fromNote?.fret) === Number(toNote?.fret)
+    if (sameString && sameFret) continue
+
+    const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
+    const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
+    const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
+
+    out.push({
+      fromKey,
+      toKey,
+      x1: toneDotX(fromDot),
+      y1: toneDotY(fromDot),
+      x2: toneDotX(toDot),
+      y2: toneDotY(toDot),
+      color: '#ffffff',
+      opacity,
+      strokeWidth: Math.min(3.2, 1 + absJump * 0.2),
+    })
+  }
   return out
 })
 

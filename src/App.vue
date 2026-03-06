@@ -115,6 +115,7 @@ const shareContactsForMenu = computed(() =>
     }
   }),
 )
+const paneBMenuToggleLabel = computed(() => (showLibraryInPaneB.value ? 'Timeline' : 'Library'))
 const canSaveAsNew = computed(() => hasNotes.value)
 const canOverwriteCurrentLibraryItem = computed(() => {
   const currentId = String(library.currentItem?.id ?? '').trim()
@@ -248,11 +249,16 @@ function normalizeDashboardPanel(panel) {
 }
 
 async function openDashboard(initialPanel = 'library') {
-  if (auth.isSignedIn) {
-    await Promise.all([library.refresh(), connections.refresh()])
-  }
   dashboardPanel.value = normalizeDashboardPanel(initialPanel)
   mainView.value = 'dashboard'
+
+  // Load cloud data in background so dashboard opens instantly.
+  if (!auth.isSignedIn) return
+  try {
+    await Promise.all([library.refresh(), connections.refresh()])
+  } catch (err) {
+    console.warn('Dashboard background refresh failed:', err)
+  }
 }
 
 function closeDashboard() {
@@ -263,8 +269,8 @@ function selectDashboardPanel(panel) {
   dashboardPanel.value = normalizeDashboardPanel(panel)
 }
 
-async function openShareManager() {
-  await openDashboard('share')
+function openShareManager() {
+  void openDashboard('share')
 }
 
 function getShareUrl() {
@@ -675,9 +681,6 @@ onBeforeUnmount(() => {
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">View</v-btn>
         </template>
         <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
-          <v-switch density="compact" hide-details inset :label="`Pane B: ${showLibraryInPaneB ? 'Library' : 'Timeline'}`"
-            :model-value="showLibraryInPaneB"
-            @update:model-value="(v) => (showLibraryInPaneB = Boolean(v))" />
           <div class="text-caption">Viewport</div>
           <v-btn-toggle
             :model-value="viewMode"
@@ -702,13 +705,13 @@ onBeforeUnmount(() => {
         Toolbar
       </v-btn>
       <v-btn
+        v-if="!isCompactView && mainView !== 'dashboard'"
         variant="text"
         size="small"
         class="app-menu-btn"
-        :active="mainView === 'dashboard'"
-        @click="mainView === 'dashboard' ? closeDashboard() : openDashboard()"
+        @click="showLibraryInPaneB = !showLibraryInPaneB"
       >
-        Dashboard
+        {{ paneBMenuToggleLabel }}
       </v-btn>
       <v-menu v-if="mainView !== 'dashboard'" location="bottom start">
         <template #activator="{ props: menuProps }">
@@ -773,6 +776,8 @@ onBeforeUnmount(() => {
           color="success"
           variant="tonal"
           :prepend-avatar="currentUserAvatarUrl"
+          class="app-user-chip"
+          @click="mainView === 'dashboard' ? closeDashboard() : openDashboard()"
         >
           {{ currentUserDisplayName }}
         </v-chip>
@@ -904,12 +909,20 @@ onBeforeUnmount(() => {
           <LibraryPanel v-else-if="isCompactView && phonePane === 'library'" />
         </template>
         <template #pane-b>
-          <LibraryPanel v-if="showLibraryInPaneB" />
-          <Timeline v-else-if="showTimeline" ref="timelineRef" :num-frets="numFrets" :library-panel-visible="false"
-            :transport-visible="transportVisible"
-            :external-undo-tick="timelineUndoTick"
-            :external-redo-tick="timelineRedoTick"
-            @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+          <div class="pane-b-stack">
+            <Timeline
+              v-if="showTimeline"
+              v-show="!showLibraryInPaneB"
+              ref="timelineRef"
+              :num-frets="numFrets"
+              :library-panel-visible="false"
+              :transport-visible="transportVisible"
+              :external-undo-tick="timelineUndoTick"
+              :external-redo-tick="timelineRedoTick"
+              @update-transport-visible="(v) => (transportVisible = Boolean(v))"
+            />
+            <LibraryPanel v-show="showLibraryInPaneB" />
+          </div>
         </template>
         <template #sidebar>
           <div class="app-sidebar-content">
@@ -1130,6 +1143,26 @@ onBeforeUnmount(() => {
             label="Intervals on dots"
           />
           <v-switch
+            :model-value="timelineSettings.idleDotConnectionsVisible"
+            density="compact"
+            hide-details
+            inset
+            label="Idle dot connections"
+            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsVisible(Boolean(v))"
+          />
+          <v-slider
+            :model-value="timelineSettings.idleDotConnectionsOpacity"
+            min="0"
+            max="1"
+            step="0.01"
+            thumb-label
+            hide-details
+            density="compact"
+            :disabled="!timelineSettings.idleDotConnectionsVisible"
+            label="Idle dot opacity"
+            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsOpacity(Number(v))"
+          />
+          <v-switch
             density="compact"
             hide-details
             inset
@@ -1209,6 +1242,10 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.app-user-chip {
+  cursor: pointer;
+}
+
 .app-phone-tools-menu {
   max-height: min(60vh, 420px);
   overflow: auto;
@@ -1285,6 +1322,18 @@ onBeforeUnmount(() => {
   margin-top: 0;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.pane-b-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.pane-b-stack > * {
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .fretboard-main {
