@@ -112,6 +112,7 @@ const playbackVisuals = usePlaybackVisualsStore()
 const selection = useSelectionStore()
 const handPositionsStore = useHandPositionsStore()
 const { t } = useI18n()
+const PLAYBACK_START_LEAD_IN_MS = 800
 
 const { tempo } = storeToRefs(transport)
 const { playheadMs } = storeToRefs(transport)
@@ -654,10 +655,11 @@ function togglePlay() {
   const countInMs = shouldCountIn
     ? Math.max(0, (60000 / tempoValue) * beatsPerBar)
     : 0
+  const startLeadInMs = shouldCountIn ? 0 : PLAYBACK_START_LEAD_IN_MS
   if (shouldCountIn) startCountInOverlay(tempoValue, beatsPerBar)
   else clearCountInOverlay()
 
-  playback.start(totalDuration.value, transport.tempo, { delayMs: countInMs })
+  playback.start(totalDuration.value, transport.tempo, { delayMs: countInMs + startLeadInMs })
 }
 
 function seekStart() {

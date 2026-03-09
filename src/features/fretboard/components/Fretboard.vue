@@ -137,7 +137,9 @@
                 <g v-if="playbackTravelLine" class="fb-playback-travel-line" style="pointer-events: none">
                   <line :x1="playbackTravelLine.x1" :y1="playbackTravelLine.y1" :x2="playbackTravelLine.x2"
                     :y2="playbackTravelLine.y2" :stroke="playbackTravelLine.color" :style="{
+                      opacity: playbackTravelLine.opacity,
                       strokeWidth: `${playbackTravelLine.strokeWidth}px`,
+                      strokeDasharray: playbackTravelLine.strokeDasharray,
                       filter: playbackTravelLine.filter,
                     }" />
                 </g>
@@ -401,6 +403,7 @@ const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showS
 const { placementArmed, textItems } = storeToRefs(overlay)
 const isPlaying = computed(() => playState.value === 'playing')
 const isLeftHanded = computed(() => Boolean(settings.leftHanded))
+const PLAYBACK_START_LEAD_IN_MS = 800
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
 const fretViewTo = ref(Math.max(0, Number(props.numFrets) || 12))
@@ -487,6 +490,7 @@ const pulseStartedAtByNoteKey = computed(() => {
 })
 
 const animNowMs = ref(0)
+const playbackLeadInStartedAtMs = ref(0)
 let rafId = null
 
 function startAnim() {
@@ -603,6 +607,24 @@ watch(
 // Playback DotQueue behavior:
 // - When a ToneDot starts playing, it becomes the queue front (center + top).
 // - When it stops being highlighted, it moves to the back.
+function toneDotColorKeyForNote(note) {
+  return String(note?.color ?? 'white')
+}
+
+function rotateColorGroupToFront(order, colorKey) {
+  const matching = []
+  const rest = []
+  for (const rawKey of Array.isArray(order) ? order : []) {
+    const key = String(rawKey ?? '')
+    if (!key) continue
+    const note = noteByKey.value.get(key)
+    if (toneDotColorKeyForNote(note) === colorKey) matching.push(key)
+    else rest.push(key)
+  }
+  if (matching.length === 0 || rest.length === 0) return null
+  return [...matching, ...rest]
+}
+
 const lastPulseId = ref('')
 watch(
   () => pulseStarts.value,
@@ -621,67 +643,22 @@ watch(
     lastPulseId.value = pulseId
 
     const note = noteByKey.value.get(k)
-    const posKey = posKeyForNote(note)
-    if (!posKey) return
-
-    const order = dotQueueByPosKey.value.get(posKey)
-    if (!Array.isArray(order) || order.length < 2) return
-
-    const idx = order.findIndex((x) => String(x ?? '') === k)
-    if (idx < 0) return
-
-    // Bring played ToneDot to the front (center/top).
-    const rotated = [order[idx], ...order.slice(0, idx), ...order.slice(idx + 1)]
+    const colorKey = toneDotColorKeyForNote(note)
     const next = new Map(dotQueueByPosKey.value)
-    next.set(posKey, rotated)
+    let changed = false
+    for (const [posKey, order] of next.entries()) {
+      if (!Array.isArray(order) || order.length < 2) continue
+      const rotated = rotateColorGroupToFront(order, colorKey)
+      if (!rotated) continue
+      next.set(posKey, rotated)
+      changed = true
+    }
+    if (!changed) return
+
+    // Bring the active color group to the front across all stacked positions.
     dotQueueByPosKey.value = next
   },
   { deep: true },
-)
-
-let prevHighlightedKeys = new Set()
-watch(
-  () => highlightedNoteKeys.value,
-  (keys) => {
-    if (!isPlaying.value) {
-      prevHighlightedKeys = new Set(Array.isArray(keys) ? keys.map((k) => String(k)) : [])
-      return
-    }
-
-    const next = new Set(Array.isArray(keys) ? keys.map((k) => String(k)) : [])
-    const ended = []
-    for (const k of prevHighlightedKeys) {
-      if (!next.has(k)) ended.push(k)
-    }
-
-    if (ended.length === 0) {
-      prevHighlightedKeys = next
-      return
-    }
-
-    let changed = false
-    const nextQueue = new Map(dotQueueByPosKey.value)
-
-    for (const k of ended) {
-      const note = noteByKey.value.get(k)
-      const posKey = posKeyForNote(note)
-      if (!posKey) continue
-
-      const order = nextQueue.get(posKey)
-      if (!Array.isArray(order) || order.length < 2) continue
-
-      const idx = order.findIndex((x) => String(x ?? '') === k)
-      if (idx < 0) continue
-
-      const rotated = [...order.slice(0, idx), ...order.slice(idx + 1), order[idx]]
-      nextQueue.set(posKey, rotated)
-      changed = true
-    }
-
-    if (changed) dotQueueByPosKey.value = nextQueue
-    prevHighlightedKeys = next
-  },
-  { deep: true, immediate: true },
 )
 
 const toneDotsForRender = computed(() => {
@@ -1094,7 +1071,60 @@ const playbackTravelLine = computed(() => {
 
   const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
   const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
-  if (!fromKey) return null
+  if (!fromKey) {
+    const nowMs = Number(playheadMs.value)
+    const nextEntry = timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs)
+    const toKey = String(nextEntry?.key || '')
+    if (!toKey) return null
+
+    const toDot = renderedToneDotByNoteKey.value.get(toKey)
+    const toNote = noteByKey.value.get(toKey)
+    if (!toDot || !toNote) return null
+
+    const leadInStartedAtMs = Number(playbackLeadInStartedAtMs.value)
+    if (!(leadInStartedAtMs > 0)) return null
+    const progress = Math.min(
+      1,
+      Math.max(0, (animNowMs.value - leadInStartedAtMs) / PLAYBACK_START_LEAD_IN_MS),
+    )
+    const xStart = displayX(NUT_WIDTH / 2)
+    const yStart = toneDotY(toDot)
+    const xTarget = toneDotX(toDot)
+    const yTarget = toneDotY(toDot)
+    const dx = xTarget - xStart
+    const dy = yTarget - yStart
+    const distance = Math.hypot(dx, dy)
+    if (!(distance > 0)) return null
+
+    const targetFret = Math.max(0, Number(toNote?.fret) || 0)
+    const lines = fretLinesPx.value
+    const fretFieldWidth =
+      targetFret <= 0
+        ? Math.max(18, Number(lines[1] ?? lines[0] ?? FB_WIDTH) - NUT_WIDTH)
+        : Number(lines[targetFret] ?? FB_WIDTH) -
+          Number(targetFret === 1 ? NUT_WIDTH : (lines[targetFret - 1] ?? NUT_WIDTH))
+    const segmentLength = Math.max(16, Math.min(distance, fretFieldWidth * 0.95))
+    const ux = dx / distance
+    const uy = dy / distance
+    const headTravel = Math.max(0, distance - segmentLength)
+    const headX = xStart + ux * (segmentLength + headTravel * progress)
+    const headY = yStart + uy * (segmentLength + headTravel * progress)
+    const x1 = headX - ux * segmentLength
+    const y1 = headY - uy * segmentLength
+    const x2 = headX
+    const y2 = headY
+    const absJump = Math.abs(Number(toNote?.fret) || 0)
+    const color = toneDotFill(toDot)
+    const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
+    const filter =
+      absJump >= 4
+        ? FRETBOARD_THEME.playbackTravel.highJumpFilter
+        : FRETBOARD_THEME.playbackTravel.normalFilter
+    const opacity = 0.6 + progress * 0.4
+    const strokeDasharray = 'none'
+
+    return { x1, y1, x2, y2, color, strokeWidth, filter, opacity, strokeDasharray }
+  }
 
   const toKey = nextNoteKeyByKey.value.get(fromKey)
   if (!toKey) return null
@@ -1136,7 +1166,7 @@ const playbackTravelLine = computed(() => {
       ? FRETBOARD_THEME.playbackTravel.highJumpFilter
       : FRETBOARD_THEME.playbackTravel.normalFilter
 
-  return { x1, y1, x2, y2, color, strokeWidth, filter }
+  return { x1, y1, x2, y2, color, strokeWidth, filter, opacity: 1, strokeDasharray: 'none' }
 })
 
 const directionPreviewSegments = computed(() => {
@@ -1317,6 +1347,13 @@ const nextNotePreviewDot = computed(() => {
   const toKey = nextNoteKeyByKey.value.get(fromKey)
   if (!toKey) return null
   return renderedToneDotByNoteKey.value.get(toKey) ?? null
+})
+
+const activePlaybackColorKey = computed(() => {
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  const key = latestPulse?.key ? String(latestPulse.key) : ''
+  if (!key) return ''
+  return toneDotColorKeyForNote(noteByKey.value.get(key))
 })
 
 const toneDotByPosKey = computed(() => {
@@ -2608,15 +2645,16 @@ function isMarkerFret(fret) {
 }
 
 function toneDotOpacity(d) {
-  const nk = noteKeyForToneDot(d)
-  const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
-  const dynOpacity = Number.isFinite(dyn) ? 0.48 + dyn * 0.52 : 1
+  const colorKey = toneDotColorKeyForNote(d)
+  const activeColorKey = String(activePlaybackColorKey.value || '')
 
-  if (!isPlaying.value) return dynOpacity
-  if (!nk) return FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING
-  return highlightedNoteKeySet.value.has(nk) || playedNoteKeys.value.has(nk)
-    ? 1
-    : Math.max(FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING, dynOpacity * 0.72)
+  if (!isPlaying.value) {
+    const nk = noteKeyForToneDot(d)
+    const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
+    return Number.isFinite(dyn) ? 0.48 + dyn * 0.52 : 1
+  }
+  if (!activeColorKey) return 1
+  return colorKey === activeColorKey ? 1 : 0.5
 }
 
 function toneDotStroke(d) {
@@ -2721,6 +2759,7 @@ watch(
   (playing) => {
     if (playing) {
       playedNoteKeys.value = new Set()
+      playbackLeadInStartedAtMs.value = performance.now()
       // Clear hover/tooltip markings when playback starts.
       hoveredFret.value = null
       hoveredPosKey.value = null
@@ -2730,6 +2769,7 @@ watch(
       return
     } else {
       playedNoteKeys.value = new Set()
+      playbackLeadInStartedAtMs.value = 0
       stopAnim()
       animNowMs.value = performance.now()
     }
