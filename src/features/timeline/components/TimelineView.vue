@@ -56,12 +56,14 @@
             </div>
 
             <div class="strings-timeline">
+              <div class="timeline-playhead-line" :style="{ left: `${playheadLeftPx}px` }"
+                :title="t('timelineTrack.dragPosition')" />
               <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
                 :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
                 :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
                 :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
                 :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
-                :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true"
+                :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true" :show-playhead="false"
                 :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                   (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
@@ -78,7 +80,7 @@
                 :total-duration="totalDuration" :total-blocks="totalBlocks" :playhead="playhead"
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
                 :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
-                :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled"
+                :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled" :show-playhead="false"
                 :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
                 @update-active-string="(v) => emit('update-active-string', v)"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
@@ -301,6 +303,7 @@ const timelineMainStyle = computed(() => {
     '--tl-resize-line-color': TIMELINE_THEME.main.resizeHandleLineColor,
     '--tl-length-handle-color': TIMELINE_THEME.main.lengthHandleColor,
     '--tl-marquee-bg': TIMELINE_THEME.main.marqueeBg,
+    '--tl-playhead-color': TIMELINE_THEME.track.playheadColor,
     '--tl-track-start-offset-px': `${TRACK_START_OFFSET_PX}px`,
     '--tl-main-resize-handle-h': `${TIMELINE_LAYOUT.main.resizeHandleHeightPx}px`,
     '--tl-string-name-col-w': `${TIMELINE_LAYOUT.tracks.stringNameColWidthPx}px`,
@@ -742,6 +745,14 @@ const trackMinWidthPx = computed(() => {
 
 const trackEndPx = computed(() => {
   return trackMinWidthPx.value + TRACK_START_OFFSET_PX
+})
+
+const playheadLeftPx = computed(() => {
+  const totalDurationMs = Number(props.totalDuration) || 0
+  if (!(totalDurationMs > 0)) return TRACK_START_OFFSET_PX
+  const clampedPlayheadMs = Math.max(0, Math.min(totalDurationMs, Number(props.playhead) || 0))
+  const ratio = clampedPlayheadMs / totalDurationMs
+  return TRACK_START_OFFSET_PX + ratio * trackMinWidthPx.value
 })
 
 const markerItems = computed(() => {
@@ -1195,6 +1206,20 @@ function incrementBarsNoPickup() {
 
 .strings-timeline {
   position: relative;
+}
+
+.timeline-playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--tl-playhead-color, #ff5a36);
+  transform: translateX(-50%);
+  z-index: 14;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.9),
+    0 0 14px color-mix(in srgb, var(--tl-playhead-color, #ff5a36) 70%, white 30%);
 }
 
 .timeline-length-handle-wrap {

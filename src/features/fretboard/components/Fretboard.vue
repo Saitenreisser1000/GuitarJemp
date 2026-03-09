@@ -45,19 +45,19 @@
                 opacity="0.9" />
               <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
                 :stroke="FRETBOARD_THEME.svg.boardBorderStroke" stroke-width="2" />
-              <rect :x="0" :y="boardY" :width="NUT_WIDTH" :height="boardH" :fill="FRETBOARD_THEME.svg.nutFill"
+              <rect :x="displayRectX(0, NUT_WIDTH)" :y="boardY" :width="NUT_WIDTH" :height="boardH" :fill="FRETBOARD_THEME.svg.nutFill"
                 opacity="0.95" />
-              <rect :x="NUT_WIDTH" :y="boardY" width="3" :height="boardH" :fill="FRETBOARD_THEME.svg.nutDividerFill"
+              <rect :x="displayRectX(NUT_WIDTH, 3)" :y="boardY" width="3" :height="boardH" :fill="FRETBOARD_THEME.svg.nutDividerFill"
                 opacity="0.9" />
               <g class="fb-frets">
                 <template v-for="(x, i) in fretLinesPx" :key="`fret-${i}`">
-                  <line v-if="i === 0" :x1="x + NUT_WIDTH" :y1="boardY" :x2="x + NUT_WIDTH" :y2="boardY + boardH"
+                  <line v-if="i === 0" :x1="displayX(x + NUT_WIDTH)" :y1="boardY" :x2="displayX(x + NUT_WIDTH)" :y2="boardY + boardH"
                     :stroke="FRETBOARD_THEME.svg.fretZeroStroke" stroke-width="2" opacity="0.9" />
-                  <line v-else :x1="x - 0.9" :y1="boardY" :x2="x - 0.9" :y2="boardY + boardH"
+                  <line v-else :x1="displayX(x - 0.9)" :y1="boardY" :x2="displayX(x - 0.9)" :y2="boardY + boardH"
                     :stroke="FRETBOARD_THEME.svg.fretGlowStroke" :stroke-width="i === 12 ? 1.6 : 1.3" opacity="0.95" />
-                  <line v-if="i !== 0" :x1="x" :y1="boardY" :x2="x" :y2="boardY + boardH" stroke="url(#metal)"
+                  <line v-if="i !== 0" :x1="displayX(x)" :y1="boardY" :x2="displayX(x)" :y2="boardY + boardH" stroke="url(#metal)"
                     :stroke-width="i === 12 ? 3.2 : 2.6" opacity="0.95" />
-                  <line v-if="i !== 0" :x1="x + 1.1" :y1="boardY" :x2="x + 1.1" :y2="boardY + boardH"
+                  <line v-if="i !== 0" :x1="displayX(x + 1.1)" :y1="boardY" :x2="displayX(x + 1.1)" :y2="boardY + boardH"
                     :stroke="FRETBOARD_THEME.svg.fretShadowStroke" :stroke-width="i === 12 ? 1.7 : 1.4" opacity="0.95" />
                 </template>
               </g>
@@ -66,8 +66,8 @@
             <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
               <g class="fb-inlays" opacity="0.95">
                 <template v-for="dot in inlayDots" :key="dot.key">
-                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
-                  <circle :cx="dot.x" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
+                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
+                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
                     stroke-width="1" />
                 </template>
               </g>
@@ -86,7 +86,7 @@
 
               <!-- String numbers -->
               <g class="fb-string-labels">
-                <text v-for="s in strings" :key="`string-label-${s.string}`" :x="-10" :y="s.y + 4" text-anchor="end"
+                <text v-for="s in strings" :key="`string-label-${s.string}`" :x="stringLabelX" :y="s.y + 4" :text-anchor="stringLabelAnchor"
                   font-size="12" font-weight="800" :fill="FRETBOARD_THEME.svg.stringLabelFill" :stroke="FRETBOARD_THEME.svg.stringLabelStroke"
                   stroke-width="2" paint-order="stroke">
                   {{ stringLabelFor(s.string) }}
@@ -94,16 +94,17 @@
               </g>
 
               <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
-                <rect :x="handPositionOverlayRect.x" :y="handPositionOverlayRect.y"
+                <rect :x="displayRectX(handPositionOverlayRect.x, handPositionOverlayRect.width)" :y="handPositionOverlayRect.y"
                   :width="handPositionOverlayRect.width" :height="handPositionOverlayRect.height"
                   :rx="handPositionOverlayRect.rx" />
               </g>
               <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested"
                 style="pointer-events: none">
-                <rect :x="suggestedHandPositionOverlayRect.x" :y="suggestedHandPositionOverlayRect.y"
+                <rect :x="displayRectX(suggestedHandPositionOverlayRect.x, suggestedHandPositionOverlayRect.width)" :y="suggestedHandPositionOverlayRect.y"
                   :width="suggestedHandPositionOverlayRect.width" :height="suggestedHandPositionOverlayRect.height"
                   :rx="suggestedHandPositionOverlayRect.rx" />
-                <text :x="suggestedHandPositionOverlayRect.labelX" :y="suggestedHandPositionOverlayRect.labelY">
+                <text :x="suggestedHandPositionLabelX(suggestedHandPositionOverlayRect)"
+                  :y="suggestedHandPositionOverlayRect.labelY" :text-anchor="suggestedHandPositionLabelAnchor">
                   {{
                     t('fretboardShow.suggestedPosition', {
                       from: suggestedHandPositionOverlayRect.fromFret,
@@ -162,7 +163,7 @@
                 </g>
                 <g v-if="nowMarkers.length" class="fb-now-markers" style="pointer-events: none">
                   <g v-for="m in nowMarkers" :key="`now-${m.noteKey}`">
-                    <line class="fb-now-string-line" :x1="NUT_WIDTH" :y1="m.y" :x2="FB_WIDTH" :y2="m.y"
+                    <line class="fb-now-string-line" :x1="displayX(NUT_WIDTH)" :y1="m.y" :x2="displayX(FB_WIDTH)" :y2="m.y"
                       :stroke="m.color" :style="{ opacity: m.lineOpacity }" />
                     <line class="fb-now-cross" :x1="m.x - m.crossHalf" :y1="m.y" :x2="m.x + m.crossHalf" :y2="m.y"
                       :stroke="m.color" />
@@ -220,8 +221,9 @@
                   style="pointer-events: none" />
               </g>
               <g v-if="fretViewMask" class="fb-view-mask" style="pointer-events: none">
-                <rect :x="0" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
-                <rect :x="fretViewMask.right" :y="0" :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
+                <rect :x="displayRectX(0, fretViewMask.left)" :y="0" :width="fretViewMask.left" :height="FB_HEIGHT" />
+                <rect :x="displayRectX(fretViewMask.right, FB_WIDTH - fretViewMask.right)" :y="0"
+                  :width="FB_WIDTH - fretViewMask.right" :height="FB_HEIGHT" />
               </g>
             </g>
           </svg>
@@ -230,7 +232,7 @@
               v-for="item in textItems"
               :key="item.id"
               class="fb-text-item"
-              :style="{ left: `${item.xPct}%`, top: `${item.yPct}%` }"
+              :style="{ left: `${displayPercent(item.xPct)}%`, top: `${item.yPct}%` }"
             >
               <button
                 class="fb-text-item-drag"
@@ -263,7 +265,7 @@
         </div>
         <div class="fb-fret-numbers" aria-hidden="true">
           <span v-for="l in fretLabels" :key="`fret-label-${l.fret}`" class="fb-fret-number"
-            :class="{ 'is-marker-fret': isMarkerFret(l.fret) }" :style="{ left: `${l.xPct}%` }">
+            :class="{ 'is-marker-fret': isMarkerFret(l.fret) }" :style="{ left: `${displayPercent(l.xPct)}%` }">
             {{ l.fret }}
           </span>
         </div>
@@ -398,6 +400,7 @@ const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showS
   storeToRefs(harmonyMenu)
 const { placementArmed, textItems } = storeToRefs(overlay)
 const isPlaying = computed(() => playState.value === 'playing')
+const isLeftHanded = computed(() => Boolean(settings.leftHanded))
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
 const fretViewTo = ref(Math.max(0, Number(props.numFrets) || 12))
@@ -1126,12 +1129,7 @@ const playbackTravelLine = computed(() => {
   const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
   const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
   const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
-  const color =
-    deltaFret > 0
-      ? FRETBOARD_THEME.playbackTravel.upColor
-      : deltaFret < 0
-        ? FRETBOARD_THEME.playbackTravel.downColor
-        : FRETBOARD_THEME.playbackTravel.sameColor
+  const color = toneDotFill(toDot)
   const strokeWidth = Math.min(7.5, 2.6 + absJump * 0.55)
   const filter =
     absJump >= 4
@@ -1178,12 +1176,7 @@ const directionPreviewSegments = computed(() => {
     const deltaFret = Number(toNote?.fret || 0) - Number(fromNote?.fret || 0)
     const deltaString = Number(toNote?.string || 0) - Number(fromNote?.string || 0)
     const absJump = Math.abs(deltaFret) + Math.abs(deltaString)
-    const color =
-      deltaFret > 0
-        ? FRETBOARD_THEME.playbackTravel.upColor
-        : deltaFret < 0
-          ? FRETBOARD_THEME.playbackTravel.downColor
-          : FRETBOARD_THEME.playbackTravel.sameColor
+    const color = toneDotFill(toDot)
 
     const xStart = toneDotX(fromDot)
     const yStart = toneDotY(fromDot)
@@ -1395,7 +1388,8 @@ function overlayClientToPercent(clientX, clientY) {
   const rect = overlayEl.value?.getBoundingClientRect?.()
   if (!rect) return null
   if (!(rect.width > 0) || !(rect.height > 0)) return null
-  const xPct = clampPercent(((Number(clientX) - rect.left) / rect.width) * 100)
+  const rawXPct = clampPercent(((Number(clientX) - rect.left) / rect.width) * 100)
+  const xPct = displayPercent(rawXPct)
   const yPct = clampPercent(((Number(clientY) - rect.top) / rect.height) * 100)
   return { xPct, yPct }
 }
@@ -1605,16 +1599,22 @@ const fretsPct = computed(() =>
   generateFretsPercent({ fretCount: props.numFrets, scaleFrets: true }),
 )
 const fretLinesPx = computed(() => fretsPct.value.map((p) => (p / 100) * FB_WIDTH))
+const STRING_WIDTH_PROFILES = {
+  4: [1.2, 1.6, 2.2, 3.2],
+  6: [1.1, 1.25, 1.45, 1.8, 2.05, 3.35],
+}
 
 const strings = computed(() => {
   const count = Math.max(2, Number(instrument.numStrings) || 6)
+  const profile = STRING_WIDTH_PROFILES[count] || null
 
   const res = []
   for (let i = 0; i < count; i++) {
     // Visual convention: top string thin, bottom string thick.
+    // Use a steeper progression so the lowest string reads clearly as the thickest one.
     // Keep center positions stable (do not shift y based on stroke width).
     const t = i / Math.max(1, count - 1) // 0..1
-    const w = 1.2 + t * 1.6
+    const w = profile?.[i] ?? (1.1 + (t ** 1.7) * 1.85)
 
     const y = (FB_HEIGHT / (count - 1)) * i
 
@@ -1868,6 +1868,36 @@ function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v))
 }
 
+function displayX(x) {
+  const n = Number(x)
+  if (!Number.isFinite(n)) return 0
+  return isLeftHanded.value ? FB_WIDTH - n : n
+}
+
+function displayRectX(x, width = 0) {
+  const base = Number(x)
+  const span = Number(width)
+  if (!Number.isFinite(base)) return 0
+  if (!isLeftHanded.value) return base
+  return FB_WIDTH - base - (Number.isFinite(span) ? span : 0)
+}
+
+function displayPercent(xPct) {
+  const n = clampPercent(xPct)
+  return isLeftHanded.value ? 100 - n : n
+}
+
+const stringLabelX = computed(() => (isLeftHanded.value ? FB_WIDTH + 10 : -10))
+const stringLabelAnchor = computed(() => (isLeftHanded.value ? 'start' : 'end'))
+const suggestedHandPositionLabelAnchor = computed(() => (isLeftHanded.value ? 'end' : 'start'))
+
+function suggestedHandPositionLabelX(rect) {
+  const left = displayRectX(rect?.x, rect?.width)
+  const width = Number(rect?.width) || 0
+  const offset = Number(FRETBOARD_HAND_POSITION.suggestedLabelOffsetXPx) || 0
+  return isLeftHanded.value ? left + width - offset : left + offset
+}
+
 const timelineNoteEntries = computed(() => {
   const out = []
   for (const n of sortedNotesByStart.value) {
@@ -2062,7 +2092,8 @@ function clientToSvgPoint(event) {
   const clientY = Number(event?.clientY)
   if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null
 
-  const x = ((clientX - rect.left) / rect.width) * FB_WIDTH
+  const rawX = ((clientX - rect.left) / rect.width) * FB_WIDTH
+  const x = isLeftHanded.value ? FB_WIDTH - rawX : rawX
   const yRaw = boardY.value + ((clientY - rect.top) / rect.height) * boardH.value
   const y = clamp(yRaw, 0, FB_HEIGHT)
   return { x, y }
@@ -2413,12 +2444,12 @@ function toneDotX(d) {
   const max = Math.min(fret, Number(props.numFrets) || 12)
 
   // Open-string ToneDot: on the nut.
-  if (max === 0) return NUT_WIDTH / 2 + toneDotOffset(d).dx
+  if (max === 0) return displayX(NUT_WIDTH / 2) + toneDotOffset(d).dx
 
   // Fret n ToneDot belongs to the field between (n-1) and n.
   const left = max === 1 ? NUT_WIDTH : Number(lines[max - 1] ?? 0)
   const right = Number(lines[max] ?? FB_WIDTH)
-  return (left + right) / 2 + toneDotOffset(d).dx
+  return displayX((left + right) / 2) + toneDotOffset(d).dx
 }
 
 function toneDotY(d) {
@@ -2462,7 +2493,7 @@ function toneDotOffset(d) {
   // Stack direction: only to the left.
   // Queue front is centered (dx=0); subsequent items shift left by OX each.
   const OX = FRETBOARD_INTERACTION.toneDotStackOffsetXPx
-  return { dx: -i * OX, dy: 0 }
+  return { dx: (isLeftHanded.value ? 1 : -1) * i * OX, dy: 0 }
 }
 
 function toneDotFill(d) {

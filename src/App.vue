@@ -147,6 +147,10 @@ const preferenceIntervalsOnDots = computed({
   get: () => Boolean(timelineSettings.showIntervalsOnDots),
   set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
 })
+const preferenceLeftHanded = computed({
+  get: () => Boolean(timelineSettings.leftHanded),
+  set: (v) => timelineSettings.setLeftHanded(Boolean(v)),
+})
 const languageItems = computed(() => languages.map((l) => ({ title: l.label, value: l.code })))
 const preferenceLanguage = computed({
   get: () => String(locale.value || 'en'),
@@ -1216,6 +1220,13 @@ onBeforeUnmount(() => {
             hide-details
             inset
             label="Intervals on dots"
+          />
+          <v-switch
+            v-model="preferenceLeftHanded"
+            density="compact"
+            hide-details
+            inset
+            label="Left handed"
           />
           <v-switch
             :model-value="timelineSettings.idleDotConnectionsVisible"

@@ -16,7 +16,8 @@
           <span v-if="showBarNumbers" class="bar-line-label">{{ item.label }}</span>
         </span>
       </div>
-      <div class="playhead-indicator" :style="{ left: playheadPercent + '%' }" :title="t('timelineTrack.dragPosition')" />
+      <div v-if="showPlayhead" class="playhead-indicator" :style="{ left: playheadPercent + '%' }"
+        :title="t('timelineTrack.dragPosition')" />
       <NoteEvent v-for="(note, idx) in notes" :key="note.key ?? `note-${note.fret}-${note.gridIndex}-${idx}`"
         :note="note" :total-blocks="totalBlocks" :color="note.color ?? getNoteColor(note.fret)"
         :time-per-block-ms="timePerBlockMs" :snapEnabled="props.snapEnabled" :step="props.step"
@@ -59,6 +60,7 @@ const props = defineProps({
   ghostNotesEnabled: { type: Boolean, default: false },
   isAuxTrack: { type: Boolean, default: false },
   showBarNumbers: { type: Boolean, default: false },
+  showPlayhead: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
@@ -358,11 +360,14 @@ function getNoteColor(fret) {
 
 .playhead-indicator {
   position: absolute;
-  width: 3px;
+  width: 4px;
   height: 100%;
   background: var(--timeline-track-playhead);
   transform: translateX(-50%);
   z-index: 5;
   cursor: ew-resize;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.9),
+    0 0 14px color-mix(in srgb, var(--timeline-track-playhead) 70%, white 30%);
 }
 </style>

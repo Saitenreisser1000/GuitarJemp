@@ -21,7 +21,7 @@ export const TIMELINE_THEME = {
     barLineStart: 'rgba(70, 70, 70, 0.6)',
     barLineLabel: 'rgba(80, 80, 80, 0.82)',
     barLineLabelShadow: '0 1px 0 rgba(255, 255, 255, 0.65)',
-    playheadColor: 'rgba(211, 47, 47, 0.3)',
+    playheadColor: '#ff5a36',
     gridSubLine: 'rgba(208, 208, 208, var(--sub-opacity, 0.35))',
     gridBeatLine: 'rgba(208, 208, 208, var(--beat-opacity, 1))',
     defaultNoteColors: ['#D5763D', '#2E7D6E', '#4A78B0', '#B85C4C', '#7F8F4E', '#6E66A9'],

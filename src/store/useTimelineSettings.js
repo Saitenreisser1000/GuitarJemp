@@ -93,6 +93,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const showIntervalsOnDots = ref(
     typeof stored.showIntervalsOnDots === 'boolean' ? stored.showIntervalsOnDots : false,
   )
+  const leftHanded = ref(
+    typeof stored.leftHanded === 'boolean' ? stored.leftHanded : false,
+  )
   const idleDotConnectionsVisible = ref(
     typeof stored.idleDotConnectionsVisible === 'boolean' ? stored.idleDotConnectionsVisible : true,
   )
@@ -233,6 +236,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     showIntervalsOnDots.value = Boolean(v)
   }
 
+  function setLeftHanded(v) {
+    leftHanded.value = Boolean(v)
+  }
+
   function setIdleDotConnectionsVisible(v) {
     idleDotConnectionsVisible.value = Boolean(v)
   }
@@ -280,6 +287,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    leftHanded,
     idleDotConnectionsVisible,
     idleDotConnectionsOpacity,
     simGroupMode,
@@ -314,6 +322,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    leftHanded,
     idleDotConnectionsVisible,
     idleDotConnectionsOpacity,
     simGroupMode,
@@ -344,6 +353,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setHandPositionVisible,
     setShowSuggestedPosition,
     setShowIntervalsOnDots,
+    setLeftHanded,
     setIdleDotConnectionsVisible,
     setIdleDotConnectionsOpacity,
     setSimGroupMode,
