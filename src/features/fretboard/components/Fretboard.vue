@@ -1062,14 +1062,37 @@ const sortedNotesByStart = computed(() => {
   return items
 })
 
+function playbackStartMsForNote(note) {
+  const gridIndex = Number(note?.gridIndex)
+  if (!Number.isFinite(gridIndex)) return NaN
+
+  const baseStartMs = gridIndexToStartMs(gridIndex, DEFAULT_TIME_PER_BLOCK_MS)
+  if (!settings.shuffleEnabled) return baseStartMs
+  if (normalizeNoteValue(note?.noteValue) !== '1/8') return baseStartMs
+  if (Number(note?.subdivision) === 3) return baseStartMs
+
+  const beatBottomRaw = Number.parseInt(String(settings.beatBottom), 10)
+  const beatBottomSafe = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
+  const blocksPerBeat = 4 / beatBottomSafe
+  if (!(blocksPerBeat > 0)) return baseStartMs
+
+  const blockStart = gridIndex - 1
+  const withinBeat = ((blockStart % blocksPerBeat) + blocksPerBeat) % blocksPerBeat
+  const offbeatPos = blocksPerBeat * 0.5
+  if (Math.abs(withinBeat - offbeatPos) > 1e-3) return baseStartMs
+
+  const msPerBeat = DEFAULT_TIME_PER_BLOCK_MS * blocksPerBeat
+  return baseStartMs + msPerBeat / 6
+}
+
 const noteStartMsByKey = computed(() => {
   const m = new Map()
   for (const n of sortedNotesByStart.value) {
     const key = String(n?.key ?? '')
     if (!key) continue
-    const gridIndex = Number(n?.gridIndex)
-    if (!Number.isFinite(gridIndex)) continue
-    m.set(key, gridIndexToStartMs(gridIndex, DEFAULT_TIME_PER_BLOCK_MS))
+    const startMs = playbackStartMsForNote(n)
+    if (!Number.isFinite(startMs)) continue
+    m.set(key, startMs)
   }
   return m
 })
@@ -1103,8 +1126,8 @@ const nextNoteKeyByKey = computed(() => {
 const playbackTravelLine = computed(() => {
   if (!isPlaying.value) return null
 
-  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
-  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  const idx = playbackTimelineIndex.value
+  const fromKey = idx >= 0 ? String(timelineNoteEntries.value[idx]?.key || '') : ''
   if (!fromKey) {
     const nowMs = Number(playheadMs.value)
     const nextEntry = timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs)
@@ -1327,8 +1350,8 @@ const idleConnectionSegments = computed(() => {
 const playbackSelfLoop = computed(() => {
   if (!isPlaying.value) return null
 
-  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
-  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  const idx = playbackTimelineIndex.value
+  const fromKey = idx >= 0 ? String(timelineNoteEntries.value[idx]?.key || '') : ''
   if (!fromKey) return null
 
   const toKey = nextNoteKeyByKey.value.get(fromKey)
@@ -1378,8 +1401,8 @@ const playbackSelfLoop = computed(() => {
 
 const nextNotePreviewDot = computed(() => {
   if (!isPlaying.value) return null
-  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
-  const fromKey = latestPulse?.key ? String(latestPulse.key) : ''
+  const idx = playbackTimelineIndex.value
+  const fromKey = idx >= 0 ? String(timelineNoteEntries.value[idx]?.key || '') : ''
   if (!fromKey) return null
   const toKey = nextNoteKeyByKey.value.get(fromKey)
   if (!toKey) return null
@@ -1388,8 +1411,7 @@ const nextNotePreviewDot = computed(() => {
 
 const leadInPreviewDot = computed(() => {
   if (!isPlaying.value) return null
-  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
-  if (latestPulse?.key) return null
+  if (playbackTimelineIndex.value >= 0) return null
 
   const nowMs = Number(playheadMs.value)
   const nextEntry = timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs)
