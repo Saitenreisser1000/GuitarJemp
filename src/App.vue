@@ -17,6 +17,7 @@ import { useLibraryStore } from '@/store/useLibrary'
 import { useConnectionsStore } from '@/store/useConnections'
 import { useShareContactsStore } from '@/store/useShareContacts'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
@@ -85,6 +86,7 @@ const library = useLibraryStore()
 const connections = useConnectionsStore()
 const shareContacts = useShareContactsStore()
 const harmony = useHarmonyMenuStore()
+const fretboardOverlay = useFretboardOverlayStore()
 const theme = useTheme()
 const { locale, languages, setLocale } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -285,6 +287,7 @@ async function saveCurrentSong() {
     timelineSettings,
     notes,
     handPositions,
+    fretboardOverlay,
   })
 
   if (!canOverwriteCurrentLibraryItem.value) {
@@ -508,6 +511,7 @@ async function saveAsNewToCloud() {
         timelineSettings,
         notes,
         handPositions,
+        fretboardOverlay,
       }),
     })
   saveAsNewBusy.value = false
@@ -578,6 +582,7 @@ function applyNewSong() {
     notes.clearNotes()
     selection.clearSelection()
     handPositions.setHandPositions([])
+    fretboardOverlay.setTextItems([])
     transport.setPlayState('stopped')
     transport.setPlayheadMs(0)
   }

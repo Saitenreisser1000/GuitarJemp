@@ -106,8 +106,10 @@
           </div>
         </div>
         <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
+          :snap-enabled="snapEnabled"
           @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
           @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+          @update-snap="(v) => emit('update-snap', v)"
           @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
           @increment-bars-no-pickup="incrementBarsNoPickup" />
       </div>

@@ -3,9 +3,10 @@ import { ref } from 'vue'
 import { createNoteKey, parseFretStringKey, normalizeNote } from '@/domain/note'
 import { normalizeNoteValue } from '@/config/noteValues'
 import { defaultLengthBlocksForMode, nextGridIndexFromNotes } from '@/domain/timelinePlacement'
+import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
-import { DEFAULT_TIME_PER_BLOCK_MS } from '@/features/timeline/config/grid'
+import { DEFAULT_TIME_PER_BLOCK_MS, TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 
 export const useNotesStore = defineStore('notes', () => {
   // Notes are objects.
@@ -104,7 +105,15 @@ export const useNotesStore = defineStore('notes', () => {
     const tMs = Number(transport.playheadMs)
     if (Number.isFinite(tMs) && tMs > 0) {
       const idx = tMs / TIME_PER_BLOCK_MS + 1
-      if (Number.isFinite(idx) && idx > 0) gridIndex = idx
+      if (Number.isFinite(idx) && idx > 0) {
+        if (settings.snapEnabled && transport.playState !== 'playing') {
+          const snapStep = snapStepBlocksForMode(settings.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS)
+          const snappedBlocks = Math.round((idx - 1) / snapStep) * snapStep
+          gridIndex = Math.max(1, snappedBlocks + 1)
+        } else {
+          gridIndex = idx
+        }
+      }
     }
 
     const lengthMode =

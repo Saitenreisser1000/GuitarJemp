@@ -5,6 +5,7 @@ export function buildSongSnapshot({
   timelineSettings,
   notes,
   handPositions,
+  fretboardOverlay,
 } = {}) {
   return {
     version: 1,
@@ -39,5 +40,8 @@ export function buildSongSnapshot({
     },
     notes: notes?.activeNotes ?? [],
     handPositions: handPositions?.handPositions ?? [],
+    fretboardOverlay: {
+      textItems: fretboardOverlay?.textItems ?? [],
+    },
   }
 }

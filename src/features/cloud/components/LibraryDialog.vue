@@ -7,6 +7,7 @@ import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
 import { useI18n } from '@/i18n'
 import { supabase, isSupabaseConfigured } from '@/infra/supabase/client'
 
@@ -36,6 +37,7 @@ const instrument = useInstrumentStore()
 const timelineSettings = useTimelineSettingsStore()
 const transport = useTransportStore()
 const playbackVisuals = usePlaybackVisualsStore()
+const fretboardOverlay = useFretboardOverlayStore()
 const { t } = useI18n()
 const ownerNamesById = ref({})
 
@@ -111,6 +113,9 @@ function makeSnapshot() {
             selectedColor: timelineSettings.selectedColor,
         },
         notes: notes.activeNotes,
+        fretboardOverlay: {
+            textItems: fretboardOverlay.textItems,
+        },
     }
 }
 
@@ -164,6 +169,7 @@ async function onLoad(item) {
     }
 
     if (Array.isArray(snap?.notes)) notes.setNotes(snap.notes)
+    fretboardOverlay.setTextItems(snap?.fretboardOverlay?.textItems)
     if (Array.isArray(snap?.notes) && snap.notes.length > 1) {
         const orderedKeys = [...snap.notes]
             .sort((a, b) => {

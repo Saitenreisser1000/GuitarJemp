@@ -214,7 +214,10 @@
                   </text>
                 </g>
 
-                <ellipse v-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
+                <ellipse v-if="leadInPreviewDot" class="fb-next-note-preview" :cx="toneDotX(leadInPreviewDot)"
+                  :cy="toneDotY(leadInPreviewDot)" :rx="dotRx(toneDotR(leadInPreviewDot) + 7)" :ry="toneDotR(leadInPreviewDot) + 7" />
+
+                <ellipse v-else-if="nextNotePreviewDot" class="fb-next-note-preview" :cx="toneDotX(nextNotePreviewDot)"
                   :cy="toneDotY(nextNotePreviewDot)" :rx="dotRx(toneDotR(nextNotePreviewDot) + 7)" :ry="toneDotR(nextNotePreviewDot) + 7" />
 
                 <!-- Drag preview (editor only): transparent ghost dot at the current target position -->
@@ -231,9 +234,10 @@
           </svg>
           <div class="fb-text-layer">
             <div
-              v-for="item in textItems"
+              v-for="item in renderedTextItems"
               :key="item.id"
               class="fb-text-item"
+              :class="{ 'is-inactive': !item.isActiveNow }"
               :style="{ left: `${displayPercent(item.xPct)}%`, top: `${item.yPct}%` }"
             >
               <button
@@ -253,6 +257,32 @@
                 @click.stop
                 @input="onTextItemInput(item.id, $event)"
               />
+              <div class="fb-text-item-timing">
+                <label class="fb-text-item-timing-field">
+                  <span>B</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    :value="textItemStartBar(item)"
+                    @pointerdown.stop
+                    @click.stop
+                    @input="onTextItemStartBarInput(item.id, $event)"
+                  />
+                </label>
+                <label class="fb-text-item-timing-field">
+                  <span>L</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    :value="textItemLengthBars(item)"
+                    @pointerdown.stop
+                    @click.stop
+                    @input="onTextItemLengthBarsInput(item.id, $event)"
+                  />
+                </label>
+              </div>
               <button
                 class="fb-text-item-delete"
                 type="button"
@@ -663,13 +693,17 @@ watch(
 
 const toneDotsForRender = computed(() => {
   const out = []
+  const activeColorKey = String(activeStackColorKey.value || '')
 
   // Render order per position is driven by a DotQueue (see dotQueueByPosKey).
   // This allows rotating the visual stack when notes are played.
   for (const [posKey, notes] of notesByPosKey.value.entries()) {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
-    const order = dotQueueByPosKey.value.get(posKey) ?? []
+    const baseOrder = dotQueueByPosKey.value.get(posKey) ?? []
+    const order = activeColorKey
+      ? (rotateColorGroupToFront(baseOrder, activeColorKey) ?? baseOrder)
+      : baseOrder
     const visibleLimit = 2
     const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
 
@@ -1087,14 +1121,8 @@ const playbackTravelLine = computed(() => {
       1,
       Math.max(0, (animNowMs.value - leadInStartedAtMs) / PLAYBACK_START_LEAD_IN_MS),
     )
-    const xStart = displayX(NUT_WIDTH / 2)
-    const yStart = toneDotY(toDot)
     const xTarget = toneDotX(toDot)
     const yTarget = toneDotY(toDot)
-    const dx = xTarget - xStart
-    const dy = yTarget - yStart
-    const distance = Math.hypot(dx, dy)
-    if (!(distance > 0)) return null
 
     const targetFret = Math.max(0, Number(toNote?.fret) || 0)
     const lines = fretLinesPx.value
@@ -1103,14 +1131,23 @@ const playbackTravelLine = computed(() => {
         ? Math.max(18, Number(lines[1] ?? lines[0] ?? FB_WIDTH) - NUT_WIDTH)
         : Number(lines[targetFret] ?? FB_WIDTH) -
           Number(targetFret === 1 ? NUT_WIDTH : (lines[targetFret - 1] ?? NUT_WIDTH))
-    const segmentLength = Math.max(16, Math.min(distance, fretFieldWidth * 0.95))
+    const segmentLength = Math.max(16, fretFieldWidth * 0.95)
+    const leadDistance = Math.max(segmentLength * 1.35, fretFieldWidth * 1.6)
+    const xStart = xTarget + (isLeftHanded.value ? -leadDistance : leadDistance)
+    const yStart = yTarget
+    const dx = xTarget - xStart
+    const dy = yTarget - yStart
+    const distance = Math.hypot(dx, dy)
+    if (!(distance > 0)) return null
+
+    const clampedSegmentLength = Math.min(distance, segmentLength)
     const ux = dx / distance
     const uy = dy / distance
-    const headTravel = Math.max(0, distance - segmentLength)
-    const headX = xStart + ux * (segmentLength + headTravel * progress)
-    const headY = yStart + uy * (segmentLength + headTravel * progress)
-    const x1 = headX - ux * segmentLength
-    const y1 = headY - uy * segmentLength
+    const headTravel = Math.max(0, distance - clampedSegmentLength)
+    const headX = xStart + ux * (clampedSegmentLength + headTravel * progress)
+    const headY = yStart + uy * (clampedSegmentLength + headTravel * progress)
+    const x1 = headX - ux * clampedSegmentLength
+    const y1 = headY - uy * clampedSegmentLength
     const x2 = headX
     const y2 = headY
     const absJump = Math.abs(Number(toNote?.fret) || 0)
@@ -1349,11 +1386,49 @@ const nextNotePreviewDot = computed(() => {
   return renderedToneDotByNoteKey.value.get(toKey) ?? null
 })
 
+const leadInPreviewDot = computed(() => {
+  if (!isPlaying.value) return null
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  if (latestPulse?.key) return null
+
+  const nowMs = Number(playheadMs.value)
+  const nextEntry = timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs)
+  const toKey = String(nextEntry?.key || '')
+  if (!toKey) return null
+  return renderedToneDotByNoteKey.value.get(toKey) ?? null
+})
+
 const activePlaybackColorKey = computed(() => {
   const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
   const key = latestPulse?.key ? String(latestPulse.key) : ''
   if (!key) return ''
   return toneDotColorKeyForNote(noteByKey.value.get(key))
+})
+
+const activePreviewColorKey = computed(() => {
+  if (isPlaying.value) return ''
+  const preview = directionPreview.value
+  const keys = Array.isArray(preview?.noteKeys) ? preview.noteKeys.map((k) => String(k || '')).filter(Boolean) : []
+  if (keys.length < 2) return ''
+
+  const startedAt = Number(preview?.startedAtMs)
+  const durationMs = Number(preview?.durationMs)
+  if (!Number.isFinite(startedAt) || !Number.isFinite(durationMs) || durationMs <= 0) return ''
+
+  const dt = animNowMs.value - startedAt
+  if (!(dt >= 0 && dt <= durationMs)) return ''
+
+  const segmentCount = keys.length - 1
+  const segmentDurationMs = durationMs / segmentCount
+  const activeSegmentIndex = Math.min(segmentCount - 1, Math.floor(dt / segmentDurationMs))
+  const toKey = String(keys[activeSegmentIndex + 1] || '')
+  if (!toKey) return ''
+  return toneDotColorKeyForNote(noteByKey.value.get(toKey))
+})
+
+const activeStackColorKey = computed(() => {
+  if (isPlaying.value) return String(activePlaybackColorKey.value || '')
+  return String(activePreviewColorKey.value || '')
 })
 
 const toneDotByPosKey = computed(() => {
@@ -1431,9 +1506,63 @@ function overlayClientToPercent(clientX, clientY) {
   return { xPct, yPct }
 }
 
+const blocksPerBar = computed(() => {
+  const top = Number.parseInt(String(settings.beatTop), 10)
+  const bottom = Number.parseInt(String(settings.beatBottom), 10)
+  const safeTop = Number.isFinite(top) && top > 0 ? top : 4
+  const safeBottom = [1, 2, 4, 8].includes(bottom) ? bottom : 4
+  return Math.max(1, safeTop * (4 / safeBottom))
+})
+
+const currentPlayheadGridIndex = computed(() => {
+  const t = Number(playheadMs.value)
+  if (!Number.isFinite(t) || t < 0) return 1
+  return t / DEFAULT_TIME_PER_BLOCK_MS + 1
+})
+
+function textItemStartBar(item) {
+  const blocks = Number(blocksPerBar.value) || 1
+  const gridIndex = Number(item?.gridIndex) || 1
+  return Math.max(1, Math.floor((gridIndex - 1) / blocks) + 1)
+}
+
+function textItemLengthBars(item) {
+  const blocks = Number(blocksPerBar.value) || 1
+  const len = Number(item?.lengthBlocks) || blocks
+  return Math.max(1, Math.round(len / blocks))
+}
+
+const renderedTextItems = computed(() => {
+  const currentGrid = Number(currentPlayheadGridIndex.value) || 1
+  return (Array.isArray(textItems.value) ? textItems.value : [])
+    .map((item) => {
+      const start = Number(item?.gridIndex) || 1
+      const len = Math.max(1, Number(item?.lengthBlocks) || Number(blocksPerBar.value) || 1)
+      const isActiveNow = currentGrid >= start && currentGrid < start + len
+      return { ...item, isActiveNow }
+    })
+    .filter((item) => (!isPlaying.value && props.editable) || item.isActiveNow)
+})
+
 function onTextItemInput(id, event) {
   const text = String(event?.target?.value ?? '')
   overlay.updateTextItemText(id, text)
+}
+
+function onTextItemStartBarInput(id, event) {
+  const bar = Math.max(1, Number.parseInt(String(event?.target?.value ?? ''), 10) || 1)
+  const blocks = Number(blocksPerBar.value) || 1
+  overlay.updateTextItemTiming(id, {
+    gridIndex: (bar - 1) * blocks + 1,
+  })
+}
+
+function onTextItemLengthBarsInput(id, event) {
+  const bars = Math.max(1, Number.parseInt(String(event?.target?.value ?? ''), 10) || 1)
+  const blocks = Number(blocksPerBar.value) || 1
+  overlay.updateTextItemTiming(id, {
+    lengthBlocks: bars * blocks,
+  })
 }
 
 function onTextItemDelete(id) {
@@ -2151,7 +2280,15 @@ function onClick(event) {
     const p = overlayClientToPercent(event?.clientX, event?.clientY)
     overlay.setPlacementArmed(false)
     if (p) {
-      overlay.addTextItem({ ...p, text: '' })
+      const blocks = Number(blocksPerBar.value) || 1
+      const currentGrid = Number(currentPlayheadGridIndex.value) || 1
+      const startBar = Math.max(1, Math.floor((currentGrid - 1) / blocks) + 1)
+      overlay.addTextItem({
+        ...p,
+        text: '',
+        gridIndex: (startBar - 1) * blocks + 1,
+        lengthBlocks: blocks,
+      })
       return
     }
   }
@@ -2885,9 +3022,15 @@ watch(
   position: absolute;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   transform: translate(-50%, -50%);
   pointer-events: auto;
+  max-width: 240px;
+}
+
+.fb-text-item.is-inactive {
+  opacity: 0.58;
 }
 
 .fb-text-item-drag {
@@ -2906,7 +3049,7 @@ watch(
 .fb-text-item-input {
   height: 22px;
   min-width: 80px;
-  max-width: 180px;
+  max-width: 150px;
   padding: 0 6px;
   border: 1px solid #9aa3ad;
   border-radius: 4px;
@@ -2914,6 +3057,37 @@ watch(
   color: #1b1f25;
   font-size: 12px;
   font-weight: 600;
+}
+
+.fb-text-item-timing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px solid rgb(154 163 173 / 0.85);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 88%);
+}
+
+.fb-text-item-timing-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #4b5563;
+}
+
+.fb-text-item-timing-field input {
+  width: 42px;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid #b3bcc6;
+  border-radius: 3px;
+  background: #fff;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .fb-text-item-delete {
