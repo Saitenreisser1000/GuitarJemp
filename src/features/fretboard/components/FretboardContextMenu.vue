@@ -52,8 +52,13 @@
         <ColorPalette orientation="horizontal" />
       </div>
 
-      <button class="fb-shape-btn" type="button" @click="armTextPlacement">
-        Textfeld platzieren
+      <button
+        class="fb-shape-btn"
+        :class="{ 'is-active': isCommentMode }"
+        type="button"
+        @click="toggleCommentMode"
+      >
+        Comment
       </button>
     </div>
 
@@ -91,7 +96,7 @@ import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useNotesStore } from '@/store/useNotes'
 import { useSelectionStore } from '@/store/useSelection'
-import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
+import { useUiModeStore, SURFACE_MODES } from '@/store/useUiMode'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import ColorPalette from './ColorPalette.vue'
 
@@ -100,7 +105,7 @@ defineOptions({ name: 'FretboardContextMenu' })
 const settings = useTimelineSettingsStore()
 const notes = useNotesStore()
 const selection = useSelectionStore()
-const overlay = useFretboardOverlayStore()
+const uiMode = useUiModeStore()
 const { t } = useI18n()
 const iconErrorBySrc = ref({})
 const clearConfirmOpen = ref(false)
@@ -154,6 +159,7 @@ watch(noteModifierLocal, (val) => {
 })
 
 const isSimOn = computed(() => settings.selectedMode === 'sim')
+const isCommentMode = computed(() => uiMode.surfaceMode === SURFACE_MODES.COMMENT)
 const clearDeleteCount = computed(() =>
   Array.isArray(notes.activeNotes) ? notes.activeNotes.length : 0,
 )
@@ -219,8 +225,8 @@ function onWindowPointerDown(event) {
   clearConfirmOpen.value = false
 }
 
-function armTextPlacement() {
-  overlay.armTextPlacement()
+function toggleCommentMode() {
+  uiMode.setSurfaceMode(isCommentMode.value ? SURFACE_MODES.COMPOSE : SURFACE_MODES.COMMENT)
 }
 
 onMounted(() => {

@@ -152,6 +152,35 @@ export const useLibraryStore = defineStore('library', () => {
     return updateItem({ id, content })
   }
 
+  async function deleteItem(id) {
+    error.value = null
+
+    if (!isSupabaseConfigured || !supabase) {
+      error.value = new Error('Supabase is not configured.')
+      return false
+    }
+
+    const itemId = String(id ?? '').trim()
+    if (!itemId) {
+      error.value = new Error('No item selected.')
+      return false
+    }
+
+    const { error: err } = await supabase
+      .from('library_items')
+      .delete()
+      .eq('id', itemId)
+
+    if (err) {
+      error.value = err
+      return false
+    }
+
+    if (String(currentItem.value?.id ?? '') === itemId) clearCurrentItem()
+    await refresh()
+    return true
+  }
+
   return {
     items,
     loading,
@@ -164,5 +193,6 @@ export const useLibraryStore = defineStore('library', () => {
     createItem,
     updateItem,
     updateCurrentItemContent,
+    deleteItem,
   }
 })

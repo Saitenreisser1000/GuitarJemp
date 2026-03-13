@@ -1,6 +1,20 @@
 <template>
   <div class="timeline-info ui-panel">
     <div class="timeline-info-shell">
+      <section class="timeline-group timeline-group-modes" aria-label="Surface mode">
+        <div class="timeline-group-label">Mode</div>
+        <div class="timeline-group-row">
+          <button class="timeline-tool timeline-tool-wide" type="button" :class="{ 'is-active': !isCommentMode }"
+            @click="uiMode.setSurfaceMode(SURFACE_MODES.COMPOSE)">
+            <span class="timeline-tool-label">Compose</span>
+          </button>
+          <button class="timeline-tool timeline-tool-wide" type="button" :class="{ 'is-active': isCommentMode }"
+            @click="uiMode.setSurfaceMode(SURFACE_MODES.COMMENT)">
+            <span class="timeline-tool-label">Comment</span>
+          </button>
+        </div>
+      </section>
+
       <section class="timeline-group timeline-group-tools" :aria-label="t('timelineView.tools')">
         <div class="timeline-group-label">Tool</div>
         <div class="timeline-group-row">
@@ -69,7 +83,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useI18n } from '@/i18n'
+import { SURFACE_MODES, useUiModeStore } from '@/store/useUiMode'
 
 defineOptions({ name: 'TimelineInfoBar' })
 
@@ -91,6 +107,8 @@ const emit = defineEmits([
 ])
 
 const { t } = useI18n()
+const uiMode = useUiModeStore()
+const isCommentMode = computed(() => uiMode.surfaceMode === SURFACE_MODES.COMMENT)
 </script>
 
 <style scoped>

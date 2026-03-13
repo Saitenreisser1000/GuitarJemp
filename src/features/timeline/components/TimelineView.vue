@@ -58,6 +58,11 @@
             <div class="strings-timeline">
               <div class="timeline-playhead-line" :style="{ left: `${playheadLeftPx}px` }"
                 :title="t('timelineTrack.dragPosition')" />
+              <div v-if="timelineCommentItems.length" class="timeline-comment-layer" :style="timelineCommentLayerStyle">
+                <TimelineCommentEvent v-for="item in timelineCommentItems" :key="item.id" :item="item"
+                  :total-blocks="effectiveTotalBlocks" :track-width-px="trackMinWidthPx" :current-step="currentStep"
+                  :is-editable="isCommentMode && !isPlaying" :is-active-now="item.isActiveNow" />
+              </div>
               <TimelineTrack v-if="handPositionVisible" :string="0" :string-label="t('timelineView.handPosition')"
                 :active-string="activeString" :notes="handPositionNotes" :total-duration="totalDuration"
                 :total-blocks="totalBlocks" :playhead="playhead" :snap-enabled="snapEnabled" :step="currentStep"
@@ -145,10 +150,14 @@
 
 <script setup>
 import TimelineInfoBar from './TimelineInfoBar.vue'
+import TimelineCommentEvent from './TimelineCommentEvent.vue'
 import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useSelectionStore } from '@/store/useSelection'
+import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
+import { SURFACE_MODES, useUiModeStore } from '@/store/useUiMode'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { TIMELINE_BEHAVIOR } from '@/features/timeline/config/timelineBehavior'
 import { TIMELINE_THEME } from '@/features/timeline/config/timelineTheme'
@@ -263,6 +272,10 @@ const emit = defineEmits([
   'toggle-record',
 ])
 const { t } = useI18n()
+const overlay = useFretboardOverlayStore()
+const uiMode = useUiModeStore()
+const { textItems } = storeToRefs(overlay)
+const { surfaceMode } = storeToRefs(uiMode)
 
 const zoomPx = computed(() =>
   Math.max(TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock, Number(props.zoomPxPerBlock) || 50),
@@ -276,6 +289,7 @@ const TRACK_START_OFFSET_PX = TIMELINE_LAYOUT.tracks.startOffsetPx
 const visibleTracks = computed(() => {
   return Array.isArray(props.tracks) ? props.tracks : []
 })
+const isCommentMode = computed(() => surfaceMode.value === SURFACE_MODES.COMMENT)
 
 const showBarNumbersOnAuxTrack = computed(() => Boolean(props.handPositionVisible))
 
@@ -351,6 +365,17 @@ const timelineColumnsStyle = computed(() => {
   const h = hasExplicitHeight ? explicitHeight : measuredHeight
   if (!(h > 0)) return undefined
 
+  const style = { '--timeline-row-h': `${timelineRowHeightPx.value}px` }
+  if (hasExplicitHeight) style.height = `${h}px`
+  return style
+})
+
+const timelineRowHeightPx = computed(() => {
+  const explicitHeight = Number(timelineColumnsHeightPx.value)
+  const measuredHeight = Number(timelineColumnsMeasuredHeightPx.value)
+  const h = explicitHeight > 0 ? explicitHeight : measuredHeight
+  if (!(h > 0)) return TIMELINE_LAYOUT.tracks.defaultRowHeightPx
+
   const hasLoopHeader = Boolean(props.loopEnabled)
   const hasMarkerHeader = Array.isArray(props.markers) && props.markers.length > 0
   const headerPx =
@@ -361,11 +386,7 @@ const timelineColumnsStyle = computed(() => {
     Number(visibleTracks.value.length) + (props.handPositionVisible ? 1 : 0),
   )
   const availableRowsPx = Math.max(TIMELINE_LAYOUT.tracks.minRowsAreaPx, h - headerPx)
-  const rowPx = Math.max(TIMELINE_LAYOUT.tracks.minRowHeightPx, Math.floor(availableRowsPx / rowCount))
-
-  const style = { '--timeline-row-h': `${rowPx}px` }
-  if (hasExplicitHeight) style.height = `${h}px`
-  return style
+  return Math.max(TIMELINE_LAYOUT.tracks.minRowHeightPx, Math.floor(availableRowsPx / rowCount))
 })
 
 function measureTimelineColumnsHeight() {
@@ -755,6 +776,40 @@ const playheadLeftPx = computed(() => {
   const clampedPlayheadMs = Math.max(0, Math.min(totalDurationMs, Number(props.playhead) || 0))
   const ratio = clampedPlayheadMs / totalDurationMs
   return TRACK_START_OFFSET_PX + ratio * trackMinWidthPx.value
+})
+
+const currentGridIndex = computed(() => {
+  const totalDurationMs = Number(props.totalDuration) || 0
+  const totalBlocksSafe = Math.max(1, Number(effectiveTotalBlocks.value) || 1)
+  if (!(totalDurationMs > 0)) return 1
+  const timePerBlock = totalDurationMs / totalBlocksSafe
+  if (!(timePerBlock > 0)) return 1
+  return Math.max(1, (Number(props.playhead) || 0) / timePerBlock + 1)
+})
+
+const timelineCommentItems = computed(() => {
+  const currentGrid = Number(currentGridIndex.value) || 1
+  return (Array.isArray(textItems.value) ? textItems.value : []).map((item) => {
+    const start = Number(item?.gridIndex) || 1
+    const len = Math.max(0.01, Number(item?.lengthBlocks) || 1)
+    return {
+      ...item,
+      isActiveNow: currentGrid >= start && currentGrid < start + len,
+    }
+  })
+})
+
+const timelineCommentLayerStyle = computed(() => {
+  const rowHeight = Number(timelineRowHeightPx.value) || TIMELINE_LAYOUT.tracks.defaultRowHeightPx
+  const visibleRowCount = Math.max(1, Number(visibleTracks.value.length) || 1)
+  const top = props.handPositionVisible ? rowHeight + 4 : 0
+  return {
+    left: `${TRACK_START_OFFSET_PX}px`,
+    width: `${trackMinWidthPx.value}px`,
+    top: `${top}px`,
+    height: `${rowHeight * visibleRowCount}px`,
+    pointerEvents: isCommentMode.value && !props.isPlaying ? 'auto' : 'none',
+  }
 })
 
 const markerItems = computed(() => {
@@ -1208,6 +1263,11 @@ function incrementBarsNoPickup() {
 
 .strings-timeline {
   position: relative;
+}
+
+.timeline-comment-layer {
+  position: absolute;
+  z-index: 3;
 }
 
 .timeline-playhead-line {

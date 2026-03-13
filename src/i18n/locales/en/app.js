@@ -76,6 +76,7 @@ export default {
     refresh: 'Refresh',
     owner: 'Owner',
     load: 'Load',
+    delete: 'Delete',
     noItems: 'No items found.',
     connectionsNote:
       'Note: "Connections" shows items with visibility "connections" (after accepted friendship). "Shared" are items visible via the share table.',

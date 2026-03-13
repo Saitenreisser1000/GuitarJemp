@@ -206,7 +206,7 @@
                     height="14"
                     :href="toneDotIcon(d)"
                   />
-                  <text v-else class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
+                  <text v-else-if="toneDotSymbol(d)" class="fb-tone-dot-symbol" :x="toneDotX(d)" :y="toneDotY(d)">
                     {{ toneDotSymbol(d) }}
                   </text>
                   <text v-if="showPitchLabel(d)" class="fb-tone-dot-pitch" :x="toneDotX(d)" :y="toneDotY(d) + 11">
@@ -238,60 +238,73 @@
               :key="item.id"
               class="fb-text-item"
               :class="{ 'is-inactive': !item.isActiveNow }"
-              :style="{ left: `${displayPercent(item.xPct)}%`, top: `${item.yPct}%` }"
+              :style="{
+                left: `${displayPercent(item.xPct)}%`,
+                top: `${item.yPct}%`,
+                width: `${item.widthPct || 32}%`,
+                height: isCommentMode && !isPlaying
+                  ? `calc(${item.heightPct || 18}% + ${TEXT_WINDOW_HEADER_PX}px)`
+                  : `${item.heightPct || 18}%`,
+                '--fb-comment-color': item.color || overlay.DEFAULT_COMMENT_COLOR,
+              }"
             >
-              <button
-                class="fb-text-item-drag"
-                type="button"
-                title="Textfeld bewegen"
-                @pointerdown.stop.prevent="onTextItemDragStart(item.id, $event)"
-              >
-                ::
-              </button>
-              <input
-                class="fb-text-item-input"
-                type="text"
-                :value="item.text"
-                placeholder="Text"
-                @pointerdown.stop
-                @click.stop
-                @input="onTextItemInput(item.id, $event)"
-              />
-              <div class="fb-text-item-timing">
-                <label class="fb-text-item-timing-field">
-                  <span>B</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    :value="textItemStartBar(item)"
+              <template v-if="isCommentMode && !isPlaying">
+                <div class="fb-text-window">
+                  <div class="fb-text-window-head" @pointerdown.stop="onTextItemHeaderPointerDown(item.id, $event)">
+                    <span class="fb-text-window-title">Comment</span>
+                    <div class="fb-text-color-dropdown" @pointerdown.stop @click.stop>
+                      <button
+                        class="fb-text-color-trigger"
+                        type="button"
+                        :style="{ '--fb-comment-swatch': item.color || overlay.DEFAULT_COMMENT_COLOR }"
+                        @click.stop="toggleTextColorMenu(item.id)"
+                      >
+                        <span class="fb-text-color-trigger-swatch" />
+                      </button>
+                      <div v-if="openTextColorMenuId === String(item.id)" class="fb-text-color-menu">
+                        <button
+                          v-for="color in commentPalette"
+                          :key="`${item.id}-${color}`"
+                          class="fb-text-color-option"
+                          :class="{ 'is-active': String(item.color || '').toLowerCase() === String(color).toLowerCase() }"
+                          type="button"
+                          :style="{ '--fb-comment-swatch': color }"
+                          @click.stop="selectTextColor(item.id, color)"
+                        >
+                          <span class="fb-text-color-option-swatch" />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      class="fb-text-item-delete"
+                      type="button"
+                      title="Comment löschen"
+                      @pointerdown.stop
+                      @click.stop="onTextItemDelete(item.id)"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <textarea
+                    class="fb-text-item-input"
+                    :value="item.text"
+                    placeholder="Comment"
+                    rows="3"
                     @pointerdown.stop
                     @click.stop
-                    @input="onTextItemStartBarInput(item.id, $event)"
+                    @input="onTextItemInput(item.id, $event)"
                   />
-                </label>
-                <label class="fb-text-item-timing-field">
-                  <span>L</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    :value="textItemLengthBars(item)"
-                    @pointerdown.stop
-                    @click.stop
-                    @input="onTextItemLengthBarsInput(item.id, $event)"
+                  <button
+                    class="fb-text-resize-handle"
+                    type="button"
+                    title="Comment Größe ändern"
+                    @pointerdown.stop.prevent="onTextItemResizeStart(item.id, $event, item)"
                   />
-                </label>
+                </div>
+              </template>
+              <div v-else class="fb-text-item-static">
+                {{ item.text }}
               </div>
-              <button
-                class="fb-text-item-delete"
-                type="button"
-                title="Textfeld löschen"
-                @pointerdown.stop
-                @click.stop="onTextItemDelete(item.id)"
-              >
-                x
-              </button>
             </div>
           </div>
         </div>
@@ -361,6 +374,7 @@ import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useHandPositionsStore } from '@/store/useHandPositions'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
+import { SURFACE_MODES, useUiModeStore } from '@/store/useUiMode'
 import {
   FRETBOARD_SHOW_DOT_BASE_OPACITY_WHILE_PLAYING,
   FRETBOARD_SHOW_DOT_PULSE_MS,
@@ -424,15 +438,23 @@ const playbackVisuals = usePlaybackVisualsStore()
 const handPositionsStore = useHandPositionsStore()
 const harmonyMenu = useHarmonyMenuStore()
 const overlay = useFretboardOverlayStore()
+const uiMode = useUiModeStore()
 const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
 const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale, scaleRoot, chordRoot } =
   storeToRefs(harmonyMenu)
-const { placementArmed, textItems } = storeToRefs(overlay)
+const { textItems } = storeToRefs(overlay)
+const { surfaceMode, surfacePolicy } = storeToRefs(uiMode)
 const isPlaying = computed(() => playState.value === 'playing')
+const isCommentMode = computed(() => surfaceMode.value === SURFACE_MODES.COMMENT)
+const noteEditingEnabled = computed(() => props.editable && surfacePolicy.value.canEditNotes)
 const isLeftHanded = computed(() => Boolean(settings.leftHanded))
+const commentPalette = computed(() =>
+  Array.isArray(overlay.COMMENT_COLORS) ? overlay.COMMENT_COLORS : ['#f59e0b'],
+)
+const TEXT_WINDOW_HEADER_PX = 37
 const PLAYBACK_START_LEAD_IN_MS = 800
 const fretViewMode = ref('full')
 const fretViewFrom = ref(0)
@@ -655,6 +677,26 @@ function rotateColorGroupToFront(order, colorKey) {
   return [...matching, ...rest]
 }
 
+function buildColorGroups(order, byKey) {
+  const groups = []
+  let current = null
+
+  for (const rawKey of Array.isArray(order) ? order : []) {
+    const key = String(rawKey ?? '')
+    if (!key || !byKey.has(key)) continue
+
+    const note = byKey.get(key)
+    const colorKey = toneDotColorKeyForNote(note)
+    if (!current || current.colorKey !== colorKey) {
+      current = { colorKey, keys: [] }
+      groups.push(current)
+    }
+    current.keys.push(key)
+  }
+
+  return groups
+}
+
 const lastPulseId = ref('')
 watch(
   () => pulseStarts.value,
@@ -696,7 +738,8 @@ const toneDotsForRender = computed(() => {
   const activeColorKey = String(activeStackColorKey.value || '')
 
   // Render order per position is driven by a DotQueue (see dotQueueByPosKey).
-  // This allows rotating the visual stack when notes are played.
+  // Same-color notes form a dot group. When a group becomes active it moves to
+  // the front, and only that front group gets the full filled rendering.
   for (const [posKey, notes] of notesByPosKey.value.entries()) {
     const items = Array.isArray(notes) ? [...notes] : []
     const byKey = new Map(items.map((n) => [String(n?.key ?? ''), n]).filter(([k]) => k))
@@ -704,29 +747,43 @@ const toneDotsForRender = computed(() => {
     const order = activeColorKey
       ? (rotateColorGroupToFront(baseOrder, activeColorKey) ?? baseOrder)
       : baseOrder
-    const visibleLimit = 2
-    const keys = order.filter((k) => byKey.has(String(k))).slice(0, visibleLimit)
+    const groups = buildColorGroups(order, byKey)
 
     const [stringRaw, fretRaw] = String(posKey).split('-')
     const string = Number(stringRaw)
     const fret = Number(fretRaw)
     if (!isFretInView(fret)) continue
 
-    const count = keys.length
-    // Draw order: back-to-front so queue front (index 0) is rendered on top.
-    for (let i = count - 1; i >= 0; i--) {
-      const key = String(keys[i] ?? '')
-      const note = byKey.get(key)
-      if (!note) continue
+    const flattened = []
+    const totalCount = groups.reduce((sum, group) => sum + group.keys.length, 0)
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+      const group = groups[groupIndex]
+      const isActiveGroup = Boolean(activeColorKey) && group.colorKey === activeColorKey
+      for (const rawKey of group.keys) {
+        const key = String(rawKey ?? '')
+        const note = byKey.get(key)
+        if (!note) continue
+        flattened.push({
+          string,
+          fret,
+          color: note?.color,
+          _noteKey: note?.key,
+          _placedAtMs: Number(note?.placedAtMs) || 0,
+          _stackCount: totalCount,
+          _groupIndex: groupIndex,
+          _groupCount: groups.length,
+          _groupColorKey: group.colorKey,
+          _groupActive: isActiveGroup,
+          _kind: 'note',
+        })
+      }
+    }
+
+    const count = flattened.length
+    for (let i = count - 1; i >= 0; i -= 1) {
       out.push({
-        string,
-        fret,
-        color: note?.color,
-        _noteKey: note?.key,
-        _placedAtMs: Number(note?.placedAtMs) || 0,
+        ...flattened[i],
         _stackIndex: i,
-        _stackCount: count,
-        _kind: 'note',
       })
     }
   }
@@ -1401,6 +1458,8 @@ const playbackSelfLoop = computed(() => {
 
 const nextNotePreviewDot = computed(() => {
   if (!isPlaying.value) return null
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  if (!String(latestPulse?.key || '')) return null
   const idx = playbackTimelineIndex.value
   const fromKey = idx >= 0 ? String(timelineNoteEntries.value[idx]?.key || '') : ''
   if (!fromKey) return null
@@ -1411,20 +1470,41 @@ const nextNotePreviewDot = computed(() => {
 
 const leadInPreviewDot = computed(() => {
   if (!isPlaying.value) return null
-  if (playbackTimelineIndex.value >= 0) return null
+  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+  const hasPulse = Boolean(String(latestPulse?.key || ''))
+  if (hasPulse) return null
 
   const nowMs = Number(playheadMs.value)
-  const nextEntry = timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs)
+  const nextEntry =
+    timelineNoteEntries.value.find((entry) => Number(entry?.startMs) >= nowMs) ??
+    timelineNoteEntries.value[0]
   const toKey = String(nextEntry?.key || '')
   if (!toKey) return null
   return renderedToneDotByNoteKey.value.get(toKey) ?? null
 })
 
+const currentTimelineNoteKey = computed(() => {
+  const idx = playbackTimelineIndex.value
+  if (idx < 0) return ''
+  return String(timelineNoteEntries.value[idx]?.key || '')
+})
+
+const firstTimelineNoteKey = computed(() => String(timelineNoteEntries.value[0]?.key || ''))
+
 const activePlaybackColorKey = computed(() => {
-  const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
-  const key = latestPulse?.key ? String(latestPulse.key) : ''
-  if (!key) return ''
-  return toneDotColorKeyForNote(noteByKey.value.get(key))
+  let noteKey = ''
+
+  if (isPlaying.value) {
+    const latestPulse = Array.isArray(pulseStarts.value) ? pulseStarts.value[0] : null
+    noteKey = latestPulse?.key ? String(latestPulse.key) : ''
+    if (!noteKey) noteKey = String(currentTimelineNoteKey.value || '')
+    if (!noteKey) noteKey = String(firstTimelineNoteKey.value || '')
+  } else if (Number(playheadMs.value) > 0) {
+    noteKey = String(currentTimelineNoteKey.value || '')
+  }
+
+  if (!noteKey) return ''
+  return toneDotColorKeyForNote(noteByKey.value.get(noteKey))
 })
 
 const activePreviewColorKey = computed(() => {
@@ -1450,6 +1530,7 @@ const activePreviewColorKey = computed(() => {
 
 const activeStackColorKey = computed(() => {
   if (isPlaying.value) return String(activePlaybackColorKey.value || '')
+  if (Number(playheadMs.value) > 0) return String(activePlaybackColorKey.value || '')
   return String(activePreviewColorKey.value || '')
 })
 
@@ -1511,6 +1592,16 @@ const textDragState = ref({
   pointerId: null,
   itemId: '',
 })
+const textResizeState = ref({
+  active: false,
+  pointerId: null,
+  itemId: '',
+  startClientX: 0,
+  startClientY: 0,
+  startWidthPct: 32,
+  startHeightPct: 18,
+})
+const openTextColorMenuId = ref('')
 
 function clampPercent(v) {
   const n = Number(v)
@@ -1563,7 +1654,7 @@ const renderedTextItems = computed(() => {
       const isActiveNow = currentGrid >= start && currentGrid < start + len
       return { ...item, isActiveNow }
     })
-    .filter((item) => (!isPlaying.value && props.editable) || item.isActiveNow)
+    .filter((item) => (isCommentMode.value && !isPlaying.value) || item.isActiveNow)
 })
 
 function onTextItemInput(id, event) {
@@ -1589,6 +1680,7 @@ function onTextItemLengthBarsInput(id, event) {
 
 function onTextItemDelete(id) {
   overlay.removeTextItem(id)
+  if (openTextColorMenuId.value === String(id || '')) openTextColorMenuId.value = ''
 }
 
 function stopTextDrag() {
@@ -1597,6 +1689,22 @@ function stopTextDrag() {
   window.removeEventListener('pointermove', onTextItemDragMove)
   window.removeEventListener('pointerup', onTextItemDragEnd)
   window.removeEventListener('pointercancel', onTextItemDragEnd)
+}
+
+function stopTextResize() {
+  if (!textResizeState.value.active) return
+  textResizeState.value = {
+    active: false,
+    pointerId: null,
+    itemId: '',
+    startClientX: 0,
+    startClientY: 0,
+    startWidthPct: 32,
+    startHeightPct: 18,
+  }
+  window.removeEventListener('pointermove', onTextItemResizeMove)
+  window.removeEventListener('pointerup', onTextItemResizeEnd)
+  window.removeEventListener('pointercancel', onTextItemResizeEnd)
 }
 
 function onTextItemDragMove(event) {
@@ -1613,6 +1721,25 @@ function onTextItemDragEnd(event) {
   stopTextDrag()
 }
 
+function onTextItemResizeMove(event) {
+  const state = textResizeState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  const rect = overlayEl.value?.getBoundingClientRect?.()
+  if (!rect || !(rect.width > 0) || !(rect.height > 0)) return
+  const dxPct = ((Number(event.clientX) - state.startClientX) / rect.width) * 100
+  const dyPct = ((Number(event.clientY) - state.startClientY) / rect.height) * 100
+  overlay.updateTextItemSize(state.itemId, {
+    widthPct: state.startWidthPct + dxPct,
+    heightPct: state.startHeightPct + dyPct,
+  })
+}
+
+function onTextItemResizeEnd(event) {
+  const state = textResizeState.value
+  if (!state.active || event.pointerId !== state.pointerId) return
+  stopTextResize()
+}
+
 function onTextItemDragStart(id, event) {
   if (event.button !== 0) return
   textDragState.value = {
@@ -1623,6 +1750,45 @@ function onTextItemDragStart(id, event) {
   window.addEventListener('pointermove', onTextItemDragMove)
   window.addEventListener('pointerup', onTextItemDragEnd)
   window.addEventListener('pointercancel', onTextItemDragEnd)
+}
+
+function onTextItemResizeStart(id, event, item) {
+  if (event.button !== 0) return
+  textResizeState.value = {
+    active: true,
+    pointerId: event.pointerId,
+    itemId: String(id || ''),
+    startClientX: Number(event.clientX) || 0,
+    startClientY: Number(event.clientY) || 0,
+    startWidthPct: Number(item?.widthPct) || 32,
+    startHeightPct: Number(item?.heightPct) || 18,
+  }
+  window.addEventListener('pointermove', onTextItemResizeMove)
+  window.addEventListener('pointerup', onTextItemResizeEnd)
+  window.addEventListener('pointercancel', onTextItemResizeEnd)
+}
+
+function onTextItemHeaderPointerDown(id, event) {
+  const target = event?.target
+  if (target?.closest?.('.fb-text-color-dropdown')) return
+  if (target?.closest?.('.fb-text-item-delete')) return
+  onTextItemDragStart(id, event)
+}
+
+function toggleTextColorMenu(id) {
+  const key = String(id || '')
+  openTextColorMenuId.value = openTextColorMenuId.value === key ? '' : key
+}
+
+function selectTextColor(id, color) {
+  overlay.updateTextItemColor(id, color)
+  openTextColorMenuId.value = ''
+}
+
+function onWindowPointerDownForTextColorMenu(event) {
+  const target = event?.target
+  if (target?.closest?.('.fb-text-color-dropdown')) return
+  openTextColorMenuId.value = ''
 }
 
 function removeSelectionKey(noteKey) {
@@ -1691,6 +1857,7 @@ function onGlobalToneDotContextKeyDown(event) {
 }
 
 function onToneDotContextMenu(d, event) {
+  if (!noteEditingEnabled.value) return
   const posKey = posKeyForToneDot(d)
   const items = buildToneDotContextItems(posKey)
   if (!items.length) return
@@ -2298,10 +2465,9 @@ function hoveredPosFromEvent(event) {
 
 function onClick(event) {
   if (Date.now() < suppressClicksUntilMs) return
-  if (placementArmed.value) {
+  if (isCommentMode.value) {
     const p = overlayClientToPercent(event?.clientX, event?.clientY)
-    overlay.setPlacementArmed(false)
-    if (p) {
+    if (p && !isPlaying.value) {
       const blocks = Number(blocksPerBar.value) || 1
       const currentGrid = Number(currentPlayheadGridIndex.value) || 1
       const startBar = Math.max(1, Math.floor((currentGrid - 1) / blocks) + 1)
@@ -2318,7 +2484,7 @@ function onClick(event) {
   if (!pos) return
   const { fret, string } = pos
 
-  if (props.editable) {
+  if (noteEditingEnabled.value) {
     if (settings.eraseMode) {
       const existing = toneDotByPosKey.value.get(`${string}-${fret}`)
       const noteKey = String(existing?._noteKey || '')
@@ -2377,6 +2543,14 @@ function onClick(event) {
 }
 
 function onMouseMove(event) {
+  if (isCommentMode.value) {
+    hoveredFret.value = null
+    hoveredPosKey.value = null
+    hoveredToneDotKey.value = null
+    hideTooltip()
+    return
+  }
+
   // If the pointer is currently inside a dot, keep hover stable.
   if (hoveredToneDotKey.value) {
     if (tooltip.value.visible) setTooltipFromEvent(event, tooltip.value.text)
@@ -2442,6 +2616,7 @@ function isToneDotHovered(d) {
 }
 
 function onToneDotEnter(d, event) {
+  if (isCommentMode.value) return
   const key = hoverKeyForToneDot(d)
   hoveredToneDotKey.value = key
   hoveredPosKey.value = posKeyForToneDot(d)
@@ -2463,6 +2638,10 @@ function onToneDotLeave(d) {
 }
 
 function onToneDotClick(d, event) {
+  if (isCommentMode.value) {
+    event?.stopPropagation?.()
+    return
+  }
   if (event?.button != null && event.button !== 0) return
   if (Date.now() < suppressClicksUntilMs) return
   const noteKey = noteKeyForToneDot(d)
@@ -2516,7 +2695,7 @@ function clearLongPressTimer() {
 
 function onToneDotPointerDown(d, event) {
   if (event?.button != null && event.button !== 0) return
-  if (!props.editable) return
+  if (!noteEditingEnabled.value) return
   if (isPlaying.value) return
 
   const noteKey = noteKeyForToneDot(d)
@@ -2679,20 +2858,15 @@ function harmonyGuideRadius(d) {
 }
 
 function toneDotOffset(d) {
-  const count = Number(d?._stackCount) || 1
-  if (count <= 1) return { dx: 0, dy: 0 }
+  return { dx: 0, dy: 0 }
+}
 
-  const iRaw = Number(d?._stackIndex) || 0
-  const i = Math.max(0, Math.floor(iRaw))
-
-  // Only horizontal offsets (requested): keep y aligned to the string.
-  // Stack direction: only to the left.
-  // Queue front is centered (dx=0); subsequent items shift left by OX each.
-  const OX = FRETBOARD_INTERACTION.toneDotStackOffsetXPx
-  return { dx: (isLeftHanded.value ? 1 : -1) * i * OX, dy: 0 }
+function isToneDotGroupActive(d) {
+  return Boolean(d?._groupActive)
 }
 
 function toneDotFill(d) {
+  if (!isToneDotGroupActive(d)) return 'transparent'
   return d?.color ?? 'white'
 }
 
@@ -2767,6 +2941,7 @@ function intervalLabelForToneDot(d) {
 }
 
 function toneDotSymbol(d) {
+  if (!isToneDotGroupActive(d)) return ''
   if (settings.showIntervalsOnDots) {
     return intervalLabelForToneDot(d)
   }
@@ -2777,6 +2952,7 @@ function toneDotSymbol(d) {
 }
 
 function toneDotIcon(d) {
+  if (!isToneDotGroupActive(d)) return ''
   if (settings.showIntervalsOnDots) return ''
   const value = noteValueForToneDot(d)
   if (!(value === '1/2' || value === '1')) return ''
@@ -2793,6 +2969,7 @@ function toneDotPitchLabel(d) {
 }
 
 function showPitchLabel(d) {
+  if (!isToneDotGroupActive(d)) return false
   const nk = noteKeyForToneDot(d)
   return Boolean(nk && (highlightedNoteKeySet.value.has(nk) || isToneDotHovered(d)))
 }
@@ -2806,17 +2983,23 @@ function isMarkerFret(fret) {
 function toneDotOpacity(d) {
   const colorKey = toneDotColorKeyForNote(d)
   const activeColorKey = String(activePlaybackColorKey.value || '')
+  const activeGroup = isToneDotGroupActive(d)
 
   if (!isPlaying.value) {
-    const nk = noteKeyForToneDot(d)
-    const dyn = nk ? Number(dynamicByNoteKey.value.get(nk)) : NaN
-    return Number.isFinite(dyn) ? 0.48 + dyn * 0.52 : 1
+    return activeGroup ? 1 : 0.9
   }
   if (!activeColorKey) return 1
-  return colorKey === activeColorKey ? 1 : 0.5
+  if (colorKey === activeColorKey) return 1
+  return 0.82
 }
 
 function toneDotStroke(d) {
+  if (!isToneDotGroupActive(d)) {
+    const nk = noteKeyForToneDot(d)
+    if (nk && String(selection.selectedNoteKey || '') === nk) return FRETBOARD_THEME.toneDots.strokeHover
+    return String(d?.color || FRETBOARD_THEME.toneDots.strokeDefault)
+  }
+
   const hk = hoverKeyForToneDot(d)
   const hoverStroke =
     hoveredToneDotKey.value === hk
@@ -2830,6 +3013,14 @@ function toneDotStroke(d) {
 }
 
 function toneDotStrokeWidth(d) {
+  if (!isToneDotGroupActive(d)) {
+    const nk = noteKeyForToneDot(d)
+    let w = 1.7
+    if (isToneDotHovered(d)) w = Math.max(w, 2)
+    if (nk && String(selection.selectedNoteKey || '') === nk) w = Math.max(w, 2.1)
+    return w
+  }
+
   const hk = hoverKeyForToneDot(d)
   let w = hoveredToneDotKey.value === hk ? 1.8 : 1.2
 
@@ -2902,13 +3093,16 @@ onMounted(() => {
     })
     coreResizeObserver.observe(coreResizableEl.value)
   }
+  window.addEventListener('pointerdown', onWindowPointerDownForTextColorMenu, true)
 })
 
 onBeforeUnmount(() => {
   closeToneDotContextMenu()
   stopTextDrag()
+  stopTextResize()
   stopAnim()
   window.removeEventListener('resize', onViewportResize)
+  window.removeEventListener('pointerdown', onWindowPointerDownForTextColorMenu, true)
   coreResizeObserver?.disconnect?.()
   coreResizeObserver = null
 })
@@ -3042,74 +3236,140 @@ watch(
 
 .fb-text-item {
   position: absolute;
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: block;
   transform: translate(-50%, -50%);
   pointer-events: auto;
-  max-width: 240px;
+  min-width: 140px;
 }
 
 .fb-text-item.is-inactive {
   opacity: 0.58;
 }
 
-.fb-text-item-drag {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #9aa3ad;
-  border-radius: 4px;
-  background: #eef1f4;
-  color: #3a4350;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
+.fb-text-window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid color-mix(in srgb, var(--fb-comment-color, #f59e0b) 48%, rgb(154 163 173) 52%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fb-comment-color, #f59e0b) 8%, white 92%);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
+  overflow: hidden;
+}
+
+.fb-text-window-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 6px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--fb-comment-color, #f59e0b) 14%, white 86%),
+    color-mix(in srgb, var(--fb-comment-color, #f59e0b) 8%, #e8edf2 92%)
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--fb-comment-color, #f59e0b) 28%, rgb(154 163 173) 72%);
   cursor: move;
 }
 
-.fb-text-item-input {
-  height: 22px;
-  min-width: 80px;
-  max-width: 150px;
-  padding: 0 6px;
-  border: 1px solid #9aa3ad;
-  border-radius: 4px;
-  background: rgb(255 255 255 / 92%);
-  color: #1b1f25;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.fb-text-item-timing {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
-  border: 1px solid rgb(154 163 173 / 0.85);
-  border-radius: 4px;
-  background: rgb(255 255 255 / 88%);
-}
-
-.fb-text-item-timing-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 800;
-  color: #4b5563;
-}
-
-.fb-text-item-timing-field input {
-  width: 42px;
-  height: 20px;
-  padding: 0 4px;
-  border: 1px solid #b3bcc6;
-  border-radius: 3px;
-  background: #fff;
-  color: #111827;
+.fb-text-window-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #3a4350;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.fb-text-color-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.fb-text-color-trigger {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--fb-comment-color, #f59e0b) 32%, rgb(154 163 173) 68%);
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.fb-text-color-trigger-swatch,
+.fb-text-color-option-swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--fb-comment-swatch);
+}
+
+.fb-text-color-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  min-width: 102px;
+  padding: 8px;
+  border: 1px solid rgb(154 163 173 / 0.55);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 18%);
+  z-index: 8;
+}
+
+.fb-text-color-option {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.85);
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+}
+
+.fb-text-color-option.is-active {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.92),
+    0 0 0 3px color-mix(in srgb, var(--fb-comment-swatch) 55%, transparent);
+}
+
+.fb-text-item-input {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 8px 10px 24px;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--fb-comment-color, #f59e0b) 4%, white 96%);
+  color: #1b1f25;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  resize: none;
+  outline: none;
+}
+
+.fb-text-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, transparent 0 34%, color-mix(in srgb, var(--fb-comment-color, #f59e0b) 45%, #6b7280 55%) 34% 46%, transparent 46% 100%);
+  cursor: nwse-resize;
 }
 
 .fb-text-item-delete {
@@ -3123,6 +3383,45 @@ watch(
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
+}
+
+@media (max-width: 860px) {
+  .fb-text-window-head {
+    gap: 6px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .fb-text-window-title {
+    width: 100%;
+  }
+
+  .fb-text-color-trigger {
+    width: 30px;
+    height: 24px;
+  }
+
+  .fb-text-item-delete {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.fb-text-item-static {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 48px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--fb-comment-color, #f59e0b) 36%, rgb(154 163 173) 64%);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--fb-comment-color, #f59e0b) 12%, white 88%);
+  color: #111827;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow: auto;
 }
 
 .fb-playback-travel-line line {

@@ -26,6 +26,7 @@ const { t } = useI18n()
 const listTab = ref('mine')
 const ownerNamesById = ref({})
 const search = ref('')
+const deletingItemId = ref('')
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -139,6 +140,25 @@ function onLoad(item) {
   applySnapshot(item?.content)
 }
 
+function canDeleteItem(item) {
+  const ownerId = String(item?.owner_id ?? '').trim()
+  const meId = String(auth.user?.id ?? '').trim()
+  return Boolean(ownerId && meId && ownerId === meId)
+}
+
+async function onDelete(item) {
+  const itemId = String(item?.id ?? '').trim()
+  if (!itemId || !canDeleteItem(item)) return
+  if (deletingItemId.value === itemId) return
+
+  deletingItemId.value = itemId
+  try {
+    await library.deleteItem(itemId)
+  } finally {
+    if (deletingItemId.value === itemId) deletingItemId.value = ''
+  }
+}
+
 async function refreshOwnerNames() {
   ownerNamesById.value = {}
   if (!isSupabaseConfigured || !supabase) return
@@ -240,7 +260,16 @@ onMounted(async () => {
             <td class="library-ellipsis">{{ item.category || '—' }}</td>
             <td class="text-medium-emphasis library-ellipsis">{{ ownerDisplayNameFor(item) }}</td>
             <td class="text-right">
-              <v-btn size="x-small" variant="tonal" @click.stop="onLoad(item)">Load</v-btn>
+              <v-btn
+                size="x-small"
+                variant="tonal"
+                color="error"
+                :disabled="!canDeleteItem(item)"
+                :loading="deletingItemId === String(item.id || '')"
+                @click.stop="onDelete(item)"
+              >
+                {{ t('libraryDialog.delete') }}
+              </v-btn>
             </td>
           </tr>
           <tr v-if="filteredItems.length === 0">

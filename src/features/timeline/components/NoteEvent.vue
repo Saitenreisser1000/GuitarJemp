@@ -1,6 +1,6 @@
 <template>
   <div v-if="isVisibleInTimeline || isGhostVisible" class="note-event"
-    :class="{ 'is-selected': isSelected, 'is-ghost': isGhostVisible }" :data-note-key="note?.key"
+    :class="{ 'is-selected': isSelected, 'is-ghost': isGhostVisible, 'is-dimmed': isDimmed, 'is-disabled': isDisabled }" :data-note-key="note?.key"
     :style="noteStyle" :title="title"
     @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp"
     @contextmenu.prevent.stop="onContextMenu">
@@ -37,6 +37,7 @@ import { useNotesStore } from '@/store/useNotes'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 import { useTransportStore } from '@/store/useTransport'
+import { useUiModeStore } from '@/store/useUiMode'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 import { getTuning } from '@/domain/music/tunings'
 import { midiToNoteName } from '@/domain/music/notes'
@@ -62,12 +63,15 @@ const notesStore = useNotesStore()
 const instrument = useInstrumentStore()
 const settings = useTimelineSettingsStore()
 const transport = useTransportStore()
+const uiMode = useUiModeStore()
 const { t } = useI18n()
 const isSelected = computed(() => selection.isSelected(props.note?.key))
 const isGroupSelected = computed(
   () => isSelected.value && (selection.selectedNoteKeys?.length || 0) > 1,
 )
 const isHandPositionNote = computed(() => String(props.note?.key ?? '').startsWith('hp_'))
+const isDisabled = computed(() => !uiMode.surfacePolicy.canEditNotes)
+const isDimmed = computed(() => uiMode.surfacePolicy.dimNoteEvents)
 const snapStepBlocks = computed(() =>
   snapStepBlocksForMode(props.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS),
 )
@@ -278,6 +282,7 @@ function onGlobalKeyDown(event) {
 }
 
 function onContextMenu(event) {
+  if (isDisabled.value) return
   const key = props.note?.key
   if (key && !selection.isSelected(key)) selection.selectNote(key)
 
@@ -332,6 +337,10 @@ const title = computed(() => {
 })
 
 function onPointerDown(e) {
+  if (isDisabled.value) {
+    e?.preventDefault?.()
+    return
+  }
   if (isResizing.value) return
   if (e?.button != null && e.button !== 0) return
   const key = props.note?.key
@@ -411,6 +420,10 @@ function onPointerDown(e) {
 }
 
 function onResizePointerDown(e) {
+  if (isDisabled.value) {
+    e?.preventDefault?.()
+    return
+  }
   if (isDragging.value) return
   if (e?.button != null && e.button !== 0) return
   const key = props.note?.key
@@ -537,6 +550,7 @@ onBeforeUnmount(() => {
   position: absolute;
   height: 100%;
   top: 0;
+  z-index: 4;
   border-radius: 3px;
   border: 1px solid color-mix(in srgb, var(--note-base-color) 78%, var(--color-surface) 22%);
   display: flex;
@@ -586,6 +600,16 @@ onBeforeUnmount(() => {
   opacity: 0.45;
   border-style: dashed;
   pointer-events: none;
+}
+
+.note-event.is-dimmed {
+  opacity: 0.5;
+  filter: saturate(0.7);
+}
+
+.note-event.is-disabled {
+  pointer-events: none;
+  cursor: default;
 }
 
 .note-event:active {

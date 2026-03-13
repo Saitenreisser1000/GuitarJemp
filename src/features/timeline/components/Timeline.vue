@@ -59,6 +59,7 @@ import { useInstrumentStore } from '@/store/useInstrument'
 import { usePlaybackVisualsStore } from '@/store/usePlaybackVisuals'
 import { useSelectionStore } from '@/store/useSelection'
 import { useHandPositionsStore } from '@/store/useHandPositions'
+import { SURFACE_MODES, useUiModeStore } from '@/store/useUiMode'
 import { useI18n } from '@/i18n'
 import { usePlayback } from '@/composables/usePlayback'
 import { useGrid } from '@/composables/useGrid'
@@ -111,6 +112,7 @@ const instrument = useInstrumentStore()
 const playbackVisuals = usePlaybackVisualsStore()
 const selection = useSelectionStore()
 const handPositionsStore = useHandPositionsStore()
+const uiMode = useUiModeStore()
 const { t } = useI18n()
 const PLAYBACK_START_LEAD_IN_MS = 800
 
@@ -144,6 +146,7 @@ const {
   timelineLengthBlocks,
 } = storeToRefs(settings)
 const { numStrings } = storeToRefs(instrument)
+const { surfaceMode, surfacePolicy } = storeToRefs(uiMode)
 
 const tuning = computed(() => getTuning(instrument.tuningId))
 
@@ -294,6 +297,7 @@ const tracks = computed(() => {
 })
 
 function handleUpdateNoteGridIndex(noteKey, gridIndex) {
+  if (!surfacePolicy.value.canEditNotes) return
   if (isHandPositionKey(noteKey)) {
     updateHandPositionNoteGridIndex(noteKey, gridIndex)
     return
@@ -304,6 +308,7 @@ function handleUpdateNoteGridIndex(noteKey, gridIndex) {
 }
 
 function handleUpdateNoteLength(noteKey, lengthBlocks) {
+  if (!surfacePolicy.value.canEditNotes) return
   if (isHandPositionKey(noteKey)) {
     updateHandPositionNoteLength(noteKey, lengthBlocks)
     return
@@ -314,6 +319,7 @@ function handleUpdateNoteLength(noteKey, lengthBlocks) {
 }
 
 function handleUpdateNoteLabel(noteKey, label) {
+  if (!surfacePolicy.value.canEditNotes) return
   if (!isHandPositionKey(noteKey)) return
   handPositionsStore.setHandPositionLabel(noteKey, label)
 }
@@ -330,6 +336,7 @@ function quantizeBlocks(v) {
 }
 
 function handleGroupMoveNotes(anchorKey, deltaBlocks) {
+  if (!surfacePolicy.value.canEditNotes) return
   if (playback.isPlaying.value) return
 
   const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
@@ -357,6 +364,7 @@ function handleGroupMoveNotes(anchorKey, deltaBlocks) {
 }
 
 function handleGroupResizeNotes(anchorKey, deltaBlocks) {
+  if (!surfacePolicy.value.canEditNotes) return
   if (playback.isPlaying.value) return
 
   const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
@@ -387,6 +395,7 @@ function handleGroupResizeNotes(anchorKey, deltaBlocks) {
 }
 
 function handleCopySelection() {
+  if (!surfacePolicy.value.canEditNotes) return
   const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
   if (!keys.length) {
     selection.setClipboardNotes([])
@@ -432,6 +441,7 @@ function playheadGridIndex() {
 }
 
 function handlePasteAtPlayhead() {
+  if (!surfacePolicy.value.canEditNotes) return
   if (playback.isPlaying.value) return
   const clip = selection.clipboardNotes
   const items = Array.isArray(clip?.value) ? clip.value : Array.isArray(clip) ? clip : []
@@ -490,6 +500,7 @@ function handleAddMarkerAtPlayhead() {
 }
 
 function handleLoopToSelection() {
+  if (!surfacePolicy.value.canEditNotes) return
   const items = selectedTimelineItems()
   if (!items.length) return
 
@@ -510,6 +521,7 @@ function handleLoopToSelection() {
 }
 
 function handleQuantizeSelection() {
+  if (!surfacePolicy.value.canEditNotes) return
   const items = selectedTimelineItems()
   if (!items.length) return
   const step = Math.max(0.01, Number(currentStep.value) || 1)
@@ -528,6 +540,7 @@ function handleQuantizeSelection() {
 }
 
 function handleScaleSelectionLength(factor) {
+  if (!surfacePolicy.value.canEditNotes) return
   const f = Number(factor)
   if (!Number.isFinite(f) || f <= 0) return
   const items = selectedTimelineItems()
@@ -553,12 +566,14 @@ function syncSelectionToExistingNotes() {
 }
 
 function handleUndo() {
+  if (!surfacePolicy.value.canEditNotes) return
   if (playback.isPlaying.value) return
   const ok = store.undo()
   if (ok) syncSelectionToExistingNotes()
 }
 
 function handleRedo() {
+  if (!surfacePolicy.value.canEditNotes) return
   if (playback.isPlaying.value) return
   const ok = store.redo()
   if (ok) syncSelectionToExistingNotes()
@@ -580,6 +595,15 @@ watch(
   },
 )
 
+watch(
+  () => surfaceMode.value,
+  (mode) => {
+    if (mode !== SURFACE_MODES.COMMENT) return
+    selection.clearGroupTransforms()
+    selection.clearSelection()
+  },
+)
+
 function isEditableTarget(target) {
   const el = target
   const tag = el?.tagName ? String(el.tagName).toLowerCase() : ''
@@ -594,6 +618,7 @@ function onGlobalKeyDown(e) {
   if (e.defaultPrevented) return
   if (isEditableTarget(e.target)) return
   if (playback.isPlaying.value) return
+  if (!surfacePolicy.value.canEditNotes) return
 
   const key = String(e.key || '').toLowerCase()
   const mod = Boolean(e.ctrlKey || e.metaKey)

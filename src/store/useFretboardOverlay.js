@@ -2,6 +2,16 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 let nextTextId = 1
+const DEFAULT_COMMENT_COLOR = '#FF6B6B'
+const COMMENT_COLORS = Object.freeze([
+  '#FF6B6B',
+  '#4ECDC4',
+  '#45B7D1',
+  '#FFA07A',
+  '#98D8C8',
+  '#F7DC6F',
+])
+const NORMALIZED_COMMENT_COLORS = Object.freeze(COMMENT_COLORS.map((color) => String(color).toLowerCase()))
 
 function clampPercent(v) {
   const n = Number(v)
@@ -9,24 +19,38 @@ function clampPercent(v) {
   return Math.max(0, Math.min(100, n))
 }
 
+function clampSizePercent(v, { min = 6, max = 80 } = {}) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return min
+  return Math.max(min, Math.min(max, n))
+}
+
+function normalizeCommentColor(value) {
+  const raw = String(value || '').trim().toLowerCase()
+  return NORMALIZED_COMMENT_COLORS.includes(raw) ? raw : String(DEFAULT_COMMENT_COLOR).toLowerCase()
+}
+
 export const useFretboardOverlayStore = defineStore('fretboardOverlay', () => {
-  const placementArmed = ref(false)
   const textItems = ref([])
 
-  function armTextPlacement() {
-    placementArmed.value = true
-  }
-
-  function setPlacementArmed(v) {
-    placementArmed.value = Boolean(v)
-  }
-
-  function addTextItem({ xPct, yPct, text = '', gridIndex = 1, lengthBlocks = 4 } = {}) {
+  function addTextItem({
+    xPct,
+    yPct,
+    text = '',
+    gridIndex = 1,
+    lengthBlocks = 4,
+    color,
+    widthPct = 32,
+    heightPct = 18,
+  } = {}) {
     const item = {
       id: `txt_${nextTextId++}`,
       xPct: clampPercent(xPct),
       yPct: clampPercent(yPct),
+      widthPct: clampSizePercent(widthPct, { min: 14, max: 70 }),
+      heightPct: clampSizePercent(heightPct, { min: 10, max: 48 }),
       text: String(text ?? ''),
+      color: normalizeCommentColor(color),
       gridIndex: Number.isFinite(Number(gridIndex)) && Number(gridIndex) > 0 ? Number(gridIndex) : 1,
       lengthBlocks:
         Number.isFinite(Number(lengthBlocks)) && Number(lengthBlocks) > 0 ? Number(lengthBlocks) : 4,
@@ -41,7 +65,10 @@ export const useFretboardOverlayStore = defineStore('fretboardOverlay', () => {
         id: String(item?.id || `txt_${nextTextId++}`),
         xPct: clampPercent(item?.xPct),
         yPct: clampPercent(item?.yPct),
+        widthPct: clampSizePercent(item?.widthPct, { min: 14, max: 70 }),
+        heightPct: clampSizePercent(item?.heightPct, { min: 10, max: 48 }),
         text: String(item?.text ?? ''),
+        color: normalizeCommentColor(item?.color),
         gridIndex:
           Number.isFinite(Number(item?.gridIndex)) && Number(item?.gridIndex) > 0
             ? Number(item.gridIndex)
@@ -62,11 +89,26 @@ export const useFretboardOverlayStore = defineStore('fretboardOverlay', () => {
     textItems.value[idx].yPct = clampPercent(yPct)
   }
 
+  function updateTextItemSize(id, { widthPct, heightPct } = {}) {
+    const key = String(id || '')
+    const idx = textItems.value.findIndex((x) => String(x?.id) === key)
+    if (idx < 0) return
+    if (widthPct != null) textItems.value[idx].widthPct = clampSizePercent(widthPct, { min: 14, max: 70 })
+    if (heightPct != null) textItems.value[idx].heightPct = clampSizePercent(heightPct, { min: 10, max: 48 })
+  }
+
   function updateTextItemText(id, text) {
     const key = String(id || '')
     const idx = textItems.value.findIndex((x) => String(x?.id) === key)
     if (idx < 0) return
     textItems.value[idx].text = String(text ?? '')
+  }
+
+  function updateTextItemColor(id, color) {
+    const key = String(id || '')
+    const idx = textItems.value.findIndex((x) => String(x?.id) === key)
+    if (idx < 0) return
+    textItems.value[idx].color = normalizeCommentColor(color)
   }
 
   function updateTextItemTiming(id, { gridIndex, lengthBlocks } = {}) {
@@ -92,14 +134,15 @@ export const useFretboardOverlayStore = defineStore('fretboardOverlay', () => {
   }
 
   return {
-    placementArmed,
     textItems,
-    armTextPlacement,
-    setPlacementArmed,
+    COMMENT_COLORS,
+    DEFAULT_COMMENT_COLOR,
     addTextItem,
     setTextItems,
     updateTextItemPosition,
+    updateTextItemSize,
     updateTextItemText,
+    updateTextItemColor,
     updateTextItemTiming,
     removeTextItem,
   }

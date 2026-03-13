@@ -143,7 +143,7 @@ const preferenceSoundPreview = computed({
 })
 const preferenceDarkMode = computed({
   get: () => isDarkTheme.value,
-  set: (v) => applyTheme(Boolean(v) ? 'guitarjempDark' : 'guitarjemp'),
+  set: (v) => applyTheme(v ? 'guitarjempDark' : 'guitarjemp'),
 })
 const preferenceIntervalsOnDots = computed({
   get: () => Boolean(timelineSettings.showIntervalsOnDots),

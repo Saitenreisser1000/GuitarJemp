@@ -77,6 +77,7 @@ export default {
     refresh: 'Actualizar',
     owner: 'Propietario',
     load: 'Cargar',
+    delete: 'Eliminar',
     noItems: 'No se encontraron elementos.',
     connectionsNote:
       'Nota: "Conexiones" muestra elementos con visibilidad "connections" (tras conexión aceptada). "Compartidos" son elementos visibles mediante la tabla de compartición.',
