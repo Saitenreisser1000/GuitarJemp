@@ -1510,7 +1510,7 @@ onBeforeUnmount(() => {
   flex-basis: 100% !important;
 }
 
-.app-layout.is-phone-view .app-footer {
+.app-layout.is-compact-view .app-footer {
   display: none;
 }
 
