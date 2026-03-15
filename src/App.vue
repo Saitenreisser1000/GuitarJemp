@@ -196,7 +196,7 @@ const effectiveIsPortrait = computed(() => {
   }
   return Boolean(isPortraitViewport.value)
 })
-const showPhoneRotateOverlay = computed(() => isCompactView.value && effectiveIsPortrait.value)
+const showPhoneRotateOverlay = computed(() => false)
 const appLayoutStyle = computed(() => ({
   '--app-vh': debugViewportFrameActive.value
     ? `${Math.max(0.01, Number(effectiveViewportHeightPx.value) / 100 || 1)}px`
@@ -710,6 +710,62 @@ onBeforeUnmount(() => {
             title="Dashboard"
             @click="openDashboard"
           />
+          <v-divider v-if="mainView !== 'dashboard'" class="my-1" />
+          <v-list-subheader v-if="mainView !== 'dashboard'">Share</v-list-subheader>
+          <v-list-item
+            v-if="mainView !== 'dashboard'"
+            prepend-icon="mdi-account-edit-outline"
+            title="Kontakte verwalten"
+            @click="openShareManager"
+          />
+          <v-list-group
+            v-for="contact in mainView !== 'dashboard' ? shareContactsForMenu : []"
+            :key="`phone-share-${contact.id}`"
+            :value="`phone-share-${contact.id}`"
+          >
+            <template #activator="{ props: groupProps }">
+              <v-list-item
+                v-bind="groupProps"
+                :title="contact.name"
+                prepend-icon="mdi-account"
+              >
+                <template #append>
+                  <div class="d-inline-flex align-center ga-1">
+                    <v-icon v-if="contact.hasEmail" size="16" icon="mdi-email-outline" />
+                    <v-icon v-if="contact.hasWhatsApp" size="16" icon="mdi-whatsapp" />
+                  </div>
+                </template>
+              </v-list-item>
+            </template>
+            <v-list-item
+              v-if="contact.hasEmail"
+              title="Per Mail senden"
+              prepend-icon="mdi-email-outline"
+              @click="shareContact(contact, 'email')"
+            />
+            <v-list-item
+              v-if="contact.hasWhatsApp"
+              title="Per WhatsApp senden"
+              prepend-icon="mdi-whatsapp"
+              @click="shareContact(contact, 'whatsapp')"
+            />
+            <v-list-item
+              v-if="contact.hasEmail && contact.hasWhatsApp"
+              title="Per Mail + WhatsApp senden"
+              prepend-icon="mdi-send-circle-outline"
+              @click="shareContact(contact, 'both')"
+            />
+            <v-list-item
+              v-if="!contact.hasEmail && !contact.hasWhatsApp"
+              title="Keine Mail/WhatsApp hinterlegt"
+              prepend-icon="mdi-alert-circle-outline"
+              disabled
+            />
+          </v-list-group>
+          <v-list-item
+            v-if="mainView !== 'dashboard' && shareContactsForMenu.length === 0"
+            title="Keine Kontakte"
+          />
           <v-divider class="my-1" />
           <v-list-subheader>View</v-list-subheader>
           <v-list-item title="Desktop" @click="viewMode = 'desktop'" />
@@ -795,7 +851,7 @@ onBeforeUnmount(() => {
       >
         {{ paneBMenuToggleLabel }}
       </v-btn>
-      <v-menu v-if="mainView !== 'dashboard'" location="bottom start">
+      <v-menu v-if="!isCompactView && mainView !== 'dashboard'" location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Share</v-btn>
         </template>
