@@ -1311,15 +1311,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-layout {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  min-height: 100svh;
-  height: calc(var(--app-vh, 1dvh) * 100);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  height: calc((var(--app-vh, 1dvh) * 100) + var(--app-safe-bottom, 0px));
+  min-height: calc((var(--app-vh, 1dvh) * 100) + var(--app-safe-bottom, 0px));
   width: 100%;
-  padding-bottom: var(--app-safe-bottom);
   box-sizing: border-box;
+  overflow: hidden;
+  background: #f7f4ef;
 }
 
 .app-layout.is-debug-viewport {
@@ -1408,8 +1407,8 @@ onBeforeUnmount(() => {
 .app-content {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .app-transport-wrap {
@@ -1434,7 +1433,7 @@ onBeforeUnmount(() => {
 }
 
 .app-window-manager {
-  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
 }
 
@@ -1479,7 +1478,6 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: flex-start;
-  flex: 1 1 auto;
   height: 100%;
   min-height: 0;
   width: 100%;
