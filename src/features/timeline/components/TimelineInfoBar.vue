@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'TimelineInfoBar' })
@@ -95,6 +95,7 @@ const props = defineProps({
   barsNoPickupLocal: { type: String, default: '1' },
   snapEnabled: { type: Boolean, default: true },
   compact: { type: Boolean, default: false },
+  forceExpanded: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -109,9 +110,17 @@ const emit = defineEmits([
 ])
 
 const { t } = useI18n()
-const infoExpanded = ref(false)
+const infoExpanded = ref(Boolean(props.forceExpanded))
 const isMobile = computed(() => Boolean(props.compact))
 const activeToolLabel = computed(() => (String(props.activeTool) === 'select' ? 'Select' : 'Move'))
+
+watch(
+  () => props.forceExpanded,
+  (forceExpanded) => {
+    if (forceExpanded) infoExpanded.value = true
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>

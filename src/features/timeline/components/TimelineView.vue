@@ -115,7 +115,8 @@
           </div>
           <aside v-if="showCompactLandscapeSidebar" class="timeline-mobile-sidebar timeline-column-card">
             <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
-              :compact="false"
+              :compact="compact"
+              :force-expanded="true"
               :snap-enabled="snapEnabled"
               @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
               @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
