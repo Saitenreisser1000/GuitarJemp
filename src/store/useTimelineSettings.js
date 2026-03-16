@@ -44,9 +44,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const beatBottom = ref([1, 2, 4, 8].includes(stored.beatBottom) ? stored.beatBottom : 4)
   const pickupEnabled = ref(typeof stored.pickupEnabled === 'boolean' ? stored.pickupEnabled : false)
   const pickupBeats = ref(
-    Number.isFinite(stored.pickupBeats) && stored.pickupBeats >= 1
+    Number.isFinite(stored.pickupBeats) && stored.pickupBeats >= 0
       ? Math.floor(stored.pickupBeats)
-      : 1,
+      : 0,
   )
   const zoomPxPerBlock = ref(
     Number.isFinite(stored.zoomPxPerBlock) && stored.zoomPxPerBlock > 0
@@ -168,15 +168,26 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setPickupEnabled(v) {
     pickupEnabled.value = Boolean(v)
+    if (!pickupEnabled.value) {
+      pickupBeats.value = 0
+      return
+    }
+    if (!(pickupBeats.value > 0)) pickupBeats.value = 1
   }
 
   function setPickupBeats(v) {
     const n = Number.parseInt(String(v), 10)
     if (!Number.isFinite(n)) return
+    if (n <= 0) {
+      pickupBeats.value = 0
+      pickupEnabled.value = false
+      return
+    }
     const top = Number.parseInt(String(beatTop.value), 10)
     const maxByBeat = Number.isFinite(top) && top > 1 ? top - 1 : 1
     const max = Math.max(1, Math.min(9, maxByBeat))
     pickupBeats.value = Math.max(1, Math.min(max, n))
+    pickupEnabled.value = pickupBeats.value > 0
   }
 
   function setZoomPxPerBlock(v) {

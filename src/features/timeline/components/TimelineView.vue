@@ -37,6 +37,8 @@
           </div>
 
           <div ref="scrollEl" class="timeline-scroll-viewport timeline-column-card" @wheel="onTimelineWheel"
+            @touchstart="onTimelineTouchStart" @touchmove="onTimelineTouchMove"
+            @touchend="onTimelineTouchEnd" @touchcancel="onTimelineTouchEnd"
             @pointerdown.capture="onMarqueePointerDown" @pointermove.capture="onMarqueePointerMove"
             @pointerup.capture="onMarqueePointerUp" @pointercancel.capture="onMarqueePointerUp">
             <div v-if="loopEnabled" class="loop-bracket-layer">
@@ -381,6 +383,13 @@ const loopDrag = ref({
   active: false,
   kind: '',
   pointerId: null,
+})
+const pinchZoom = ref({
+  active: false,
+  startDistance: 0,
+  startZoom: 0,
+  anchorClientX: 0,
+  anchorContentX: 0,
 })
 const timelineColumnsHeightPx = ref(null)
 const timelineColumnsMeasuredHeightPx = ref(0)
@@ -886,9 +895,6 @@ function onTimelineWheel(e) {
   const el = scrollEl.value
   if (!el?.getBoundingClientRect) return
   e.preventDefault()
-  const rect = el.getBoundingClientRect()
-  const x = Number(e.clientX) - rect.left
-  const anchorContentX = el.scrollLeft + x
   const current = zoomPx.value
   const next = Math.max(
     TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock,
@@ -901,12 +907,7 @@ function onTimelineWheel(e) {
     ),
   )
   if (next === current) return
-  emit('update-zoom', next)
-  // Keep zoom anchored at cursor position.
-  requestAnimationFrame(() => {
-    const ratio = next / current
-    el.scrollLeft = Math.max(0, anchorContentX * ratio - x)
-  })
+  setZoomAnchored(next, Number(e.clientX))
 }
 
 function decrementZoom() {
@@ -919,6 +920,93 @@ function incrementZoom() {
   const current = Number(props.zoomPxPerBlock) || 50
   const next = Math.min(ZOOM_UI_MAX, current + ZOOM_UI_STEP)
   emit('update-zoom', next)
+}
+
+function pinchDistance(touchA, touchB) {
+  const dx = (Number(touchA?.clientX) || 0) - (Number(touchB?.clientX) || 0)
+  const dy = (Number(touchA?.clientY) || 0) - (Number(touchB?.clientY) || 0)
+  return Math.hypot(dx, dy)
+}
+
+function pinchMidpointX(touchA, touchB) {
+  return ((Number(touchA?.clientX) || 0) + (Number(touchB?.clientX) || 0)) / 2
+}
+
+function setZoomAnchored(nextZoom, clientX, options = {}) {
+  const el = scrollEl.value
+  if (!el?.getBoundingClientRect) return
+  const currentZoom = Math.max(TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock, Number(options.currentZoom ?? zoomPx.value) || 50)
+  const next = Math.max(
+    TIMELINE_LAYOUT.zoom.wheelMinPxPerBlock,
+    Math.min(TIMELINE_LAYOUT.zoom.wheelMaxPxPerBlock, Number(nextZoom) || currentZoom),
+  )
+  if (next === currentZoom) return
+
+  const rect = el.getBoundingClientRect()
+  const x = Number(clientX) - rect.left
+  const anchorContentX = Number.isFinite(options.anchorContentX)
+    ? Number(options.anchorContentX)
+    : el.scrollLeft + x
+
+  emit('update-zoom', next)
+  requestAnimationFrame(() => {
+    const ratio = next / currentZoom
+    el.scrollLeft = Math.max(0, anchorContentX * ratio - x)
+  })
+}
+
+function onTimelineTouchStart(e) {
+  if (e?.touches?.length !== 2) return
+  const [touchA, touchB] = e.touches
+  const distance = pinchDistance(touchA, touchB)
+  if (!(distance > 0)) return
+  const clientX = pinchMidpointX(touchA, touchB)
+  const el = scrollEl.value
+  const rect = el?.getBoundingClientRect?.()
+  const anchorX = rect ? clientX - rect.left : 0
+  pinchZoom.value = {
+    active: true,
+    startDistance: distance,
+    startZoom: zoomPx.value,
+    anchorClientX: clientX,
+    anchorContentX: (Number(el?.scrollLeft) || 0) + anchorX,
+  }
+}
+
+function onTimelineTouchMove(e) {
+  if (!pinchZoom.value.active) return
+  if (e?.touches?.length !== 2) {
+    pinchZoom.value = { active: false, startDistance: 0, startZoom: 0, anchorClientX: 0, anchorContentX: 0 }
+    return
+  }
+  const [touchA, touchB] = e.touches
+  const distance = pinchDistance(touchA, touchB)
+  if (!(distance > 0) || !(pinchZoom.value.startDistance > 0)) return
+  e.preventDefault()
+  const scale = distance / pinchZoom.value.startDistance
+  const nextZoom = pinchZoom.value.startZoom * scale
+  const clientX = pinchMidpointX(touchA, touchB)
+  setZoomAnchored(nextZoom, clientX, {
+    currentZoom: pinchZoom.value.startZoom,
+    anchorContentX: pinchZoom.value.anchorContentX,
+  })
+}
+
+function onTimelineTouchEnd(e) {
+  if (!pinchZoom.value.active) return
+  if (e?.touches?.length === 2) {
+    const [touchA, touchB] = e.touches
+    const distance = pinchDistance(touchA, touchB)
+    pinchZoom.value = {
+      active: true,
+      startDistance: distance,
+      startZoom: zoomPx.value,
+      anchorClientX: pinchMidpointX(touchA, touchB),
+      anchorContentX: pinchZoom.value.anchorContentX,
+    }
+    return
+  }
+  pinchZoom.value = { active: false, startDistance: 0, startZoom: 0, anchorClientX: 0, anchorContentX: 0 }
 }
 
 watch(
@@ -1192,6 +1280,8 @@ function incrementBarsNoPickup() {
   overflow-y: hidden;
   background: var(--tl-viewport-bg);
   box-shadow: var(--tl-viewport-shadow);
+  touch-action: pan-x;
+  overscroll-behavior: contain;
 }
 
 .timeline-columns {

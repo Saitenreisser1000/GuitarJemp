@@ -62,7 +62,7 @@ const newSongBeatBottom = ref(4)
 const newSongKey = ref('C')
 const newSongBars = ref(2)
 const newSongPickupEnabled = ref(false)
-const newSongPickupBeats = ref(1)
+const newSongPickupBeats = ref(0)
 const newSongShuffleEnabled = ref(false)
 const newSongBpm = ref(120)
 const saveAsNewOpen = ref(false)
@@ -552,7 +552,7 @@ function fillSongDialogFromCurrentState() {
   const bars = Math.max(1, Math.round((Number(timelineSettings.timelineLengthBlocks) || 0) / barSize))
   newSongBars.value = bars || 2
   newSongPickupEnabled.value = Boolean(timelineSettings.pickupEnabled)
-  newSongPickupBeats.value = Number(timelineSettings.pickupBeats) || 1
+  newSongPickupBeats.value = Math.max(0, Number(timelineSettings.pickupBeats) || 0)
   newSongShuffleEnabled.value = Boolean(timelineSettings.shuffleEnabled)
   newSongBpm.value = Number(transport.tempo) || 120
 }
@@ -577,8 +577,8 @@ function applyNewSong() {
   const beatBottom = [1, 2, 4, 8].includes(beatBottomRaw) ? beatBottomRaw : 4
   const bars = Math.max(1, Math.floor(Number(newSongBars.value) || 2))
   const bpm = Math.max(30, Math.min(260, Math.floor(Number(newSongBpm.value) || 120)))
-  const pickupEnabled = Boolean(newSongPickupEnabled.value)
-  const pickupBeats = Math.max(1, Math.floor(Number(newSongPickupBeats.value) || 1))
+  const pickupBeats = Math.max(0, Math.floor(Number(newSongPickupBeats.value) || 0))
+  const pickupEnabled = Boolean(newSongPickupEnabled.value) && pickupBeats > 0
   const shuffleEnabled = Boolean(newSongShuffleEnabled.value)
   const key = String(newSongKey.value || 'C').toUpperCase()
 
@@ -1219,8 +1219,7 @@ onBeforeUnmount(() => {
               density="compact"
               variant="outlined"
               type="number"
-              min="1"
-              :disabled="!newSongPickupEnabled"
+              min="0"
               class="flex-1-1"
             />
           </div>

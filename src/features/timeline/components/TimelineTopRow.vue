@@ -39,41 +39,19 @@
           </div>
 
           <div class="timeline-toggle-grid">
-            <button class="timeline-toggle-chip" :class="{ 'is-active': pickupEnabled }" type="button"
-              @click="emit('update-pickup-enabled', !pickupEnabled)">
-              <span class="timeline-toggle-label">Pickup</span>
-              <span class="timeline-toggle-value">{{ pickupEnabled ? `${pickupBeats} Beat${pickupBeats === 1 ? '' : 's'}` : 'Off' }}</span>
-            </button>
-
-            <button class="timeline-toggle-chip" :class="{ 'is-active': snapEnabled }" type="button"
-              @click="emit('update-snap', !snapEnabled)">
-              <span class="timeline-toggle-label">Snap</span>
-              <span class="timeline-toggle-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
-            </button>
-
-            <button class="timeline-toggle-chip" :class="{ 'is-active': stringsCollapsed }" type="button"
-              @click="emit('update-strings-collapsed', !stringsCollapsed)">
-              <span class="timeline-toggle-label">Strings</span>
-              <span class="timeline-toggle-value">{{ stringsCollapsed ? 'Collapsed' : 'Open' }}</span>
-            </button>
-          </div>
-
-          <div class="timeline-pickup-stepper">
-            <span class="timeline-sidebar-caption">Pickup beats</span>
-            <div class="timeline-pickup-controls">
-              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :disabled="!pickupEnabled" :title="'Pickup -1'"
-                @click="stepPickupBeats(-1)">
-                -
-              </v-btn>
-              <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
-                style="width: 72px" :disabled="!pickupEnabled"
-                :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
-              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :disabled="!pickupEnabled" :title="'Pickup +1'"
-                @click="stepPickupBeats(1)">
-                +
-              </v-btn>
+            <div class="timeline-toggle-chip timeline-toggle-chip-with-controls" :class="{ 'is-active': pickupEnabled }">
+              <button class="timeline-toggle-main" type="button" @click="emit('update-pickup-enabled', !pickupEnabled)">
+                <span class="timeline-toggle-label">Pickup</span>
+                <span class="timeline-toggle-value">{{ pickupEnabled ? 'On' : 'Off' }}</span>
+              </button>
+              <div class="timeline-pickup-controls">
+                <v-text-field density="compact" hide-details type="number" min="0" :max="pickupMax" step="1"
+                  style="width: 64px"
+                  :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
+              </div>
             </div>
           </div>
+
         </section>
       </div>
 
@@ -96,14 +74,10 @@
           <div class="d-flex align-center ga-2">
             <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
               :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
-            <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
-              style="width: 84px" :label="t('modeSelector.beats')" :disabled="!pickupEnabled"
+            <v-text-field density="compact" hide-details type="number" min="0" :max="pickupMax" step="1"
+              style="width: 84px" :label="t('modeSelector.beats')"
               :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
           </div>
-          <v-switch density="compact" hide-details inset :label="t('modeSelector.snap')"
-            :model-value="snapEnabled" @update:model-value="(v) => emit('update-snap', Boolean(v))" />
-          <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')"
-            :model-value="stringsCollapsed" @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
         </div>
       </v-menu>
     </div>
@@ -123,7 +97,7 @@ const props = defineProps({
   beatTop: { type: Number, default: 4 },
   beatBottom: { type: Number, default: 4 },
   pickupEnabled: { type: Boolean, default: false },
-  pickupBeats: { type: Number, default: 1 },
+  pickupBeats: { type: Number, default: 0 },
   snapEnabled: { type: Boolean, default: true },
   stringsCollapsed: { type: Boolean, default: false },
   sidebar: { type: Boolean, default: false },
@@ -165,16 +139,10 @@ function updateBeatBottomFromOptions(v) {
 function updatePickupBeatsFromOptions(v) {
   const parsed = Number.parseInt(String(v), 10)
   if (!Number.isFinite(parsed)) return
-  const next = Math.max(1, Math.min(pickupMax.value, parsed))
+  const next = Math.max(0, Math.min(pickupMax.value, parsed))
   emit('update-pickup-beats', next)
 }
 
-function stepPickupBeats(delta) {
-  const current = Number.parseInt(String(props.pickupBeats), 10)
-  const safeCurrent = Number.isFinite(current) ? current : 1
-  const next = Math.max(1, Math.min(pickupMax.value, safeCurrent + Number(delta || 0)))
-  emit('update-pickup-beats', next)
-}
 </script>
 
 <style scoped>
@@ -312,6 +280,24 @@ function stepPickupBeats(delta) {
   background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%);
   color: var(--color-text);
   padding: 0 12px;
+  text-align: left;
+}
+
+.timeline-toggle-chip-with-controls {
+  gap: 8px;
+}
+
+.timeline-toggle-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
   text-align: left;
 }
 

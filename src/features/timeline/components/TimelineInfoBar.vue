@@ -37,26 +37,27 @@
       </section>
 
       <section class="timeline-sidebar-section" aria-label="Timeline settings">
-        <div class="timeline-sidebar-title">Song</div>
-        <button class="timeline-chip timeline-chip-wide" :class="{ 'is-active': snapEnabled }" type="button"
-          :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
-          <span class="timeline-chip-label">Snap</span>
-          <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
-        </button>
+        <div class="timeline-sidebar-meta-row">
+          <div class="timeline-stepper timeline-stepper-sidebar" :aria-label="'Bars'">
+            <span class="timeline-stepper-label">Bars</span>
+            <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
+              @click="emit('decrement-bars-no-pickup')">
+              -
+            </v-btn>
+            <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
+              min="1" step="1" :model-value="barsNoPickupLocal"
+              @update:model-value="(v) => emit('update-bars-no-pickup', v)" />
+            <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
+              @click="emit('increment-bars-no-pickup')">
+              +
+            </v-btn>
+          </div>
 
-        <div class="timeline-stepper timeline-stepper-sidebar" :aria-label="'Bars'">
-          <span class="timeline-stepper-label">Bars</span>
-          <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
-            @click="emit('decrement-bars-no-pickup')">
-            -
-          </v-btn>
-          <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
-            min="1" step="1" :model-value="barsNoPickupLocal"
-            @update:model-value="(v) => emit('update-bars-no-pickup', v)" />
-          <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
-            @click="emit('increment-bars-no-pickup')">
-            +
-          </v-btn>
+          <button class="timeline-chip timeline-chip-sidebar-toggle" :class="{ 'is-active': snapEnabled }" type="button"
+            :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
+            <span class="timeline-chip-label">Snap</span>
+            <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
+          </button>
         </div>
       </section>
     </div>
@@ -236,6 +237,13 @@ watch(
 .timeline-sidebar-grid-tools,
 .timeline-sidebar-grid-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.timeline-sidebar-meta-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .timeline-info-toggle {
@@ -436,6 +444,11 @@ watch(
 
 .timeline-chip-wide {
   width: 100%;
+  justify-content: space-between;
+}
+
+.timeline-chip-sidebar-toggle {
+  min-width: 92px;
   justify-content: space-between;
 }
 
