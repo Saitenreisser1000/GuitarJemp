@@ -1381,6 +1381,7 @@ onBeforeUnmount(() => {
   width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  overscroll-behavior: none;
   background: #f7f4ef;
 }
 
@@ -1482,6 +1483,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .app-transport-wrap {

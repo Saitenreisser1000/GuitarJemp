@@ -8,6 +8,13 @@ function isMissingTableError(err) {
   return code === '42P01' || msg.includes('does not exist')
 }
 
+function isAbortError(err) {
+  const name = String(err?.name ?? '')
+  const code = String(err?.code ?? '')
+  const msg = String(err?.message ?? '')
+  return name === 'AbortError' || code === 'AbortError' || msg.includes('The operation was aborted')
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const session = ref(null)
   const profile = ref(null)
@@ -31,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
       .maybeSingle()
 
     if (err) {
+      if (isAbortError(err)) return
       // Allow the app to run even before the DB schema exists.
       if (isMissingTableError(err)) return
       error.value = err
@@ -47,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
         .update({ display_name: metaName })
         .eq('id', user.value.id)
 
+      if (isAbortError(updateErr)) return
       if (updateErr && !isMissingTableError(updateErr)) {
         error.value = updateErr
         return
@@ -67,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const { data, error: err } = await supabase.auth.getSession()
-    if (err) error.value = err
+    if (err && !isAbortError(err)) error.value = err
     session.value = data?.session ?? null
     await fetchProfile()
 
@@ -105,6 +114,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     if (err) {
+      if (isAbortError(err)) return
       error.value = err
       return
     }
@@ -135,6 +145,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     if (err) {
+      if (isAbortError(err)) return
       error.value = err
       return
     }
@@ -149,6 +160,7 @@ export const useAuthStore = defineStore('auth', () => {
         .update({ display_name: nickname })
         .eq('id', session.value.user.id)
 
+      if (isAbortError(updateErr)) return
       if (updateErr && !isMissingTableError(updateErr)) {
         error.value = updateErr
       }
@@ -161,7 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     if (!supabase) return
     const { error: err } = await supabase.auth.signOut()
-    if (err) error.value = err
+    if (err && !isAbortError(err)) error.value = err
     session.value = null
     profile.value = null
     recoveryMode.value = false
@@ -178,7 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { error: err } = await supabase.auth.resetPasswordForEmail(String(email ?? ''), {
       redirectTo,
     })
-    if (err) error.value = err
+    if (err && !isAbortError(err)) error.value = err
   }
 
   async function updatePassword(newPassword) {
@@ -193,6 +205,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     if (err) {
+      if (isAbortError(err)) return
       error.value = err
       return
     }
@@ -218,6 +231,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     if (authErr) {
+      if (isAbortError(authErr)) return false
       error.value = authErr
       return false
     }
@@ -232,6 +246,7 @@ export const useAuthStore = defineStore('auth', () => {
         .update({ display_name: nextDisplayName })
         .eq('id', user.value.id)
 
+      if (isAbortError(profileErr)) return true
       if (profileErr && !isMissingTableError(profileErr)) {
         error.value = profileErr
         return false

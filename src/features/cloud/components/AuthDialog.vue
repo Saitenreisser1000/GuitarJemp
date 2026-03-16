@@ -24,6 +24,7 @@ const password = ref('')
 const displayName = ref('')
 const newPassword = ref('')
 const info = ref('')
+const busy = ref(false)
 
 watch(
     () => auth.recoveryMode,
@@ -33,38 +34,62 @@ watch(
 )
 
 async function onSignIn() {
+    if (busy.value) return
     info.value = ''
-    await auth.signIn(email.value, password.value)
-    if (!auth.error) open.value = false
+    busy.value = true
+    try {
+        await auth.signIn(email.value, password.value)
+        if (!auth.error) open.value = false
+    } finally {
+        busy.value = false
+    }
 }
 
 async function onSignUp() {
+    if (busy.value) return
     info.value = ''
-    await auth.signUp({
-        email: email.value,
-        password: password.value,
-        displayName: displayName.value,
-    })
-    if (!auth.error) {
-        // Supabase kann je nach Projekt-Konfiguration eine Email-Confirmation verlangen.
-        info.value = t('authDialog.info.accountCreated')
+    busy.value = true
+    try {
+        await auth.signUp({
+            email: email.value,
+            password: password.value,
+            displayName: displayName.value,
+        })
+        if (!auth.error) {
+            // Supabase kann je nach Projekt-Konfiguration eine Email-Confirmation verlangen.
+            info.value = t('authDialog.info.accountCreated')
+        }
+    } finally {
+        busy.value = false
     }
 }
 
 async function onReset() {
+    if (busy.value) return
     info.value = ''
-    await auth.requestPasswordReset(email.value)
-    if (!auth.error) {
-        info.value = t('authDialog.info.resetEmail')
+    busy.value = true
+    try {
+        await auth.requestPasswordReset(email.value)
+        if (!auth.error) {
+            info.value = t('authDialog.info.resetEmail')
+        }
+    } finally {
+        busy.value = false
     }
 }
 
 async function onUpdatePassword() {
+    if (busy.value) return
     info.value = ''
-    await auth.updatePassword(newPassword.value)
-    if (!auth.error) {
-        info.value = t('authDialog.info.passwordUpdated')
-        open.value = false
+    busy.value = true
+    try {
+        await auth.updatePassword(newPassword.value)
+        if (!auth.error) {
+            info.value = t('authDialog.info.passwordUpdated')
+            open.value = false
+        }
+    } finally {
+        busy.value = false
     }
 }
 </script>
@@ -116,7 +141,7 @@ async function onUpdatePassword() {
                             <v-text-field v-model="email" :label="t('authDialog.email')" type="email" autocomplete="email" />
                             <v-text-field v-model="password" :label="t('authDialog.password')" type="password"
                                 autocomplete="current-password" />
-                            <v-btn block color="primary" @click="onSignIn">{{ t('authDialog.login') }}</v-btn>
+                            <v-btn block color="primary" :loading="busy" :disabled="busy" @click="onSignIn">{{ t('authDialog.login') }}</v-btn>
                         </v-window-item>
 
                         <v-window-item value="signup">
@@ -124,12 +149,12 @@ async function onUpdatePassword() {
                             <v-text-field v-model="email" :label="t('authDialog.email')" type="email" autocomplete="email" />
                             <v-text-field v-model="password" :label="t('authDialog.password')" type="password"
                                 autocomplete="new-password" />
-                            <v-btn block color="primary" :disabled="!String(displayName ?? '').trim()" @click="onSignUp">{{ t('authDialog.createAccount') }}</v-btn>
+                            <v-btn block color="primary" :loading="busy" :disabled="busy || !String(displayName ?? '').trim()" @click="onSignUp">{{ t('authDialog.createAccount') }}</v-btn>
                         </v-window-item>
 
                         <v-window-item value="reset">
                             <v-text-field v-model="email" :label="t('authDialog.email')" type="email" autocomplete="email" />
-                            <v-btn block color="primary" variant="tonal" @click="onReset">{{ t('authDialog.sendResetEmail') }}</v-btn>
+                            <v-btn block color="primary" variant="tonal" :loading="busy" :disabled="busy" @click="onReset">{{ t('authDialog.sendResetEmail') }}</v-btn>
                         </v-window-item>
 
                         <v-window-item value="update">
@@ -138,7 +163,7 @@ async function onUpdatePassword() {
                             </v-alert>
                             <v-text-field v-model="newPassword" :label="t('authDialog.newPassword')" type="password"
                                 autocomplete="new-password" />
-                            <v-btn block color="primary" @click="onUpdatePassword">{{ t('authDialog.setPassword') }}</v-btn>
+                            <v-btn block color="primary" :loading="busy" :disabled="busy" @click="onUpdatePassword">{{ t('authDialog.setPassword') }}</v-btn>
                         </v-window-item>
                     </v-window>
                 </template>

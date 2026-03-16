@@ -45,12 +45,15 @@ body,
   height: 100%;
   min-height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
   font-family: var(--font-ui);
   color: var(--color-text);
   background: #f7f4ef;
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
 }
 
 .v-theme--guitarjempDark {
