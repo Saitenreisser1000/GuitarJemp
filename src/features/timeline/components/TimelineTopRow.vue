@@ -1,6 +1,6 @@
 <template>
-  <div class="timeline-top-row">
-    <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap">
+  <div class="timeline-top-row" :class="{ 'is-sidebar': sidebar }">
+    <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap" :class="{ 'is-sidebar': sidebar }">
       <div v-if="timelineVisible" class="timeline-top-zoom d-flex align-center ga-1">
         <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="emit('zoom-left')">
           &lt;
@@ -11,7 +11,28 @@
         </v-btn>
       </div>
 
-      <v-menu location="bottom end" :close-on-content-click="false">
+      <div v-if="sidebar" class="timeline-options-menu timeline-options-sidebar d-flex flex-column ga-2" :style="optionsMenuStyle">
+        <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
+        <div class="d-flex ga-2">
+          <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
+            :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
+          <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
+            :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
+        </div>
+        <div class="d-flex align-center ga-2">
+          <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
+            :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
+          <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
+            style="width: 84px" :label="t('modeSelector.beats')" :disabled="!pickupEnabled"
+            :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
+        </div>
+        <v-switch density="compact" hide-details inset :label="t('modeSelector.snap')"
+          :model-value="snapEnabled" @update:model-value="(v) => emit('update-snap', Boolean(v))" />
+        <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')"
+          :model-value="stringsCollapsed" @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
+      </div>
+
+      <v-menu v-else location="bottom end" :close-on-content-click="false">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="timeline-options-btn"
             :title="t('modeSelector.options')">
@@ -60,6 +81,7 @@ const props = defineProps({
   pickupBeats: { type: Number, default: 1 },
   snapEnabled: { type: Boolean, default: true },
   stringsCollapsed: { type: Boolean, default: false },
+  sidebar: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -111,6 +133,13 @@ function updatePickupBeatsFromOptions(v) {
   gap: 6px;
 }
 
+.timeline-options-btn-wrap.is-sidebar {
+  width: 100%;
+  margin-left: 0;
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .timeline-top-zoom {
   margin-right: 2px;
 }
@@ -121,6 +150,10 @@ function updatePickupBeatsFromOptions(v) {
   display: flex;
   justify-content: flex-start;
   align-items: center;
+}
+
+.timeline-top-row.is-sidebar {
+  min-height: 0;
 }
 
 .timeline-options-btn {
@@ -150,6 +183,11 @@ function updatePickupBeatsFromOptions(v) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+}
+
+.timeline-options-sidebar {
+  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 860px) {

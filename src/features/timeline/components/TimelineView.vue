@@ -5,7 +5,7 @@
     </div>
 
     <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
-      <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
+      <TimelineTopRow v-if="!showCompactLandscapeSidebar" :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
         :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
         :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
         @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
@@ -114,6 +114,15 @@
             </div>
           </div>
           <aside v-if="showCompactLandscapeSidebar" class="timeline-mobile-sidebar timeline-column-card">
+            <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
+              :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
+              :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed" :sidebar="true"
+              @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
+              @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+              @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
+              @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
+              @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
+              @zoom-right="decrementZoom" />
             <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
               :compact="compact"
               :force-expanded="true"
@@ -1150,11 +1159,14 @@ function incrementBarsNoPickup() {
 
 .timeline-mobile-sidebar {
   display: flex;
+  flex-direction: column;
   flex: 0 0 220px;
   min-width: 220px;
   min-height: 0;
   overflow: auto;
   margin-left: 6px;
+  gap: 8px;
+  padding: 6px;
 }
 
 .timeline.is-collapsed :deep(.timeline-track) {
