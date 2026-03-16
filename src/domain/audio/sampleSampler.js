@@ -59,17 +59,30 @@ function pickNearestSample(samples, targetMidi) {
 }
 
 async function fetchJson(url) {
-  const cache = import.meta?.env?.DEV ? 'no-store' : 'default'
-  const res = await fetch(url, { cache })
-  if (!res.ok) throw new Error(`Manifest not found (${res.status}): ${url}`)
-  return res.json()
+  return fetchWithRetry(url, async (res) => res.json(), 'Manifest')
 }
 
 async function fetchArrayBuffer(url) {
+  return fetchWithRetry(url, async (res) => res.arrayBuffer(), 'Sample')
+}
+
+async function fetchWithRetry(url, readBody, label, retries = 2) {
   const cache = import.meta?.env?.DEV ? 'no-store' : 'default'
-  const res = await fetch(url, { cache })
-  if (!res.ok) throw new Error(`Sample not found (${res.status}): ${url}`)
-  return res.arrayBuffer()
+  let lastError = null
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const res = await fetch(url, { cache })
+      if (!res.ok) throw new Error(`${label} not found (${res.status}): ${url}`)
+      return await readBody(res)
+    } catch (err) {
+      lastError = err
+      if (attempt >= retries) break
+      await new Promise((resolve) => {
+        setTimeout(resolve, 120 * (attempt + 1))
+      })
+    }
+  }
+  throw lastError || new Error(`${label} failed: ${url}`)
 }
 
 const presetCache = new Map()
@@ -85,16 +98,31 @@ async function loadPresetInternal(manifestUrl) {
   const manifest = safeJsonClone(rawManifest) || {}
   const samples = Array.isArray(manifest?.samples) ? manifest.samples : []
 
-  const decoded = []
+  const decodeJobs = []
   for (const s of samples) {
     const midi = Number(s?.midi)
     const url = String(s?.url || '')
     if (!Number.isFinite(midi) || !url) continue
-    const resolvedSamplePath = resolveAppUrl(url)
-    const resolvedSampleUrl = toAbsoluteUrl(resolvedSamplePath, resolvedManifestUrl)
-    const ab = await fetchArrayBuffer(resolvedSampleUrl)
-    const buffer = await ctx.decodeAudioData(ab)
-    decoded.push({ midi, url: resolvedSampleUrl, buffer })
+    decodeJobs.push((async () => {
+      const resolvedSamplePath = resolveAppUrl(url)
+      const resolvedSampleUrl = toAbsoluteUrl(resolvedSamplePath, resolvedManifestUrl)
+      const ab = await fetchArrayBuffer(resolvedSampleUrl)
+      const buffer = await ctx.decodeAudioData(ab)
+      return { midi, url: resolvedSampleUrl, buffer }
+    })())
+  }
+
+  const results = await Promise.allSettled(decodeJobs)
+  const decoded = results
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+
+  if (import.meta?.env?.DEV) {
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        console.warn('[audio] Failed to load one sample, continuing with remaining files', result.reason)
+      }
+    }
   }
 
   if (decoded.length === 0) throw new Error('No samples in manifest')
@@ -152,12 +180,12 @@ export async function playMidiWithSampler(
     const rate = Number(src.playbackRate.value) || 1
     const sampleSeconds = Number(sample.buffer?.duration) || 0
     const playableSeconds = rate > 0 ? sampleSeconds / rate : sampleSeconds
-    if (sampleSeconds > 0 && dur > playableSeconds + 0.02) {
+    if (sampleSeconds > 0 && requestedDur > playableSeconds + 0.02) {
       console.warn('[audio] Note longer than sample (no sustain/loop implemented)', {
         midi,
         rootMidi: sample.midi,
         url: sample.url,
-        requestedSeconds: dur,
+        requestedSeconds: requestedDur,
         playableSeconds,
         sampleSeconds,
         playbackRate: rate,
