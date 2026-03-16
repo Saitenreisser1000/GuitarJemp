@@ -1,6 +1,22 @@
 <template>
-  <div class="timeline-info ui-panel">
-    <div class="timeline-info-shell">
+  <div class="timeline-info ui-panel" :class="{ 'is-mobile': isMobile }">
+    <button
+      v-if="isMobile"
+      class="timeline-info-toggle"
+      type="button"
+      :aria-expanded="String(infoExpanded)"
+      @click="infoExpanded = !infoExpanded"
+    >
+      <div class="timeline-info-toggle-copy">
+        <span class="timeline-info-toggle-title">Timeline</span>
+        <span class="timeline-info-toggle-summary">
+          {{ activeToolLabel }} · Snap {{ snapEnabled ? 'On' : 'Off' }} · Bars {{ barsNoPickupLocal }}
+        </span>
+      </div>
+      <span class="timeline-info-toggle-icon" :class="{ 'is-open': infoExpanded }" aria-hidden="true">▾</span>
+    </button>
+
+    <div v-show="!isMobile || infoExpanded" class="timeline-info-shell">
       <section class="timeline-group timeline-group-tools" :aria-label="t('timelineView.tools')">
         <div class="timeline-group-label">Tool</div>
         <div class="timeline-group-row">
@@ -69,14 +85,16 @@
 </template>
 
 <script setup>
+import { computed, ref } from 'vue'
 import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'TimelineInfoBar' })
 
-defineProps({
+const props = defineProps({
   activeTool: { type: String, default: 'arrow' },
   barsNoPickupLocal: { type: String, default: '1' },
   snapEnabled: { type: Boolean, default: true },
+  compact: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -91,6 +109,9 @@ const emit = defineEmits([
 ])
 
 const { t } = useI18n()
+const infoExpanded = ref(false)
+const isMobile = computed(() => Boolean(props.compact))
+const activeToolLabel = computed(() => (String(props.activeTool) === 'select' ? 'Select' : 'Move'))
 </script>
 
 <style scoped>
@@ -100,6 +121,56 @@ const { t } = useI18n()
   border-radius: 0;
   min-height: 52px;
   padding: 6px;
+}
+
+.timeline-info-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 94%, var(--color-surface-2) 6%);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.timeline-info-toggle-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-info-toggle-title {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.timeline-info-toggle-summary {
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-info-toggle-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  transition: transform var(--ui-fast);
+}
+
+.timeline-info-toggle-icon.is-open {
+  transform: rotate(180deg);
 }
 
 .timeline-info-shell {
@@ -278,17 +349,42 @@ const { t } = useI18n()
 }
 
 @media (max-width: 860px) {
-  .timeline-group-params {
+  .timeline-info.is-mobile {
+    min-height: 0;
+  }
+
+  .timeline-info.is-mobile .timeline-info-shell {
+    margin-top: 8px;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .timeline-info.is-mobile .timeline-group-params {
     margin-left: 0;
   }
 
-  .timeline-group {
+  .timeline-info.is-mobile .timeline-group {
     width: 100%;
-    justify-content: space-between;
+    min-height: 0;
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 
-  .timeline-group-label {
+  .timeline-info.is-mobile .timeline-group-label {
     min-width: 46px;
+  }
+
+  .timeline-info.is-mobile .timeline-group-row,
+  .timeline-info.is-mobile .timeline-group-row-params {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .timeline-info.is-mobile .timeline-stepper {
+    padding-left: 0;
+    border-left: 0;
   }
 }
 </style>

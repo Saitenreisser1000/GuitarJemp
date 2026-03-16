@@ -113,10 +113,6 @@ export const useSelectionStore = defineStore('selection', () => {
     clipboardNotes.value = normalized
   }
 
-  function clearClipboard() {
-    clipboardNotes.value = []
-  }
-
   function setGroupDrag(active, deltaBlocks = 0) {
     groupDragActive.value = Boolean(active)
     groupDragDeltaBlocks.value = Number(deltaBlocks) || 0
@@ -143,13 +139,11 @@ export const useSelectionStore = defineStore('selection', () => {
     groupResizeActive,
     groupResizeDeltaBlocks,
     selectNote,
-    addNoteToSelection,
     toggleNoteInSelection,
     setSelectedNotes,
     isSelected,
     clearSelection,
     setClipboardNotes,
-    clearClipboard,
     setGroupDrag,
     setGroupResize,
     clearGroupTransforms,

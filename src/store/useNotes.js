@@ -9,8 +9,7 @@ import { useTransportStore } from '@/store/useTransport'
 import { DEFAULT_TIME_PER_BLOCK_MS, TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 
 export const useNotesStore = defineStore('notes', () => {
-  // Notes are objects.
-  // key: "fret-string" (e.g. "3-1")
+  // Notes are event objects with a generated unique key.
   // gridIndex: 1-based raster position (can be fractional)
   // lengthBlocks: note length in raster blocks (can be fractional, e.g. 0.25)
   // subdivision: rhythmic subdivision marker (2 = binary, 3 = triplet)
@@ -119,7 +118,7 @@ export const useNotesStore = defineStore('notes', () => {
     const lengthMode =
       settings.selectedMode === 'sim' ? settings.lastRhythmMode : settings.selectedMode
     let lengthBlocks = defaultLengthBlocksForMode(lengthMode)
-    const rawSimGroupMode = settings.simGroupMode?.value ?? settings.simGroupMode
+    const rawSimGroupMode = settings.simGroupMode
     const simGroupMode = rawSimGroupMode === 'dot' ? 'dotted' : rawSimGroupMode
     const subdivision = simGroupMode === '3' ? 3 : 2
     if (simGroupMode === 'dotted' && Number(lengthBlocks) > 0.25) {
@@ -296,12 +295,6 @@ export const useNotesStore = defineStore('notes', () => {
     if (i > -1) activeNotes.value.splice(i, 1)
   }
 
-  function toggleNote(key) {
-    // Compatibility: fretboard used to toggle by fret-string key.
-    // New behavior: always add a new note event.
-    return addNote(key)
-  }
-
   function clearNotes() {
     if (activeNotes.value.length) pushUndoPoint('clear')
     activeNotes.value = []
@@ -309,11 +302,6 @@ export const useNotesStore = defineStore('notes', () => {
     // UX: clearing notes should reset the timeline cursor.
     const transport = useTransportStore()
     transport.setPlayheadMs(0)
-  }
-
-  // Derived time helpers (raster is source of truth)
-  function getNoteTimeMs(note) {
-    return gridIndexToTimeMs(note?.gridIndex)
   }
 
   function getNoteDurationMs(note) {
@@ -324,14 +312,12 @@ export const useNotesStore = defineStore('notes', () => {
     activeNotes,
     undoStack,
     redoStack,
-    pushUndoPoint,
     undo,
     redo,
     setNotes,
     addNote,
     addNotes,
     removeNote,
-    toggleNote,
     clearNotes,
     setNoteGridIndex,
     setNoteLength,
@@ -339,7 +325,6 @@ export const useNotesStore = defineStore('notes', () => {
     setManyLengths,
     setNotePosition,
     setManyPositions,
-    getNoteTimeMs,
     getNoteDurationMs,
   }
 })

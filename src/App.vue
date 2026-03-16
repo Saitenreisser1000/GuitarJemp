@@ -18,6 +18,7 @@ import { useConnectionsStore } from '@/store/useConnections'
 import { useShareContactsStore } from '@/store/useShareContacts'
 import { useHarmonyMenuStore } from '@/store/useHarmonyMenu'
 import { useFretboardOverlayStore } from '@/store/useFretboardOverlay'
+import { SURFACE_MODES, useUiModeStore } from '@/store/useUiMode'
 import { buildSongSnapshot } from '@/domain/song/songSnapshot'
 import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
@@ -74,6 +75,7 @@ const preferencesOpen = ref(false)
 const profileSaveBusy = ref(false)
 const songName = ref('')
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
+const APP_VERSION_LABEL = 'v.1.1'
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -87,6 +89,7 @@ const connections = useConnectionsStore()
 const shareContacts = useShareContactsStore()
 const harmony = useHarmonyMenuStore()
 const fretboardOverlay = useFretboardOverlayStore()
+const uiMode = useUiModeStore()
 const theme = useTheme()
 const { locale, languages, setLocale } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -190,6 +193,7 @@ const effectiveViewMode = computed(() => {
 const isPhoneView = computed(() => effectiveViewMode.value === 'phone')
 const isWatchView = computed(() => effectiveViewMode.value === 'watch')
 const isCompactView = computed(() => isPhoneView.value || isWatchView.value)
+const isCommentMode = computed(() => uiMode.surfaceMode === SURFACE_MODES.COMMENT)
 const effectiveIsPortrait = computed(() => {
   if (debugViewportFrameActive.value) {
     return Number(effectiveViewportHeightPx.value) > Number(effectiveViewportWidthPx.value)
@@ -669,6 +673,7 @@ onBeforeUnmount(() => {
       'is-phone-view': isPhoneView,
       'is-watch-view': isWatchView,
       'is-compact-view': isCompactView,
+      'is-comment-mode': isCommentMode,
       'is-sidebar-hidden': !sidebarVisible,
       'is-debug-viewport': debugViewportFrameActive,
     }"
@@ -773,7 +778,8 @@ onBeforeUnmount(() => {
           <v-list-item title="Watch" @click="viewMode = 'watch'" />
         </v-list>
       </v-menu>
-      <v-menu v-else location="bottom start">
+      <span class="app-version-label">{{ APP_VERSION_LABEL }}</span>
+      <v-menu v-if="!isPhoneView" location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">File</v-btn>
         </template>
@@ -1416,6 +1422,16 @@ onBeforeUnmount(() => {
   border-right: 1px solid rgb(255 255 255 / 18%);
 }
 
+.app-version-label {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgb(255 255 255 / 72%);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
 .app-menu-right {
   margin-left: auto;
   display: inline-flex;
@@ -1575,6 +1591,26 @@ onBeforeUnmount(() => {
 
 .app-layout.is-compact-view .app-transport-wrap {
   padding-bottom: var(--app-safe-bottom);
+}
+
+.app-layout.is-comment-mode .app-menu-bar,
+.app-layout.is-comment-mode .app-transport-wrap,
+.app-layout.is-comment-mode .app-dashboard-main,
+.app-layout.is-comment-mode :deep(.wm-pane-b),
+.app-layout.is-comment-mode :deep(.layout-sidebar),
+.app-layout.is-comment-mode :deep(.timeline-main),
+.app-layout.is-comment-mode :deep(.library-panel),
+.app-layout.is-comment-mode :deep(.detail-card),
+.app-layout.is-comment-mode :deep(.user-dashboard-main) {
+  opacity: 0.4;
+  filter: grayscale(0.22);
+  transition: opacity var(--ui-fast), filter var(--ui-fast);
+}
+
+.app-layout.is-comment-mode .fretboard-main,
+.app-layout.is-comment-mode .fretboard-main :deep(.fretboard-body) {
+  opacity: 1;
+  filter: none;
 }
 
 .app-layout.is-sidebar-hidden :deep(.layout-manager) {
