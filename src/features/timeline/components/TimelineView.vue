@@ -15,7 +15,9 @@
         @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
         @zoom-right="decrementZoom" />
       <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
-        <div ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
+        <div class="timeline-workspace" :class="{ 'has-mobile-sidebar': showCompactLandscapeSidebar }">
+          <div class="timeline-canvas">
+            <div ref="timelineColumnsEl" class="timeline-columns" :style="timelineColumnsStyle">
           <div v-if="!stringsCollapsed" class="timeline-string-names timeline-column-card"
             :style="{ '--timeline-string-header-offset': `${stringHeaderOffsetPx}px` }"
             :aria-label="t('timelineView.strings')">
@@ -109,8 +111,20 @@
 
             <div v-if="marqueeActive" class="marquee" :style="marqueeStyle" />
           </div>
+            </div>
+          </div>
+          <aside v-if="showCompactLandscapeSidebar" class="timeline-mobile-sidebar timeline-column-card">
+            <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
+              :compact="false"
+              :snap-enabled="snapEnabled"
+              @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
+              @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+              @update-snap="(v) => emit('update-snap', v)"
+              @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
+              @increment-bars-no-pickup="incrementBarsNoPickup" />
+          </aside>
         </div>
-        <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
+        <TimelineInfoBar v-if="!showCompactLandscapeSidebar" :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
           :compact="compact"
           :snap-enabled="snapEnabled"
           @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
@@ -337,6 +351,8 @@ const timelineMainStyle = computed(() => {
 const scrollEl = ref(null)
 const timelineColumnsEl = ref(null)
 const secondaryMenuSize = ref('m')
+const viewportWidthPx = ref(Number(globalThis?.innerWidth) || 0)
+const viewportHeightPx = ref(Number(globalThis?.innerHeight) || 0)
 const marqueeActive = ref(false)
 const marqueeStart = ref({ x: 0, y: 0 })
 const marqueeEnd = ref({ x: 0, y: 0 })
@@ -370,6 +386,10 @@ const timelineColumnsStyle = computed(() => {
   if (hasExplicitHeight) style.height = `${h}px`
   return style
 })
+
+const showCompactLandscapeSidebar = computed(() =>
+  Boolean(props.compact) && Number(viewportWidthPx.value) > Number(viewportHeightPx.value),
+)
 
 const timelineRowHeightPx = computed(() => {
   const explicitHeight = Number(timelineColumnsHeightPx.value)
@@ -408,6 +428,11 @@ function attachTimelineColumnsResizeObserver() {
   })
   timelineColumnsResizeObserver.observe(el)
   measureTimelineColumnsHeight()
+}
+
+function updateViewportSize() {
+  viewportWidthPx.value = Number(globalThis?.innerWidth) || 0
+  viewportHeightPx.value = Number(globalThis?.innerHeight) || 0
 }
 
 function cycleSecondaryMenuSize() {
@@ -728,6 +753,8 @@ onBeforeUnmount(() => {
   timelineColumnsResizeObserver?.disconnect?.()
   timelineColumnsResizeObserver = null
   window.removeEventListener('resize', onWindowResizeColumns)
+  window.removeEventListener('resize', updateViewportSize)
+  window.removeEventListener('orientationchange', updateViewportSize)
 })
 
 function onWindowResizeColumns() {
@@ -737,7 +764,10 @@ function onWindowResizeColumns() {
 }
 
 onMounted(() => {
+  updateViewportSize()
   window.addEventListener('resize', onWindowResizeColumns)
+  window.addEventListener('resize', updateViewportSize)
+  window.addEventListener('orientationchange', updateViewportSize)
   attachTimelineColumnsResizeObserver()
 })
 
@@ -1103,6 +1133,29 @@ function incrementBarsNoPickup() {
   padding: 6px;
 }
 
+.timeline-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.timeline-canvas {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.timeline-mobile-sidebar {
+  display: flex;
+  flex: 0 0 220px;
+  min-width: 220px;
+  min-height: 0;
+  overflow: auto;
+  margin-left: 6px;
+}
+
 .timeline.is-collapsed :deep(.timeline-track) {
   /* Collapse height to one third of the row height. */
   height: calc(var(--timeline-row-h, 44px) / 3);
@@ -1365,6 +1418,21 @@ function incrementBarsNoPickup() {
   .timeline-body {
     min-width: 0;
     padding-right: 0;
+  }
+
+  .timeline-workspace.has-mobile-sidebar {
+    gap: 6px;
+  }
+
+  .timeline-workspace.has-mobile-sidebar .timeline-mobile-sidebar {
+    flex-basis: 210px;
+    min-width: 210px;
+    margin-left: 0;
+  }
+
+  .timeline-workspace.has-mobile-sidebar .timeline-mobile-sidebar :deep(.timeline-info) {
+    height: 100%;
+    min-height: 100%;
   }
 
   .status-chip {
