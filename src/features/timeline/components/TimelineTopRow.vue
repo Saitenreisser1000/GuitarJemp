@@ -1,7 +1,7 @@
 <template>
   <div class="timeline-top-row" :class="{ 'is-sidebar': sidebar }">
     <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap" :class="{ 'is-sidebar': sidebar }">
-      <div v-if="timelineVisible" class="timeline-top-zoom d-flex align-center ga-1">
+      <div v-if="timelineVisible && !sidebar" class="timeline-top-zoom d-flex align-center ga-1">
         <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="emit('zoom-left')">
           &lt;
         </v-btn>
@@ -11,25 +11,70 @@
         </v-btn>
       </div>
 
-      <div v-if="sidebar" class="timeline-options-menu timeline-options-sidebar d-flex flex-column ga-2" :style="optionsMenuStyle">
-        <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
-        <div class="d-flex ga-2">
-          <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
-            :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
-          <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
-            :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
-        </div>
-        <div class="d-flex align-center ga-2">
-          <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
-            :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
-          <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
-            style="width: 84px" :label="t('modeSelector.beats')" :disabled="!pickupEnabled"
-            :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
-        </div>
-        <v-switch density="compact" hide-details inset :label="t('modeSelector.snap')"
-          :model-value="snapEnabled" @update:model-value="(v) => emit('update-snap', Boolean(v))" />
-        <v-switch density="compact" hide-details inset :label="t('modeSelector.collapseStrings')"
-          :model-value="stringsCollapsed" @update:model-value="(v) => emit('update-strings-collapsed', Boolean(v))" />
+      <div v-if="sidebar" class="timeline-options-sidebar" :style="optionsMenuStyle">
+        <section class="timeline-sidebar-section">
+          <div class="timeline-sidebar-title">Setup</div>
+
+          <div class="timeline-zoom-toolbar">
+            <span class="timeline-sidebar-caption">Zoom</span>
+            <div class="timeline-top-zoom d-flex align-center ga-1">
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="emit('zoom-left')">
+                &lt;
+              </v-btn>
+              <div class="text-caption zoom-value">zoom</div>
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom +'" @click="emit('zoom-right')">
+                &gt;
+              </v-btn>
+            </div>
+          </div>
+
+          <div class="timeline-meter-chip">
+            <span class="timeline-sidebar-caption">{{ t('modeSelector.beat') }}</span>
+            <div class="timeline-meter-inputs">
+              <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 72px"
+                :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
+              <v-select density="compact" hide-details style="width: 72px" :items="beatBottomItems"
+                :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
+            </div>
+          </div>
+
+          <div class="timeline-toggle-grid">
+            <button class="timeline-toggle-chip" :class="{ 'is-active': pickupEnabled }" type="button"
+              @click="emit('update-pickup-enabled', !pickupEnabled)">
+              <span class="timeline-toggle-label">Pickup</span>
+              <span class="timeline-toggle-value">{{ pickupEnabled ? `${pickupBeats} Beat${pickupBeats === 1 ? '' : 's'}` : 'Off' }}</span>
+            </button>
+
+            <button class="timeline-toggle-chip" :class="{ 'is-active': snapEnabled }" type="button"
+              @click="emit('update-snap', !snapEnabled)">
+              <span class="timeline-toggle-label">Snap</span>
+              <span class="timeline-toggle-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
+            </button>
+
+            <button class="timeline-toggle-chip" :class="{ 'is-active': stringsCollapsed }" type="button"
+              @click="emit('update-strings-collapsed', !stringsCollapsed)">
+              <span class="timeline-toggle-label">Strings</span>
+              <span class="timeline-toggle-value">{{ stringsCollapsed ? 'Collapsed' : 'Open' }}</span>
+            </button>
+          </div>
+
+          <div class="timeline-pickup-stepper">
+            <span class="timeline-sidebar-caption">Pickup beats</span>
+            <div class="timeline-pickup-controls">
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :disabled="!pickupEnabled" :title="'Pickup -1'"
+                @click="stepPickupBeats(-1)">
+                -
+              </v-btn>
+              <v-text-field density="compact" hide-details type="number" min="1" :max="pickupMax" step="1"
+                style="width: 72px" :disabled="!pickupEnabled"
+                :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
+              <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :disabled="!pickupEnabled" :title="'Pickup +1'"
+                @click="stepPickupBeats(1)">
+                +
+              </v-btn>
+            </div>
+          </div>
+        </section>
       </div>
 
       <v-menu v-else location="bottom end" :close-on-content-click="false">
@@ -123,6 +168,13 @@ function updatePickupBeatsFromOptions(v) {
   const next = Math.max(1, Math.min(pickupMax.value, parsed))
   emit('update-pickup-beats', next)
 }
+
+function stepPickupBeats(delta) {
+  const current = Number.parseInt(String(props.pickupBeats), 10)
+  const safeCurrent = Number.isFinite(current) ? current : 1
+  const next = Math.max(1, Math.min(pickupMax.value, safeCurrent + Number(delta || 0)))
+  emit('update-pickup-beats', next)
+}
 </script>
 
 <style scoped>
@@ -188,6 +240,95 @@ function updatePickupBeatsFromOptions(v) {
 .timeline-options-sidebar {
   width: 100%;
   min-width: 0;
+}
+
+.timeline-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+}
+
+.timeline-sidebar-title {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.timeline-sidebar-caption {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.timeline-zoom-toolbar,
+.timeline-pickup-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.timeline-meter-chip {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%);
+}
+
+.timeline-meter-inputs,
+.timeline-pickup-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timeline-toggle-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-toggle-chip {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-2) 12%);
+  color: var(--color-text);
+  padding: 0 12px;
+  text-align: left;
+}
+
+.timeline-toggle-chip.is-active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
+}
+
+.timeline-toggle-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timeline-toggle-value {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 700;
 }
 
 @media (max-width: 860px) {

@@ -125,6 +125,7 @@
               @zoom-right="decrementZoom" />
             <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
               :compact="compact"
+              :sidebar="true"
               :force-expanded="true"
               :snap-enabled="snapEnabled"
               @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
@@ -1160,13 +1161,15 @@ function incrementBarsNoPickup() {
 .timeline-mobile-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 220px;
-  min-width: 220px;
+  flex: 0 0 276px;
+  min-width: 276px;
   min-height: 0;
+  max-height: 100%;
   overflow: auto;
   margin-left: 6px;
   gap: 8px;
   padding: 6px;
+  align-self: stretch;
 }
 
 .timeline.is-collapsed :deep(.timeline-track) {
@@ -1438,14 +1441,13 @@ function incrementBarsNoPickup() {
   }
 
   .timeline-workspace.has-mobile-sidebar .timeline-mobile-sidebar {
-    flex-basis: 210px;
-    min-width: 210px;
+    flex-basis: 276px;
+    min-width: 276px;
     margin-left: 0;
   }
 
   .timeline-workspace.has-mobile-sidebar .timeline-mobile-sidebar :deep(.timeline-info) {
-    height: 100%;
-    min-height: 100%;
+    min-height: 0;
   }
 
   .status-chip {

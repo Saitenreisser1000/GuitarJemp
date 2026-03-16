@@ -1,5 +1,67 @@
 <template>
-  <div class="timeline-info ui-panel" :class="{ 'is-mobile': isMobile }">
+  <div class="timeline-info ui-panel" :class="{ 'is-mobile': isMobile, 'is-sidebar': isSidebar }">
+    <div v-if="isSidebar" class="timeline-sidebar-shell">
+      <section class="timeline-sidebar-section" :aria-label="t('timelineView.tools')">
+        <div class="timeline-sidebar-title">Edit</div>
+        <div class="timeline-sidebar-grid timeline-sidebar-grid-tools">
+          <label class="timeline-tool timeline-tool-segment" :class="{ 'is-active': String(activeTool) === 'arrow' }"
+            :title="t('timelineView.arrow')">
+            <input class="timeline-tool-input" type="radio" name="timeline-active-tool-sidebar" value="arrow"
+              :checked="String(activeTool) === 'arrow'" @change="emit('update-active-tool', 'arrow')" />
+            <span class="timeline-tool-icon" aria-hidden="true">➤</span>
+            <span class="timeline-tool-label">Move</span>
+          </label>
+
+          <label class="timeline-tool timeline-tool-segment" :class="{ 'is-active': String(activeTool) === 'select' }"
+            :title="t('timelineView.selectionRect')">
+            <input class="timeline-tool-input" type="radio" name="timeline-active-tool-sidebar" value="select"
+              :checked="String(activeTool) === 'select'" @change="emit('update-active-tool', 'select')" />
+            <span class="timeline-tool-icon" aria-hidden="true">▭</span>
+            <span class="timeline-tool-label">Select</span>
+          </label>
+        </div>
+
+        <div class="timeline-sidebar-grid timeline-sidebar-grid-actions">
+          <button class="timeline-tool timeline-tool-action" type="button" :title="t('timelineView.copy')"
+            @click="emit('copy-selection')">
+            <span class="timeline-tool-icon" aria-hidden="true">⧉</span>
+            <span class="timeline-tool-label">Copy</span>
+          </button>
+
+          <button class="timeline-tool timeline-tool-action" type="button" :title="t('timelineView.paste')"
+            @click="emit('paste-at-playhead')">
+            <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
+            <span class="timeline-tool-label">Paste</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="timeline-sidebar-section" aria-label="Timeline settings">
+        <div class="timeline-sidebar-title">Song</div>
+        <button class="timeline-chip timeline-chip-wide" :class="{ 'is-active': snapEnabled }" type="button"
+          :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
+          <span class="timeline-chip-label">Snap</span>
+          <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
+        </button>
+
+        <div class="timeline-stepper timeline-stepper-sidebar" :aria-label="'Bars'">
+          <span class="timeline-stepper-label">Bars</span>
+          <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
+            @click="emit('decrement-bars-no-pickup')">
+            -
+          </v-btn>
+          <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
+            min="1" step="1" :model-value="barsNoPickupLocal"
+            @update:model-value="(v) => emit('update-bars-no-pickup', v)" />
+          <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
+            @click="emit('increment-bars-no-pickup')">
+            +
+          </v-btn>
+        </div>
+      </section>
+    </div>
+
+    <template v-else>
     <button
       v-if="isMobile"
       class="timeline-info-toggle"
@@ -81,6 +143,7 @@
         </div>
       </section>
     </div>
+    </template>
   </div>
 </template>
 
@@ -96,6 +159,7 @@ const props = defineProps({
   snapEnabled: { type: Boolean, default: true },
   compact: { type: Boolean, default: false },
   forceExpanded: { type: Boolean, default: false },
+  sidebar: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -112,6 +176,7 @@ const emit = defineEmits([
 const { t } = useI18n()
 const infoExpanded = ref(Boolean(props.forceExpanded))
 const isMobile = computed(() => Boolean(props.compact))
+const isSidebar = computed(() => Boolean(props.sidebar))
 const activeToolLabel = computed(() => (String(props.activeTool) === 'select' ? 'Select' : 'Move'))
 
 watch(
@@ -130,6 +195,47 @@ watch(
   border-radius: 0;
   min-height: 52px;
   padding: 6px;
+}
+
+.timeline-info.is-sidebar {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.timeline-sidebar-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  border-radius: 12px;
+}
+
+.timeline-sidebar-title {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.timeline-sidebar-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-sidebar-grid-tools,
+.timeline-sidebar-grid-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .timeline-info-toggle {
@@ -252,6 +358,13 @@ watch(
   min-width: 74px;
 }
 
+.timeline-tool-segment,
+.timeline-tool-action {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+}
+
 .timeline-tool:hover {
   background: color-mix(in srgb, var(--color-surface-2) 64%, var(--color-surface) 36%);
 }
@@ -321,12 +434,24 @@ watch(
   background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface) 86%);
 }
 
+.timeline-chip-wide {
+  width: 100%;
+  justify-content: space-between;
+}
+
 .timeline-stepper {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding-left: 8px;
   border-left: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+}
+
+.timeline-stepper-sidebar {
+  width: 100%;
+  justify-content: space-between;
+  padding-left: 0;
+  border-left: 0;
 }
 
 .timeline-stepper-label {
