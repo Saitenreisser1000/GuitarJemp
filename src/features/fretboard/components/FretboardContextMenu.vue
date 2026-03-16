@@ -26,26 +26,38 @@
           </v-btn>
         </v-btn-toggle>
 
-        <div class="text-caption">{{ t('modeSelector.modifier') }}</div>
-        <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
-          <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
-          <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
-        </v-btn-toggle>
+        <div class="fb-modifier-sections">
+          <div class="fb-modifier-section">
+            <div class="text-caption">Modifier</div>
+            <v-btn-toggle v-model="noteModifierLocal" divided class="fb-note-toggle-row">
+              <v-btn value="dotted" variant="tonal" size="small" :title="t('modeSelector.dotted')">.</v-btn>
+              <v-btn value="3" variant="tonal" size="small" :title="t('modeSelector.triplets')">3</v-btn>
+            </v-btn-toggle>
+          </div>
+          <span class="fb-modifier-divider" aria-hidden="true"></span>
+          <div class="fb-chord-section">
+            <div class="text-caption fb-chord-heading">Chords</div>
+            <v-btn
+              size="small"
+              variant="tonal"
+              class="fb-modifier-chord-btn"
+              :active="Boolean(isSimOn)"
+              :color="isSimOn ? 'primary' : undefined"
+              :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+              :aria-pressed="String(isSimOn)"
+              @click="toggleSim"
+            >
+              <span class="fb-chord-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <line x1="7.75" y1="2" x2="7.75" y2="22" />
+                  <ellipse cx="12.4" cy="7.1" rx="5.1" ry="3.6" transform="rotate(-34 12.4 7.1)" />
+                  <ellipse cx="12.4" cy="15.4" rx="5.1" ry="3.6" transform="rotate(-34 12.4 15.4)" />
+                </svg>
+              </span>
+            </v-btn>
+          </div>
+        </div>
       </div>
-
-      <hr class="fb-tool-separator" />
-      <v-btn
-        size="small"
-        variant="tonal"
-        class="fb-top-control"
-        :active="Boolean(isSimOn)"
-        :color="isSimOn ? 'primary' : undefined"
-        :title="isSimOn ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-        :aria-pressed="String(isSimOn)"
-        @click="toggleSim"
-      >
-        Chord
-      </v-btn>
       <hr class="fb-tool-separator" />
 
       <div class="fb-color-inline" :title="t('modeSelector.symbols', { color: settings.selectedColor })">
@@ -268,6 +280,43 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.fb-modifier-sections {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.fb-modifier-section,
+.fb-chord-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-chord-section {
+  align-items: center;
+}
+
+.fb-modifier-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(70, 70, 70, 0.3);
+}
+
+.fb-chord-heading {
+  min-width: 44px;
+  text-align: center;
+}
+
+.fb-modifier-chord-btn {
+  min-width: 44px !important;
+  width: 44px;
+  min-height: 44px !important;
+  height: 44px !important;
+  border-radius: 6px !important;
+  padding: 0 !important;
+}
+
 .fb-tool-separator {
   width: 100%;
   margin: 2px 0;
@@ -300,6 +349,39 @@ onBeforeUnmount(() => {
   justify-content: center;
   line-height: 1;
   font-size: 15px;
+}
+
+.fb-chord-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.fb-chord-icon svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+}
+
+.fb-chord-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fb-chord-icon line {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.fb-chord-icon ellipse {
+  fill: currentColor;
+  stroke: none;
 }
 
 .fb-note-glyph-img {
