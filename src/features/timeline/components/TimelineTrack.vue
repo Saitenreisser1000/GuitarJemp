@@ -61,6 +61,8 @@ const props = defineProps({
   isAuxTrack: { type: Boolean, default: false },
   showBarNumbers: { type: Boolean, default: false },
   showPlayhead: { type: Boolean, default: true },
+  activeTool: { type: String, default: 'arrow' },
+  compact: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -77,6 +79,9 @@ const { t } = useI18n()
 
 const trackEl = ref(null)
 const isScrubbing = ref(false)
+const touchScrollEnabled = computed(() =>
+  Boolean(props.compact) && String(props.activeTool) === 'arrow',
+)
 
 const trackStyle = computed(() => {
   const w = Number(props.trackMinWidthPx) || 0
@@ -94,6 +99,7 @@ const trackStyle = computed(() => {
     '--timeline-track-grid-beat': TIMELINE_THEME.track.gridBeatLine,
     '--timeline-track-aux-divider': TIMELINE_THEME.main.auxDividerColor,
     '--timeline-row-h-default': `${TIMELINE_LAYOUT.tracks.defaultRowHeightPx}px`,
+    '--timeline-track-touch-action': touchScrollEnabled.value ? 'pan-x' : 'none',
   }
   return w > 0 ? { ...base, width: `${w}px`, minWidth: `${w}px` } : base
 })
@@ -137,6 +143,7 @@ function onScrubPointerDown(e) {
   // Don't hijack note dragging/resizing.
   if (e?.target?.closest?.('.note-event')) return
   if (e?.button != null && e.button !== 0) return
+  if (touchScrollEnabled.value && e?.pointerType === 'touch') return
   if (!props.isAuxTrack) emit('update-active-string', Number(props.string))
 
   const t = timeFromPointerEvent(e)
@@ -300,7 +307,7 @@ function getNoteColor(fret) {
 }
 
 .timeline-track {
-  touch-action: none;
+  touch-action: var(--timeline-track-touch-action, none);
 }
 
 .grid-background {

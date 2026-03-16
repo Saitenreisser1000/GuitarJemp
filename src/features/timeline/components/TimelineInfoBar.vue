@@ -2,7 +2,76 @@
   <div class="timeline-info ui-panel" :class="{ 'is-mobile': isMobile, 'is-sidebar': isSidebar }">
     <div v-if="isSidebar" class="timeline-sidebar-shell">
       <section class="timeline-sidebar-section" :aria-label="t('timelineView.tools')">
-        <div class="timeline-sidebar-title">Edit</div>
+        <div class="timeline-sidebar-head">
+          <div class="timeline-sidebar-title">Edit</div>
+          <v-menu location="bottom end" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="timeline-sidebar-options-btn" title="Options">
+                <v-icon icon="mdi-cog-outline" size="16" />
+              </v-btn>
+            </template>
+
+            <div class="timeline-sidebar-options-menu pa-3 d-flex flex-column ga-3">
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Zoom</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" title="Zoom -" @click="emit('zoom-left')">
+                    &lt;
+                  </v-btn>
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" title="Zoom +" @click="emit('zoom-right')">
+                    &gt;
+                  </v-btn>
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">{{ t('modeSelector.beat') }}</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 72px"
+                    :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
+                  <v-select density="compact" hide-details style="width: 72px" :items="beatBottomItems"
+                    :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Pickup</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-switch density="compact" hide-details inset
+                    :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
+                  <v-text-field density="compact" hide-details type="number" min="0" :max="pickupMax" step="1"
+                    style="width: 72px" :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Bars</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
+                    @click="emit('decrement-bars-no-pickup')">
+                    -
+                  </v-btn>
+                  <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
+                    min="1" step="1" :model-value="barsNoPickupLocal"
+                    @update:model-value="(v) => emit('update-bars-no-pickup', v)" />
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
+                    @click="emit('increment-bars-no-pickup')">
+                    +
+                  </v-btn>
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Snap</span>
+                <button class="timeline-chip timeline-chip-sidebar-toggle" :class="{ 'is-active': snapEnabled }" type="button"
+                  :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
+                  <span class="timeline-chip-label">Snap</span>
+                  <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
+                </button>
+              </div>
+            </div>
+          </v-menu>
+        </div>
         <div class="timeline-sidebar-grid timeline-sidebar-grid-tools">
           <label class="timeline-tool timeline-tool-segment" :class="{ 'is-active': String(activeTool) === 'arrow' }"
             :title="t('timelineView.arrow')">
@@ -32,31 +101,6 @@
             @click="emit('paste-at-playhead')">
             <span class="timeline-tool-icon" aria-hidden="true">⎘</span>
             <span class="timeline-tool-label">Paste</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="timeline-sidebar-section" aria-label="Timeline settings">
-        <div class="timeline-sidebar-meta-row">
-          <div class="timeline-stepper timeline-stepper-sidebar" :aria-label="'Bars'">
-            <span class="timeline-stepper-label">Bars</span>
-            <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
-              @click="emit('decrement-bars-no-pickup')">
-              -
-            </v-btn>
-            <v-text-field class="bars-count-input" density="compact" hide-details variant="outlined" type="number"
-              min="1" step="1" :model-value="barsNoPickupLocal"
-              @update:model-value="(v) => emit('update-bars-no-pickup', v)" />
-            <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars +1'"
-              @click="emit('increment-bars-no-pickup')">
-              +
-            </v-btn>
-          </div>
-
-          <button class="timeline-chip timeline-chip-sidebar-toggle" :class="{ 'is-active': snapEnabled }" type="button"
-            :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
-            <span class="timeline-chip-label">Snap</span>
-            <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
           </button>
         </div>
       </section>
@@ -150,6 +194,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { useI18n } from '@/i18n'
 
 defineOptions({ name: 'TimelineInfoBar' })
@@ -157,6 +202,10 @@ defineOptions({ name: 'TimelineInfoBar' })
 const props = defineProps({
   activeTool: { type: String, default: 'arrow' },
   barsNoPickupLocal: { type: String, default: '1' },
+  beatTop: { type: Number, default: 4 },
+  beatBottom: { type: Number, default: 4 },
+  pickupEnabled: { type: Boolean, default: false },
+  pickupBeats: { type: Number, default: 0 },
   snapEnabled: { type: Boolean, default: true },
   compact: { type: Boolean, default: false },
   forceExpanded: { type: Boolean, default: false },
@@ -165,6 +214,12 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update-active-tool',
+  'update-beat-top',
+  'update-beat-bottom',
+  'update-pickup-enabled',
+  'update-pickup-beats',
+  'zoom-left',
+  'zoom-right',
   'update-snap',
   'copy-selection',
   'paste-at-playhead',
@@ -179,6 +234,29 @@ const infoExpanded = ref(Boolean(props.forceExpanded))
 const isMobile = computed(() => Boolean(props.compact))
 const isSidebar = computed(() => Boolean(props.sidebar))
 const activeToolLabel = computed(() => (String(props.activeTool) === 'select' ? 'Select' : 'Move'))
+const beatBottomItems = TIMELINE_LAYOUT.topRow.beatBottomItems
+const pickupMax = computed(() => {
+  const top = Number.parseInt(String(props.beatTop), 10)
+  const maxByBeat = Number.isFinite(top) && top > 1 ? top - 1 : 1
+  return Math.max(1, Math.min(9, maxByBeat))
+})
+
+function updateBeatTopFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  emit('update-beat-top', Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+}
+
+function updateBeatBottomFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  emit('update-beat-bottom', beatBottomItems.includes(parsed) ? parsed : 4)
+}
+
+function updatePickupBeatsFromOptions(v) {
+  const parsed = Number.parseInt(String(v), 10)
+  if (!Number.isFinite(parsed)) return
+  const next = Math.max(0, Math.min(pickupMax.value, parsed))
+  emit('update-pickup-beats', next)
+}
 
 watch(
   () => props.forceExpanded,
@@ -210,6 +288,13 @@ watch(
   gap: 10px;
 }
 
+.timeline-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .timeline-sidebar-section {
   display: flex;
   flex-direction: column;
@@ -237,6 +322,43 @@ watch(
 .timeline-sidebar-grid-tools,
 .timeline-sidebar-grid-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.timeline-info.is-sidebar .timeline-sidebar-grid-tools,
+.timeline-info.is-sidebar .timeline-sidebar-grid-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.timeline-sidebar-options-btn {
+  min-width: 28px;
+  padding-inline: 0;
+}
+
+.timeline-sidebar-options-menu {
+  min-width: 188px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 97%, var(--color-surface-2) 3%);
+}
+
+.timeline-sidebar-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.timeline-sidebar-options-label {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.timeline-sidebar-inline-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .timeline-sidebar-meta-row {

@@ -73,6 +73,7 @@
                 :beat-top="beatTop" :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled"
                 :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode" :track-min-width-px="trackMinWidthPx"
                 :ghost-notes-enabled="ghostNotesEnabled" :is-aux-track="true" :show-playhead="false"
+                :active-tool="activeTool" :compact="compact"
                 :show-bar-numbers="showBarNumbersOnAuxTrack" @add-aux-item="() => emit('add-hand-position')"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
                   (key, gridIndex) => emit('update-note-grid-index', key, gridIndex)
@@ -90,6 +91,7 @@
                 :snap-enabled="snapEnabled" :step="currentStep" :beat-top="beatTop" :beat-bottom="beatBottom"
                 :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats" :sim-group-mode="simGroupMode"
                 :track-min-width-px="trackMinWidthPx" :ghost-notes-enabled="ghostNotesEnabled" :show-playhead="false"
+                :active-tool="activeTool" :compact="compact"
                 :show-bar-numbers="!handPositionVisible && isFirstVisibleTrack(track)"
                 @update-active-string="(v) => emit('update-active-string', v)"
                 @seek-playhead="(t) => emit('seek-playhead', t)" @update-note-grid-index="
@@ -116,22 +118,21 @@
             </div>
           </div>
           <aside v-if="showCompactLandscapeSidebar" class="timeline-mobile-sidebar timeline-column-card">
-            <TimelineTopRow :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
-              :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-              :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed" :sidebar="true"
-              @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
-              @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
-              @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
-              @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
-              @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
-              @zoom-right="decrementZoom" />
             <TimelineInfoBar :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
               :compact="compact"
               :sidebar="true"
               :force-expanded="true"
+              :beat-top="beatTop"
+              :beat-bottom="beatBottom"
+              :pickup-enabled="pickupEnabled"
+              :pickup-beats="pickupBeats"
               :snap-enabled="snapEnabled"
               @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
               @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+              @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+              @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
+              @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @zoom-left="incrementZoom"
+              @zoom-right="decrementZoom"
               @update-snap="(v) => emit('update-snap', v)"
               @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
               @increment-bars-no-pickup="incrementBarsNoPickup" />
@@ -320,6 +321,9 @@ const visibleTracks = computed(() => {
 const isCommentMode = computed(() => surfaceMode.value === SURFACE_MODES.COMMENT)
 
 const showBarNumbersOnAuxTrack = computed(() => Boolean(props.handPositionVisible))
+const timelineViewportTouchAction = computed(() =>
+  String(props.activeTool) === TIMELINE_BEHAVIOR.selection.marqueeTool ? 'none' : 'pan-x',
+)
 
 function isFirstVisibleTrack(track) {
   const first = Array.isArray(visibleTracks.value) ? visibleTracks.value[0] : null
@@ -357,6 +361,7 @@ const timelineMainStyle = computed(() => {
     '--tl-marker-layer-h': `${TIMELINE_LAYOUT.headers.markerLayerHeightPx}px`,
     '--tl-marker-layer-gap': `${TIMELINE_LAYOUT.headers.markerLayerBottomGapPx}px`,
     '--tl-loop-layer-h': `${TIMELINE_LAYOUT.headers.loopBracketLayerHeightPx}px`,
+    '--tl-scroll-touch-action': timelineViewportTouchAction.value,
     height: '100%',
   }
 })
@@ -1249,8 +1254,8 @@ function incrementBarsNoPickup() {
 .timeline-mobile-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 276px;
-  min-width: 276px;
+  flex: 0 0 148px;
+  min-width: 148px;
   min-height: 0;
   max-height: 100%;
   overflow: auto;
@@ -1280,7 +1285,7 @@ function incrementBarsNoPickup() {
   overflow-y: hidden;
   background: var(--tl-viewport-bg);
   box-shadow: var(--tl-viewport-shadow);
-  touch-action: pan-x;
+  touch-action: var(--tl-scroll-touch-action, pan-x);
   overscroll-behavior: contain;
 }
 
@@ -1531,8 +1536,8 @@ function incrementBarsNoPickup() {
   }
 
   .timeline-workspace.has-mobile-sidebar .timeline-mobile-sidebar {
-    flex-basis: 276px;
-    min-width: 276px;
+    flex-basis: 148px;
+    min-width: 148px;
     margin-left: 0;
   }
 
