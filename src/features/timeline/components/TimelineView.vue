@@ -106,6 +106,16 @@
             </div>
 
             <div class="timeline-length-handle-wrap" :style="{ left: `${trackEndPx}px` }">
+              <div class="timeline-bar-adjust-controls" :aria-label="'Adjust bars'">
+                <button class="timeline-bar-adjust-btn is-add" type="button" :title="'Add bar'"
+                  @click.stop="incrementBarsNoPickup">
+                  +
+                </button>
+                <button class="timeline-bar-adjust-btn is-remove" type="button" :title="'Remove bar'"
+                  :disabled="Number(barsNoPickup.value) <= 1" @click.stop="decrementBarsNoPickup">
+                  -
+                </button>
+              </div>
               <div class="timeline-length-marker" :title="t('timelineView.dragTimelineLength')"
                 :aria-label="t('timelineView.dragTimelineLength')" @pointerdown="onLengthHandlePointerDown">
                 <span class="timeline-length-marker-thin" />
@@ -1087,8 +1097,31 @@ function decrementBarsNoPickup() {
   barsNoPickup.value = Math.max(1, Number(barsNoPickup.value) - 1)
 }
 
+function scrollToLastBar(nextBars) {
+  const el = scrollEl.value
+  const barBlocks = Number(blocksPerBarSafe.value || 1)
+  const zoom = Number(zoomPx.value || 0)
+  if (!el || !(barBlocks > 0) || !(zoom > 0)) return
+
+  const nextTotalBlocks = nextBars * barBlocks
+  const targetRightEdge = TRACK_START_OFFSET_PX + nextTotalBlocks * zoom
+  const nextScrollLeft = Math.max(
+    0,
+    targetRightEdge - (Number(el.clientWidth) || 0) + TIMELINE_LAYOUT.marquee.autoScrollMarginPx,
+  )
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const maxScrollLeft = Math.max(0, (Number(el.scrollWidth) || 0) - (Number(el.clientWidth) || 0))
+      el.scrollLeft = Math.min(maxScrollLeft, nextScrollLeft)
+    })
+  })
+}
+
 function incrementBarsNoPickup() {
-  barsNoPickup.value = Math.min(TIMELINE_LAYOUT.bars.maxCount, Number(barsNoPickup.value) + 1)
+  const nextBars = Math.min(TIMELINE_LAYOUT.bars.maxCount, Number(barsNoPickup.value) + 1)
+  barsNoPickup.value = nextBars
+  scrollToLastBar(nextBars)
 }
 
 </script>
@@ -1457,6 +1490,38 @@ function incrementBarsNoPickup() {
   display: flex;
   pointer-events: auto;
   z-index: 15;
+}
+
+.timeline-bar-adjust-controls {
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  z-index: 4;
+}
+
+.timeline-bar-adjust-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-2) 8%);
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+
+.timeline-bar-adjust-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
 }
 
 .timeline-length-marker {
