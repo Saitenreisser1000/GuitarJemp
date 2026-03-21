@@ -877,6 +877,10 @@ function addActiveChordToTimeline() {
   if (nextTimelineLength > 0) timelineSettings.setTimelineLengthBlocks(nextTimelineLength)
 }
 
+function updateNumFrets(value) {
+  numFrets.value = Math.max(1, Math.floor(Number(value) || 12))
+}
+
 onMounted(async () => {
   if (viewMode.value === 'desktop' && shouldDefaultToPhoneView()) {
     viewMode.value = 'phone'
@@ -1151,13 +1155,75 @@ onBeforeUnmount(() => {
       <LayoutManager v-else class="app-window-manager">
         <template #pane-a>
           <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :is-phone-view="false"
-              :style="fretboardStyleVars" />
+            <div class="fretboard-pane-row">
+              <div class="fretboard-pane-body">
+                <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :is-phone-view="false"
+                  :style="fretboardStyleVars" />
+              </div>
+              <div class="fretboard-pane-side">
+                <v-menu location="bottom end" :close-on-content-click="false">
+                  <template #activator="{ props: menuProps }">
+                    <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
+                      class="fretboard-options-btn" aria-label="Options" />
+                  </template>
+                  <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
+                    <div class="d-flex ga-2">
+                      <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
+                        min="1" step="1" label="Strings" style="width: 96px"
+                        @update:model-value="(v) => instrument.setNumStrings(v)" />
+                      <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
+                        step="1" label="Frets" style="width: 96px"
+                        @update:model-value="updateNumFrets" />
+                    </div>
+                    <v-switch :model-value="timelineSettings.showIntervalsOnDots" density="compact" hide-details inset
+                      label="Show Intervals"
+                      @update:model-value="(v) => timelineSettings.setShowIntervalsOnDots(Boolean(v))" />
+                    <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
+                      label="Left handed"
+                      @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                    <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
+                      label="Hand position track"
+                      @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
+                  </div>
+                </v-menu>
+              </div>
+            </div>
           </div>
           <div v-else-if="isCompactView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl"
             class="fretboard-main">
-            <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx"
-              :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
+            <div class="fretboard-pane-row">
+              <div class="fretboard-pane-body">
+                <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx"
+                  :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
+              </div>
+              <div class="fretboard-pane-side">
+                <v-menu location="bottom end" :close-on-content-click="false">
+                  <template #activator="{ props: menuProps }">
+                    <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
+                      class="fretboard-options-btn" aria-label="Options" />
+                  </template>
+                  <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
+                    <div class="d-flex ga-2">
+                      <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
+                        min="1" step="1" label="Strings" style="width: 96px"
+                        @update:model-value="(v) => instrument.setNumStrings(v)" />
+                      <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
+                        step="1" label="Frets" style="width: 96px"
+                        @update:model-value="updateNumFrets" />
+                    </div>
+                    <v-switch :model-value="timelineSettings.showIntervalsOnDots" density="compact" hide-details inset
+                      label="Show Intervals"
+                      @update:model-value="(v) => timelineSettings.setShowIntervalsOnDots(Boolean(v))" />
+                    <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
+                      label="Left handed"
+                      @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                    <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
+                      label="Hand position track"
+                      @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
+                  </div>
+                </v-menu>
+              </div>
+            </div>
           </div>
           <Timeline v-else-if="isCompactView && phonePane === 'timeline' && showTimeline" ref="timelineRef"
             :num-frets="numFrets" :compact="isCompactView" :library-panel-visible="false"
@@ -1345,9 +1411,6 @@ onBeforeUnmount(() => {
             type="number" min="0.1" step="0.1" />
           <v-switch v-model="preferenceSoundPreview" density="compact" hide-details inset label="Sound preview" />
           <v-switch v-model="preferenceDarkMode" density="compact" hide-details inset label="Dark mode" />
-          <v-switch v-model="preferenceIntervalsOnDots" density="compact" hide-details inset
-            label="Intervals on dots" />
-          <v-switch v-model="preferenceLeftHanded" density="compact" hide-details inset label="Left handed" />
           <v-switch :model-value="timelineSettings.idleDotConnectionsVisible" density="compact" hide-details inset
             label="Idle dot connections"
             @update:model-value="(v) => timelineSettings.setIdleDotConnectionsVisible(Boolean(v))" />
@@ -1355,9 +1418,6 @@ onBeforeUnmount(() => {
             hide-details density="compact" :disabled="!timelineSettings.idleDotConnectionsVisible"
             label="Idle dot opacity"
             @update:model-value="(v) => timelineSettings.setIdleDotConnectionsOpacity(Number(v))" />
-          <v-switch density="compact" hide-details inset label="Hand position track"
-            :model-value="timelineSettings.handPositionVisible"
-            @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
           <v-select v-model="preferenceLanguage" :items="languageItems" label="Language" density="compact"
             variant="outlined" />
         </v-card-text>
@@ -1682,12 +1742,53 @@ onBeforeUnmount(() => {
 .fretboard-main {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   height: 100%;
   min-height: 0;
   width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.fretboard-pane-row {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  width: 100%;
+}
+
+.fretboard-options-btn {
+  min-width: 26px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.fretboard-pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.fretboard-pane-side {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 8px 0 4px;
+}
+
+.fretboard-options-menu {
+  min-width: 220px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+}
+
+.fretboard-pane-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .fretboard-main :deep(.fretboard-body) {
