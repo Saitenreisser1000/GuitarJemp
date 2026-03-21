@@ -45,7 +45,8 @@ const transportVisible = ref(true)
 const showFretboard = ref(true)
 const showTimeline = ref(true)
 const showTransportBar = ref(true)
-const showLibraryInPaneB = ref(false)
+const workspacePanelTab = ref('timeline')
+const sidebarTab = ref('toolbar')
 const sidebarVisible = ref(true)
 const mainView = ref('workspace')
 const dashboardPanel = ref('library')
@@ -98,6 +99,51 @@ const uiMode = useUiModeStore()
 const theme = useTheme()
 const { locale, languages, setLocale, t } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const CHORD_TYPE_OPTIONS = [
+  'major',
+  'minor',
+  'diminished',
+  'augmented',
+  'sus2',
+  'sus4',
+  'dominant 7',
+  'major 7',
+  'minor 7',
+  'half-diminished 7',
+  'diminished 7',
+  'add9',
+  'major 6',
+  'minor 6',
+]
+const SCALE_TYPE_OPTIONS = [
+  'major (ionian)',
+  'natural minor (aeolian)',
+  'harmonic minor',
+  'melodic minor',
+  'dorian',
+  'phrygian',
+  'lydian',
+  'mixolydian',
+  'locrian',
+  'major pentatonic',
+  'minor pentatonic',
+  'blues',
+  'chromatic',
+  'whole tone',
+  'diminished (whole-half)',
+]
+const SCALE_POSITION_OPTIONS = ['Open', '3', '5', '7', '9', '12']
+const SCALE_PATTERN_OPTIONS = [
+  'CAGED 1',
+  'CAGED 2',
+  'CAGED 3',
+  'CAGED 4',
+  'CAGED 5',
+  '3 Notes Per String',
+  'Box Pattern 1',
+  'Box Pattern 2',
+  'Box Pattern 3',
+]
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
 const currentUserDisplayName = computed(
@@ -130,7 +176,6 @@ const shareContactsForMenu = computed(() =>
     }
   }),
 )
-const paneBMenuToggleLabel = computed(() => (showLibraryInPaneB.value ? 'Timeline' : 'Library'))
 const canSaveAsNew = computed(() => hasNotes.value)
 const canOverwriteCurrentLibraryItem = computed(() => {
   const currentId = String(library.currentItem?.id ?? '').trim()
@@ -926,10 +971,6 @@ onBeforeUnmount(() => {
         @click="sidebarVisible = !sidebarVisible">
         Toolbar
       </v-btn>
-      <v-btn v-if="!isCompactView && mainView !== 'dashboard'" variant="text" size="small" class="app-menu-btn"
-        @click="showLibraryInPaneB = !showLibraryInPaneB">
-        {{ paneBMenuToggleLabel }}
-      </v-btn>
       <v-menu v-if="!isCompactView && mainView !== 'dashboard'" location="bottom start">
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn" aria-label="Share">
@@ -1040,17 +1081,60 @@ onBeforeUnmount(() => {
         </template>
         <template #pane-b>
           <div class="pane-b-stack">
-            <Timeline v-if="showTimeline" v-show="!showLibraryInPaneB" ref="timelineRef" :num-frets="numFrets"
-              :compact="isCompactView" :library-panel-visible="false" :transport-visible="transportVisible"
-              :external-undo-tick="timelineUndoTick" :external-redo-tick="timelineRedoTick"
-              @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
-            <LibraryPanel v-show="showLibraryInPaneB" />
+            <div class="pane-b-tabs">
+              <v-tabs v-model="workspacePanelTab" density="compact" class="browser-tabs" grow>
+                <v-tab value="timeline" class="browser-tab">Timeline</v-tab>
+                <v-tab value="library" class="browser-tab">Library</v-tab>
+              </v-tabs>
+            </div>
+            <div class="pane-b-content">
+              <Timeline v-if="showTimeline" v-show="workspacePanelTab === 'timeline'" ref="timelineRef" :num-frets="numFrets"
+                :compact="isCompactView" :library-panel-visible="false" :transport-visible="transportVisible"
+                :external-undo-tick="timelineUndoTick" :external-redo-tick="timelineRedoTick"
+                @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
+              <LibraryPanel v-show="workspacePanelTab === 'library'" />
+            </div>
           </div>
         </template>
         <template #sidebar>
           <div class="app-sidebar-content">
-            <div class="app-sidebar-title">Tools</div>
-            <FretboardContextMenu class="app-sidebar-menu" />
+            <div class="app-sidebar-tabs">
+              <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'toolbar' }"
+                @click="sidebarTab = 'toolbar'">
+                Toolbar
+              </button>
+              <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'scale' }"
+                @click="sidebarTab = 'scale'">
+                Scales
+              </button>
+              <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'chords' }"
+                @click="sidebarTab = 'chords'">
+                Chords
+              </button>
+            </div>
+            <div class="app-sidebar-panel">
+              <FretboardContextMenu v-if="sidebarTab === 'toolbar'" class="app-sidebar-menu" />
+              <div v-else-if="sidebarTab === 'scale'" class="app-sidebar-form">
+                <v-switch :model-value="harmony.showScale" density="compact" hide-details inset color="primary"
+                  label="Show Scale" @update:model-value="(v) => (harmony.showScale = Boolean(v))" />
+                <v-select :model-value="harmony.scaleRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
+                  hide-details @update:model-value="(v) => (harmony.scaleRoot = String(v || 'C'))" />
+                <v-select :model-value="harmony.scaleType" :items="SCALE_TYPE_OPTIONS" label="Scale Type"
+                  density="compact" hide-details @update:model-value="(v) => (harmony.scaleType = String(v || SCALE_TYPE_OPTIONS[0]))" />
+                <v-select :model-value="harmony.position" :items="SCALE_POSITION_OPTIONS" label="Position"
+                  density="compact" hide-details @update:model-value="(v) => (harmony.position = String(v || 'Open'))" />
+                <v-select :model-value="harmony.pattern" :items="SCALE_PATTERN_OPTIONS" label="Pattern"
+                  density="compact" hide-details @update:model-value="(v) => (harmony.pattern = String(v || SCALE_PATTERN_OPTIONS[0]))" />
+              </div>
+              <div v-else class="app-sidebar-form">
+                <v-switch :model-value="harmony.showChord" density="compact" hide-details inset color="primary"
+                  label="Show Chords" @update:model-value="(v) => (harmony.showChord = Boolean(v))" />
+                <v-select :model-value="harmony.chordRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
+                  hide-details @update:model-value="(v) => (harmony.chordRoot = String(v || 'C'))" />
+                <v-select :model-value="harmony.chordType" :items="CHORD_TYPE_OPTIONS" label="Chord Type"
+                  density="compact" hide-details @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
+              </div>
+            </div>
           </div>
         </template>
       </LayoutManager>
@@ -1344,23 +1428,61 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-.app-sidebar-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #333;
-}
-
 .app-sidebar-content {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
   width: 100%;
   box-sizing: border-box;
+}
+
+.app-sidebar-tabs {
+  flex: 0 0 auto;
+  padding: 8px 0 0;
+  background: #f2f2f2;
+  display: flex;
+  gap: 6px;
+}
+
+.app-sidebar-tab {
+  min-height: 34px;
+  min-width: 0;
+  flex: 1 1 0;
+  border: 1px solid #c8c8c8;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: #e4e4e4;
+  color: #4c4c4c;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.app-sidebar-tab.is-active {
+  background: #f6f6f6;
+  color: #1f1f1f;
+}
+
+.app-sidebar-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f6f6f6;
 }
 
 .app-sidebar-menu {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.app-sidebar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 0 0;
 }
 
 .app-layout :deep(.timeline-main) {
@@ -1376,7 +1498,76 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-.pane-b-stack>* {
+.pane-b-tabs {
+  flex: 0 0 auto;
+  padding: 8px 8px 0;
+  border-bottom: 0;
+  background: #f2f2f2;
+}
+
+.pane-b-tabs :deep(.browser-tabs) {
+  min-height: 0;
+}
+
+.pane-b-tabs :deep(.browser-tabs .v-slide-group__content) {
+  gap: 6px;
+  align-items: end;
+}
+
+.pane-b-tabs :deep(.browser-tab) {
+  min-height: 34px;
+  min-width: 120px;
+  border: 1px solid #c8c8c8;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0 !important;
+  background: #e4e4e4;
+  color: #4c4c4c;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%);
+}
+
+.pane-b-tabs :deep(.browser-tab .v-btn__overlay),
+.pane-b-tabs :deep(.browser-tab .v-btn__underlay) {
+  display: none;
+}
+
+.pane-b-tabs :deep(.browser-tab .v-btn__content) {
+  justify-content: center;
+}
+
+.pane-b-tabs :deep(.browser-tab.v-tab--selected) {
+  margin-bottom: -1px;
+  background: #f6f6f6;
+  color: #1f1f1f;
+  border-color: #b7b7b7;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 82%);
+}
+
+.pane-b-tabs :deep(.browser-tab.v-tab--selected::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: #f6f6f6;
+}
+
+.pane-b-tabs :deep(.browser-tabs .v-tabs-slider) {
+  display: none;
+}
+
+.pane-b-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f6f6f6;
+}
+
+.pane-b-content>* {
   min-height: 0;
   flex: 1 1 auto;
 }
