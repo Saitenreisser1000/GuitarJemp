@@ -52,7 +52,9 @@ function select(color) {
 .palette.horizontal {
   flex-direction: row;
   height: auto;
-  justify-content: flex-start;
+  justify-content: stretch;
+  align-items: stretch;
+  width: 100%;
   padding: 6px 8px;
   gap: 8px;
 }
@@ -63,6 +65,10 @@ function select(color) {
   gap: 10px;
   cursor: pointer;
   user-select: none;
+}
+
+.palette.horizontal .color-item {
+  flex: 1 1 0;
 }
 
 .color-item input {
@@ -78,6 +84,11 @@ function select(color) {
   border-radius: 6px;
   border: 2px solid rgba(0, 0, 0, 0.25);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.palette.horizontal .swatch {
+  width: 100%;
+  height: 30px;
 }
 
 .color-item input:checked + .swatch {

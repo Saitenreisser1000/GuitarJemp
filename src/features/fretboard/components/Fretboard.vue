@@ -443,7 +443,7 @@ const { t } = useI18n()
 
 const { playState, playheadMs } = storeToRefs(transport)
 const { handPositions } = storeToRefs(handPositionsStore)
-const { chordPitchClasses, scalePitchClasses, patternFretRange, showChord, showScale, scaleRoot, chordRoot } =
+const { scalePitchClasses, patternFretRange, showChord, showScale, scaleRoot, chordRoot, activeChordShape } =
   storeToRefs(harmonyMenu)
 const { textItems } = storeToRefs(overlay)
 const { surfaceMode, surfacePolicy } = storeToRefs(uiMode)
@@ -2147,11 +2147,28 @@ const harmonyGuideDots = computed(() => {
   const useScale = Boolean(showScale.value)
   if (!useChord && !useScale) return []
 
-  const chordSet =
-    useChord && chordPitchClasses.value instanceof Set ? chordPitchClasses.value : new Set()
   const scaleSet =
     useScale && scalePitchClasses.value instanceof Set ? scalePitchClasses.value : new Set()
-  if (!chordSet.size && !scaleSet.size) return []
+  const shapePositions = useChord && Array.isArray(activeChordShape.value?.positions)
+    ? activeChordShape.value.positions
+    : []
+  if (!shapePositions.length && !scaleSet.size) return []
+
+  const byKey = new Map()
+
+  for (const pos of shapePositions) {
+    const string = Number(pos?.string)
+    const fret = Number(pos?.fret)
+    if (!Number.isFinite(string) || !Number.isFinite(fret)) continue
+    byKey.set(`${string}-${fret}`, {
+      string,
+      fret,
+      inChord: true,
+      inScale: false,
+      pc: null,
+      isRoot: Boolean(pos?.isRoot),
+    })
+  }
 
   const fromFret = Math.max(
     0,
@@ -2173,13 +2190,19 @@ const harmonyGuideDots = computed(() => {
       const midi = midiForFretString({ fret, string }, tuning.value)
       if (!Number.isFinite(Number(midi))) continue
       const pc = ((Number(midi) % 12) + 12) % 12
-      const inChord = useChord && chordSet.has(pc)
       const inScale = useScale && scaleSet.has(pc)
-      if (!inChord && !inScale) continue
-      out.push({ string, fret, inChord, inScale, pc })
+      if (!inScale) continue
+      const key = `${string}-${fret}`
+      const existing = byKey.get(key)
+      if (existing) {
+        existing.inScale = true
+        if (existing.pc == null) existing.pc = pc
+        continue
+      }
+      byKey.set(key, { string, fret, inChord: false, inScale: true, pc, isRoot: false })
     }
   }
-  return out
+  return [...byKey.values()]
 })
 
 function parseFretRange(rawLabel) {

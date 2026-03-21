@@ -24,12 +24,16 @@ import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
 import { toMidiBytes } from '@/domain/exchange/midi'
 import { toPdfBytes } from '@/domain/exchange/pdf'
+import { normalizeNoteValue } from '@/config/noteValues'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { planImportedFretboardLayout } from '@/domain/exchange/importFretboardLayout'
 import { getTuning } from '@/domain/music/tunings'
 import { createNoteKey } from '@/domain/note'
+import { defaultLengthBlocksForMode, nextGridIndexFromNotes } from '@/domain/timelinePlacement'
+import { snapStepBlocksForMode } from '@/domain/timelineInteractions'
 import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
+import { DEFAULT_TIME_PER_BLOCK_MS, TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
 import { useI18n } from '@/i18n'
 import { useTheme } from 'vuetify'
@@ -98,7 +102,20 @@ const fretboardOverlay = useFretboardOverlayStore()
 const uiMode = useUiModeStore()
 const theme = useTheme()
 const { locale, languages, setLocale, t } = useI18n()
-const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const SONG_KEY_OPTIONS = [
+  { title: 'C', value: 'C' },
+  { title: 'C#/Db', value: 'C#' },
+  { title: 'D', value: 'D' },
+  { title: 'D#/Eb', value: 'D#' },
+  { title: 'E', value: 'E' },
+  { title: 'F', value: 'F' },
+  { title: 'F#/Gb', value: 'F#' },
+  { title: 'G', value: 'G' },
+  { title: 'G#/Ab', value: 'G#' },
+  { title: 'A', value: 'A' },
+  { title: 'A#/Bb', value: 'A#' },
+  { title: 'B', value: 'B' },
+]
 const CHORD_TYPE_OPTIONS = [
   'major',
   'minor',
@@ -791,6 +808,75 @@ function resetEditorToDefaultLength() {
   applyConfiguredDefaultTimelineLength()
 }
 
+function currentTimelineInsertConfig() {
+  let gridIndex = nextGridIndexFromNotes(notes.activeNotes, { mode: timelineSettings.selectedMode })
+
+  const tMs = Number(transport.playheadMs)
+  if (Number.isFinite(tMs) && tMs > 0) {
+    const idx = tMs / DEFAULT_TIME_PER_BLOCK_MS + 1
+    if (Number.isFinite(idx) && idx > 0) {
+      if (timelineSettings.snapEnabled && transport.playState !== 'playing') {
+        const snapStep = snapStepBlocksForMode(timelineSettings.simGroupMode, TIMELINE_SNAP_STEP_BLOCKS)
+        const snappedBlocks = Math.round((idx - 1) / snapStep) * snapStep
+        gridIndex = Math.max(1, snappedBlocks + 1)
+      } else {
+        gridIndex = idx
+      }
+    }
+  }
+
+  const lengthMode = timelineSettings.selectedMode === 'sim'
+    ? timelineSettings.lastRhythmMode
+    : timelineSettings.selectedMode
+  const noteValue = normalizeNoteValue(lengthMode) || '1/4'
+
+  let lengthBlocks = defaultLengthBlocksForMode(noteValue)
+  const rawSimGroupMode = String(timelineSettings.simGroupMode || '')
+  const simGroupMode = rawSimGroupMode === 'dot' ? 'dotted' : rawSimGroupMode
+  const subdivision = simGroupMode === '3' ? 3 : 2
+  if (simGroupMode === 'dotted' && Number(lengthBlocks) > 0.25) {
+    lengthBlocks = Number(lengthBlocks) * 1.5
+  } else if (simGroupMode === '3') {
+    lengthBlocks = Number((Number(lengthBlocks) * (2 / 3)).toFixed(4))
+  }
+
+  return {
+    gridIndex,
+    noteValue,
+    lengthBlocks,
+    subdivision,
+    color: timelineSettings.selectedColor,
+  }
+}
+
+function addActiveChordToTimeline() {
+  const positions = Array.isArray(harmony.activeChordShape?.positions) ? harmony.activeChordShape.positions : []
+  if (!positions.length) return
+
+  const insert = currentTimelineInsertConfig()
+  const placedAtMs = Date.now()
+  const notesToAdd = positions.map((pos) => ({
+    key: createNoteKey(),
+    fret: Number(pos?.fret),
+    string: Number(pos?.string),
+    color: insert.color,
+    noteValue: insert.noteValue,
+    gridIndex: insert.gridIndex,
+    lengthBlocks: insert.lengthBlocks,
+    subdivision: insert.subdivision,
+    placedAtMs,
+  }))
+
+  const added = notes.addNotes(notesToAdd, { tag: 'addChord' })
+  if (!added.length) return
+
+  selection.setSelectedNotes(added.map((note) => String(note?.key || '')).filter(Boolean))
+
+  const chordEnd = insert.gridIndex - 1 + insert.lengthBlocks
+  const nextTimelineLength = Math.max(Number(timelineSettings.timelineLengthBlocks) || 0, chordEnd)
+  if (nextTimelineLength > 0) timelineSettings.setTimelineLengthBlocks(nextTimelineLength)
+}
+
 onMounted(async () => {
   if (viewMode.value === 'desktop' && shouldDefaultToPhoneView()) {
     viewMode.value = 'phone'
@@ -1128,11 +1214,28 @@ onBeforeUnmount(() => {
               </div>
               <div v-else class="app-sidebar-form">
                 <v-switch :model-value="harmony.showChord" density="compact" hide-details inset color="primary"
-                  label="Show Chords" @update:model-value="(v) => (harmony.showChord = Boolean(v))" />
+                  label="Show Chord Shape" @update:model-value="(v) => (harmony.showChord = Boolean(v))" />
                 <v-select :model-value="harmony.chordRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
                   hide-details @update:model-value="(v) => (harmony.chordRoot = String(v || 'C'))" />
                 <v-select :model-value="harmony.chordType" :items="CHORD_TYPE_OPTIONS" label="Chord Type"
                   density="compact" hide-details @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
+                <v-switch :model-value="harmony.chordPosition === 'Open'" density="compact" hide-details inset
+                  color="primary" label="Open"
+                  @update:model-value="(v) => (harmony.chordPosition = Boolean(v) ? 'Open' : '5')" />
+                <v-select :model-value="harmony.chordRootString"
+                  :items="[
+                    { title: 'String E', value: 'string-e' },
+                    { title: 'String A', value: 'string-a' },
+                    { title: 'String D', value: 'string-d' },
+                  ]"
+                  label="Root String" density="compact" hide-details
+                  :disabled="harmony.chordPosition === 'Open'"
+                  @update:model-value="(v) => (harmony.chordRootString = String(v || 'string-e'))" />
+                <v-btn class="app-sidebar-action" color="primary" variant="tonal"
+                  :disabled="!(harmony.activeChordShape?.positions || []).length"
+                  @click="addActiveChordToTimeline">
+                  Add Chord
+                </v-btn>
               </div>
             </div>
           </div>
@@ -1483,6 +1586,10 @@ onBeforeUnmount(() => {
   gap: 12px;
   min-height: 0;
   padding: 10px 0 0;
+}
+
+.app-sidebar-action {
+  margin-top: auto;
 }
 
 .app-layout :deep(.timeline-main) {
