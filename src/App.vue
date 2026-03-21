@@ -24,6 +24,10 @@ import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
 import { toMidiBytes } from '@/domain/exchange/midi'
 import { toPdfBytes } from '@/domain/exchange/pdf'
+import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
+import { planImportedFretboardLayout } from '@/domain/exchange/importFretboardLayout'
+import { getTuning } from '@/domain/music/tunings'
+import { createNoteKey } from '@/domain/note'
 import { downloadBinaryFile, downloadTextFile } from '@/infra/files/download'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { initAudioEngine, installAudioAutoWarmup } from '@/domain/audio/simpleSynth'
@@ -34,6 +38,7 @@ const numFrets = ref(12)
 const corePadResizePx = ref(0)
 const fretboardMainEl = ref(null)
 const timelineRef = ref(null)
+const importFilesInputEl = ref(null)
 const timelineUndoTick = ref(0)
 const timelineRedoTick = ref(0)
 const transportVisible = ref(true)
@@ -91,7 +96,7 @@ const harmony = useHarmonyMenuStore()
 const fretboardOverlay = useFretboardOverlayStore()
 const uiMode = useUiModeStore()
 const theme = useTheme()
-const { locale, languages, setLocale } = useI18n()
+const { locale, languages, setLocale, t } = useI18n()
 const SONG_KEY_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const hasNotes = computed(() => (notes.activeNotes?.length ?? 0) > 0)
@@ -487,6 +492,124 @@ function exportPdf() {
   downloadBinaryFile(`${exportBaseName()}.pdf`, bytes, 'application/pdf')
 }
 
+function isMusicXmlFilename(name) {
+  return /\.(musicxml|xml)$/i.test(String(name || '').trim())
+}
+
+function sortedImportFiles(fileList) {
+  return [...(fileList ?? [])]
+    .filter((file) => file instanceof File)
+    .filter((file) => isMusicXmlFilename(file.name))
+    .sort((a, b) => {
+      const aPath = String(a.webkitRelativePath || a.name || '').toLowerCase()
+      const bPath = String(b.webkitRelativePath || b.name || '').toLowerCase()
+      return aPath.localeCompare(bPath)
+    })
+}
+
+function importedClipEndBlock(clip) {
+  let max = 0
+  for (const note of clip?.notes ?? []) {
+    const gridIndex = Number(note?.gridIndex)
+    const lengthBlocks = Number(note?.lengthBlocks)
+    if (!Number.isFinite(gridIndex) || !Number.isFinite(lengthBlocks)) continue
+    max = Math.max(max, gridIndex - 1 + lengthBlocks)
+  }
+  return max
+}
+
+function buildImportedNotes(clips) {
+  const merged = []
+
+  for (const clip of clips) {
+    for (const note of clip?.notes ?? []) {
+      merged.push({
+        ...note,
+        key: createNoteKey(),
+        gridIndex: Number(note.gridIndex),
+        placedAtMs: Date.now(),
+      })
+    }
+  }
+
+  return merged
+}
+
+function applyImportedClipSettings(firstClip, mergedNotes, { handPositions: importedHandPositions = [], requiredNumFrets = 12 } = {}) {
+  if (!firstClip) return
+
+  songName.value = String(firstClip.title || songName.value || '').trim()
+  transport.setTempo(firstClip.tempo)
+  timelineSettings.setBeatTop(firstClip.beatTop)
+  timelineSettings.setBeatBottom(firstClip.beatBottom)
+
+  const importedEnd = importedClipEndBlock({ notes: mergedNotes })
+  const nextTimelineLength = Math.max(Number(timelineSettings.timelineLengthBlocks) || 0, importedEnd)
+  if (nextTimelineLength > 0) timelineSettings.setTimelineLengthBlocks(nextTimelineLength)
+
+  if (requiredNumFrets > (Number(numFrets.value) || 0)) {
+    numFrets.value = requiredNumFrets
+  }
+
+  handPositions.setHandPositions(importedHandPositions)
+  fretboardOverlay.setTextItems([])
+  selection.clearSelection()
+  transport.setPlayState('stopped')
+  transport.setPlayheadMs(0)
+}
+
+async function importMusicXmlFiles(fileList) {
+  const files = sortedImportFiles(fileList)
+  if (!files.length) return
+
+  try {
+    const tuning = getTuning(instrument.tuningId)
+    const clips = []
+    const importMaxFret = Math.max(36, Number(numFrets.value) || 0)
+    for (const file of files) {
+      const xmlText = await file.text()
+      const clip = parseMusicXmlToClip(xmlText, {
+        openMidi: tuning?.openMidi ?? [],
+        maxFret: importMaxFret,
+      })
+      if (Array.isArray(clip?.notes) && clip.notes.length) clips.push(clip)
+    }
+
+    if (!clips.length) {
+      window.alert(t('app.importNoNotes'))
+      return
+    }
+
+    const mergedNotes = buildImportedNotes(clips)
+    const layout = planImportedFretboardLayout(mergedNotes, {
+      numFrets: Number(numFrets.value) || 12,
+      openMidi: tuning?.openMidi ?? [],
+    })
+    notes.setNotes(layout.notes)
+
+    applyImportedClipSettings(clips[0], layout.notes, layout)
+  } catch (error) {
+    const message = String(error?.message || error || t('app.importFailed'))
+    window.alert(`${t('app.importFailed')} ${message}`.trim())
+  }
+}
+
+function clearImportInputValue(inputEl) {
+  if (!inputEl) return
+  inputEl.value = ''
+}
+
+function openImportFiles() {
+  clearImportInputValue(importFilesInputEl.value)
+  importFilesInputEl.value?.click()
+}
+
+async function onImportFilesChange(event) {
+  const input = event?.target
+  await importMusicXmlFiles(input?.files)
+  clearImportInputValue(input)
+}
+
 async function saveAsNewToCloud() {
   if (saveAsNewBusy.value) return
   if (!auth.isSignedIn) {
@@ -504,20 +627,20 @@ async function saveAsNewToCloud() {
 
   saveAsNewBusy.value = true
   const created = await library.createItem({
-      kind,
-      title,
-      visibility,
-      category,
-      content: buildSongSnapshot({
-        name: songName.value,
-        instrument,
-        transport,
-        timelineSettings,
-        notes,
-        handPositions,
-        fretboardOverlay,
-      }),
-    })
+    kind,
+    title,
+    visibility,
+    category,
+    content: buildSongSnapshot({
+      name: songName.value,
+      instrument,
+      transport,
+      timelineSettings,
+      notes,
+      handPositions,
+      fretboardOverlay,
+    }),
+  })
   saveAsNewBusy.value = false
 
   if (!created) {
@@ -666,33 +789,31 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="app-layout"
-    :style="appLayoutStyle"
-    :class="{
-      'is-phone-view': isPhoneView,
-      'is-watch-view': isWatchView,
-      'is-compact-view': isCompactView,
-      'is-comment-mode': isCommentMode,
-      'is-sidebar-hidden': !sidebarVisible,
-      'is-debug-viewport': debugViewportFrameActive,
-    }"
-  >
+  <div class="app-layout" :style="appLayoutStyle" :class="{
+    'is-phone-view': isPhoneView,
+    'is-watch-view': isWatchView,
+    'is-compact-view': isCompactView,
+    'is-comment-mode': isCommentMode,
+    'is-sidebar-hidden': !sidebarVisible,
+    'is-debug-viewport': debugViewportFrameActive,
+  }">
     <AuthDialog v-model="authOpen" />
     <ConnectionsDialog v-model="connectionsOpen" />
+    <input
+      ref="importFilesInputEl"
+      type="file"
+      accept=".musicxml,.xml,application/vnd.recordare.musicxml+xml,text/xml,application/xml"
+      multiple
+      hidden
+      @change="onImportFilesChange"
+    />
 
     <div class="app-menu-bar" aria-label="Main menu">
       <div class="app-menu-brand">GuitarJemp</div>
       <v-menu v-if="isPhoneView" location="bottom start">
         <template #activator="{ props: menuProps }">
-          <v-btn
-            v-bind="menuProps"
-            icon="mdi-menu"
-            variant="text"
-            size="small"
-            class="app-menu-btn app-hamburger-btn"
-            aria-label="Open menu"
-          />
+          <v-btn v-bind="menuProps" icon="mdi-menu" variant="text" size="small" class="app-menu-btn app-hamburger-btn"
+            aria-label="Open menu" />
         </template>
         <v-list density="compact" min-width="260">
           <v-list-subheader>File</v-list-subheader>
@@ -700,6 +821,8 @@ onBeforeUnmount(() => {
           <v-list-item title="Save" @click="saveCurrentSong" />
           <v-list-item title="Save As New" @click="openSaveAsNew" />
           <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
+          <v-divider class="my-1" />
+          <v-list-item title="Import MusicXML" @click="openImportFiles" />
           <v-divider class="my-1" />
           <v-list-subheader>Edit</v-list-subheader>
           <v-list-item title="Undo" @click="triggerUndo" />
@@ -710,30 +833,15 @@ onBeforeUnmount(() => {
           <v-list-item title="Song Settings" @click="openSongSettingsDialog" />
           <v-divider class="my-1" />
           <v-list-subheader>Account</v-list-subheader>
-          <v-list-item
-            prepend-icon="mdi-view-dashboard-outline"
-            title="Dashboard"
-            @click="openDashboard"
-          />
+          <v-list-item prepend-icon="mdi-view-dashboard-outline" title="Dashboard" @click="openDashboard" />
           <v-divider v-if="mainView !== 'dashboard'" class="my-1" />
           <v-list-subheader v-if="mainView !== 'dashboard'">Share</v-list-subheader>
-          <v-list-item
-            v-if="mainView !== 'dashboard'"
-            prepend-icon="mdi-account-edit-outline"
-            title="Kontakte verwalten"
-            @click="openShareManager"
-          />
-          <v-list-group
-            v-for="contact in mainView !== 'dashboard' ? shareContactsForMenu : []"
-            :key="`phone-share-${contact.id}`"
-            :value="`phone-share-${contact.id}`"
-          >
+          <v-list-item v-if="mainView !== 'dashboard'" prepend-icon="mdi-account-edit-outline"
+            title="Kontakte verwalten" @click="openShareManager" />
+          <v-list-group v-for="contact in mainView !== 'dashboard' ? shareContactsForMenu : []"
+            :key="`phone-share-${contact.id}`" :value="`phone-share-${contact.id}`">
             <template #activator="{ props: groupProps }">
-              <v-list-item
-                v-bind="groupProps"
-                :title="contact.name"
-                prepend-icon="mdi-account"
-              >
+              <v-list-item v-bind="groupProps" :title="contact.name" prepend-icon="mdi-account">
                 <template #append>
                   <div class="d-inline-flex align-center ga-1">
                     <v-icon v-if="contact.hasEmail" size="16" icon="mdi-email-outline" />
@@ -742,35 +850,16 @@ onBeforeUnmount(() => {
                 </template>
               </v-list-item>
             </template>
-            <v-list-item
-              v-if="contact.hasEmail"
-              title="Per Mail senden"
-              prepend-icon="mdi-email-outline"
-              @click="shareContact(contact, 'email')"
-            />
-            <v-list-item
-              v-if="contact.hasWhatsApp"
-              title="Per WhatsApp senden"
-              prepend-icon="mdi-whatsapp"
-              @click="shareContact(contact, 'whatsapp')"
-            />
-            <v-list-item
-              v-if="contact.hasEmail && contact.hasWhatsApp"
-              title="Per Mail + WhatsApp senden"
-              prepend-icon="mdi-send-circle-outline"
-              @click="shareContact(contact, 'both')"
-            />
-            <v-list-item
-              v-if="!contact.hasEmail && !contact.hasWhatsApp"
-              title="Keine Mail/WhatsApp hinterlegt"
-              prepend-icon="mdi-alert-circle-outline"
-              disabled
-            />
+            <v-list-item v-if="contact.hasEmail" title="Per Mail senden" prepend-icon="mdi-email-outline"
+              @click="shareContact(contact, 'email')" />
+            <v-list-item v-if="contact.hasWhatsApp" title="Per WhatsApp senden" prepend-icon="mdi-whatsapp"
+              @click="shareContact(contact, 'whatsapp')" />
+            <v-list-item v-if="contact.hasEmail && contact.hasWhatsApp" title="Per Mail + WhatsApp senden"
+              prepend-icon="mdi-send-circle-outline" @click="shareContact(contact, 'both')" />
+            <v-list-item v-if="!contact.hasEmail && !contact.hasWhatsApp" title="Keine Mail/WhatsApp hinterlegt"
+              prepend-icon="mdi-alert-circle-outline" disabled />
           </v-list-group>
-          <v-list-item
-            v-if="mainView !== 'dashboard' && shareContactsForMenu.length === 0"
-            title="Keine Kontakte"
-          />
+          <v-list-item v-if="mainView !== 'dashboard' && shareContactsForMenu.length === 0" title="Keine Kontakte" />
           <v-divider class="my-1" />
           <v-list-subheader>View</v-list-subheader>
           <v-list-item title="Desktop" @click="viewMode = 'desktop'" />
@@ -783,19 +872,18 @@ onBeforeUnmount(() => {
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">File</v-btn>
         </template>
-          <v-list density="compact" min-width="220">
-            <v-list-item title="New" @click="openNewSongDialog" />
-            <v-divider class="my-1" />
-            <v-list-item title="Save" @click="saveCurrentSong" />
-            <v-list-item title="Save As New" @click="openSaveAsNew" />
-            <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
-            <v-divider class="my-1" />
-            <v-list-item title="Export MusicXML" :disabled="!hasNotes" @click="exportMusicXml" />
+        <v-list density="compact" min-width="220">
+          <v-list-item title="New" @click="openNewSongDialog" />
+          <v-divider class="my-1" />
+          <v-list-item title="Save" @click="saveCurrentSong" />
+          <v-list-item title="Save As New" @click="openSaveAsNew" />
+          <v-list-item title="Reset" @click="resetEditorToDefaultLength" />
+          <v-divider class="my-1" />
+          <v-list-item title="Export MusicXML" :disabled="!hasNotes" @click="exportMusicXml" />
           <v-list-item title="Export MIDI" :disabled="!hasNotes" @click="exportMidi" />
           <v-list-item title="Export PDF" :disabled="!hasNotes" @click="exportPdf" />
           <v-divider class="my-1" />
-          <v-list-item title="Import (Replace)" />
-          <v-list-item title="Import (Append)" />
+          <v-list-item title="Import MusicXML" @click="openImportFiles" />
         </v-list>
       </v-menu>
 
@@ -826,56 +914,35 @@ onBeforeUnmount(() => {
         </template>
         <v-card class="pa-3 d-flex flex-column ga-2" min-width="280">
           <div class="text-caption">Viewport</div>
-          <v-btn-toggle
-            :model-value="viewMode"
-            mandatory
-            divided
-            @update:model-value="(v) => (viewMode = String(v || 'desktop'))"
-          >
+          <v-btn-toggle :model-value="viewMode" mandatory divided
+            @update:model-value="(v) => (viewMode = String(v || 'desktop'))">
             <v-btn value="desktop" size="small" variant="tonal">Desktop</v-btn>
             <v-btn value="phone" size="small" variant="tonal">Phone</v-btn>
             <v-btn value="watch" size="small" variant="tonal">Watch</v-btn>
           </v-btn-toggle>
         </v-card>
       </v-menu>
-      <v-btn
-        v-if="!isCompactView"
-        variant="text"
-        size="small"
-        class="app-menu-btn"
-        :active="sidebarVisible"
-        @click="sidebarVisible = !sidebarVisible"
-      >
+      <v-btn v-if="!isCompactView" variant="text" size="small" class="app-menu-btn" :active="sidebarVisible"
+        @click="sidebarVisible = !sidebarVisible">
         Toolbar
       </v-btn>
-      <v-btn
-        v-if="!isCompactView && mainView !== 'dashboard'"
-        variant="text"
-        size="small"
-        class="app-menu-btn"
-        @click="showLibraryInPaneB = !showLibraryInPaneB"
-      >
+      <v-btn v-if="!isCompactView && mainView !== 'dashboard'" variant="text" size="small" class="app-menu-btn"
+        @click="showLibraryInPaneB = !showLibraryInPaneB">
         {{ paneBMenuToggleLabel }}
       </v-btn>
       <v-menu v-if="!isCompactView && mainView !== 'dashboard'" location="bottom start">
         <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn">Share</v-btn>
+          <v-btn v-bind="menuProps" variant="text" size="small" class="app-menu-btn" aria-label="Share">
+            <v-icon size="18">mdi-export-variant</v-icon>
+          </v-btn>
         </template>
         <v-list density="compact" min-width="220">
-          <v-list-item
-            prepend-icon="mdi-account-edit-outline"
-            title="Kontakte verwalten"
-            @click="openShareManager"
-          />
+          <v-list-item prepend-icon="mdi-account-edit-outline" title="Kontakte verwalten" @click="openShareManager" />
           <v-divider class="my-1" />
           <v-list-subheader>Kontakte</v-list-subheader>
           <v-list-group v-for="contact in shareContactsForMenu" :key="contact.id" :value="contact.id">
             <template #activator="{ props: groupProps }">
-              <v-list-item
-                v-bind="groupProps"
-                :title="contact.name"
-                prepend-icon="mdi-account"
-              >
+              <v-list-item v-bind="groupProps" :title="contact.name" prepend-icon="mdi-account">
                 <template #append>
                   <div class="d-inline-flex align-center ga-1">
                     <v-icon v-if="contact.hasEmail" size="16" icon="mdi-email-outline" />
@@ -884,56 +951,28 @@ onBeforeUnmount(() => {
                 </template>
               </v-list-item>
             </template>
-            <v-list-item
-              v-if="contact.hasEmail"
-              title="Per Mail senden"
-              prepend-icon="mdi-email-outline"
-              @click="shareContact(contact, 'email')"
-            />
-            <v-list-item
-              v-if="contact.hasWhatsApp"
-              title="Per WhatsApp senden"
-              prepend-icon="mdi-whatsapp"
-              @click="shareContact(contact, 'whatsapp')"
-            />
-            <v-list-item
-              v-if="contact.hasEmail && contact.hasWhatsApp"
-              title="Per Mail + WhatsApp senden"
-              prepend-icon="mdi-send-circle-outline"
-              @click="shareContact(contact, 'both')"
-            />
-            <v-list-item
-              v-if="!contact.hasEmail && !contact.hasWhatsApp"
-              title="Keine Mail/WhatsApp hinterlegt"
-              prepend-icon="mdi-alert-circle-outline"
-              disabled
-            />
+            <v-list-item v-if="contact.hasEmail" title="Per Mail senden" prepend-icon="mdi-email-outline"
+              @click="shareContact(contact, 'email')" />
+            <v-list-item v-if="contact.hasWhatsApp" title="Per WhatsApp senden" prepend-icon="mdi-whatsapp"
+              @click="shareContact(contact, 'whatsapp')" />
+            <v-list-item v-if="contact.hasEmail && contact.hasWhatsApp" title="Per Mail + WhatsApp senden"
+              prepend-icon="mdi-send-circle-outline" @click="shareContact(contact, 'both')" />
+            <v-list-item v-if="!contact.hasEmail && !contact.hasWhatsApp" title="Keine Mail/WhatsApp hinterlegt"
+              prepend-icon="mdi-alert-circle-outline" disabled />
           </v-list-group>
           <v-list-item v-if="shareContactsForMenu.length === 0" title="Keine Kontakte" />
         </v-list>
       </v-menu>
 
       <div class="app-menu-right">
-        <v-chip
-          v-if="auth.isSignedIn && !isPhoneView"
-          size="small"
-          color="success"
-          variant="tonal"
-          :prepend-avatar="currentUserAvatarUrl"
-          class="app-user-chip"
-          @click="mainView === 'dashboard' ? closeDashboard() : openDashboard()"
-        >
+        <v-chip v-if="auth.isSignedIn && !isPhoneView" size="small" color="success" variant="tonal"
+          :prepend-avatar="currentUserAvatarUrl" class="app-user-chip"
+          @click="mainView === 'dashboard' ? closeDashboard() : openDashboard()">
           {{ currentUserDisplayName }}
         </v-chip>
         <v-menu v-if="isCompactView && !isWatchView" location="bottom end" :close-on-content-click="false">
           <template #activator="{ props: menuProps }">
-            <v-btn
-              v-bind="menuProps"
-              variant="tonal"
-              size="small"
-              class="app-menu-tools-btn"
-              prepend-icon="mdi-tools"
-            >
+            <v-btn v-bind="menuProps" variant="tonal" size="small" class="app-menu-tools-btn" prepend-icon="mdi-tools">
               Tools
             </v-btn>
           </template>
@@ -941,14 +980,8 @@ onBeforeUnmount(() => {
             <FretboardContextMenu />
           </v-card>
         </v-menu>
-        <v-btn
-          v-else-if="isWatchView"
-          variant="tonal"
-          size="small"
-          class="app-menu-tools-btn"
-          prepend-icon="mdi-tools"
-          disabled
-        >
+        <v-btn v-else-if="isWatchView" variant="tonal" size="small" class="app-menu-tools-btn" prepend-icon="mdi-tools"
+          disabled>
           Tools
         </v-btn>
         <v-menu location="bottom end">
@@ -958,22 +991,12 @@ onBeforeUnmount(() => {
             </v-btn>
           </template>
           <v-list density="compact" min-width="180">
-            <v-list-item
-              :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
+            <v-list-item :prepend-icon="auth.isSignedIn ? 'mdi-logout' : 'mdi-login'"
               :title="auth.isSignedIn ? 'Logout' : 'Login'"
-              @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)"
-            />
-            <v-list-item
-              prepend-icon="mdi-account-multiple"
-              title="Friends"
-              :disabled="!auth.isSignedIn"
-              @click="connectionsOpen = true"
-            />
-            <v-list-item
-              prepend-icon="mdi-view-dashboard-outline"
-              title="Dashboard"
-              @click="openDashboard"
-            />
+              @click="auth.isSignedIn ? auth.signOut() : (authOpen = true)" />
+            <v-list-item prepend-icon="mdi-account-multiple" title="Friends" :disabled="!auth.isSignedIn"
+              @click="connectionsOpen = true" />
+            <v-list-item prepend-icon="mdi-view-dashboard-outline" title="Dashboard" @click="openDashboard" />
           </v-list>
         </v-menu>
       </div>
@@ -982,91 +1005,45 @@ onBeforeUnmount(() => {
 
     <main v-if="!showPhoneRotateOverlay || mainView === 'dashboard'" class="app-content">
       <div v-if="mainView === 'dashboard'" class="app-dashboard-main">
-        <UserDashboardMain
-          :signed-in="auth.isSignedIn"
-          :user="auth.user"
-          :profile="auth.profile"
-          :instrument-type="instrument.instrumentType"
-          :library-items="library.items"
-          :accepted-count="connections.accepted.length"
-          :incoming-count="connections.incoming.length"
-          :outgoing-count="connections.outgoing.length"
-          :share-count="shareContacts.contacts.length"
-          :song-name="songName"
-          :active-panel="dashboardPanel"
-          @open-auth="authOpen = true"
-          @open-connections="connectionsOpen = true"
-          @open-preferences="preferencesOpen = true"
-          @select-panel="selectDashboardPanel"
-          @close-dashboard="closeDashboard"
-        />
+        <UserDashboardMain :signed-in="auth.isSignedIn" :user="auth.user" :profile="auth.profile"
+          :instrument-type="instrument.instrumentType" :library-items="library.items"
+          :accepted-count="connections.accepted.length" :incoming-count="connections.incoming.length"
+          :outgoing-count="connections.outgoing.length" :share-count="shareContacts.contacts.length"
+          :song-name="songName" :active-panel="dashboardPanel" @open-auth="authOpen = true"
+          @open-connections="connectionsOpen = true" @open-preferences="preferencesOpen = true"
+          @select-panel="selectDashboardPanel" @close-dashboard="closeDashboard" />
         <div class="app-dashboard-right">
           <LibraryPanel v-if="dashboardPanel === 'library'" />
-          <DashboardDetailPanel
-            v-else
-            :panel="dashboardPanel"
-            :signed-in="auth.isSignedIn"
-            :user="auth.user"
-            :profile="auth.profile"
-            :instrument-type="instrument.instrumentType"
-            :library-items="library.items"
-            :accepted="connections.accepted"
-            :incoming="connections.incoming"
-            :outgoing="connections.outgoing"
-            :user-label-fn="connections.userLabel"
-            :profile-saving="profileSaveBusy"
-            @open-auth="authOpen = true"
-            @save-profile="saveDashboardProfile"
-          />
+          <DashboardDetailPanel v-else :panel="dashboardPanel" :signed-in="auth.isSignedIn" :user="auth.user"
+            :profile="auth.profile" :instrument-type="instrument.instrumentType" :library-items="library.items"
+            :accepted="connections.accepted" :incoming="connections.incoming" :outgoing="connections.outgoing"
+            :user-label-fn="connections.userLabel" :profile-saving="profileSaveBusy" @open-auth="authOpen = true"
+            @save-profile="saveDashboardProfile" />
         </div>
       </div>
       <LayoutManager v-else class="app-window-manager">
         <template #pane-a>
           <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard
-              :num-frets="numFrets"
-              :editable="true"
-              :core-resize-px="corePadResizePx"
-              :is-phone-view="false"
-              :style="fretboardStyleVars"
-            />
+            <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :is-phone-view="false"
+              :style="fretboardStyleVars" />
           </div>
-          <div v-else-if="isCompactView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl" class="fretboard-main">
-            <Fretboard
-              :num-frets="numFrets"
-              :editable="!isWatchView"
-              :core-resize-px="corePadResizePx"
-              :is-phone-view="isPhoneView"
-              :style="fretboardStyleVars"
-            />
+          <div v-else-if="isCompactView && phonePane === 'fretboard' && showFretboard" ref="fretboardMainEl"
+            class="fretboard-main">
+            <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx"
+              :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
           </div>
-          <Timeline
-            v-else-if="isCompactView && phonePane === 'timeline' && showTimeline"
-            ref="timelineRef"
-            :num-frets="numFrets"
-            :compact="isCompactView"
-            :library-panel-visible="false"
-            :transport-visible="transportVisible"
-            :external-undo-tick="timelineUndoTick"
-            :external-redo-tick="timelineRedoTick"
-            @update-transport-visible="(v) => (transportVisible = Boolean(v))"
-          />
+          <Timeline v-else-if="isCompactView && phonePane === 'timeline' && showTimeline" ref="timelineRef"
+            :num-frets="numFrets" :compact="isCompactView" :library-panel-visible="false"
+            :transport-visible="transportVisible" :external-undo-tick="timelineUndoTick"
+            :external-redo-tick="timelineRedoTick" @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
           <LibraryPanel v-else-if="isCompactView && phonePane === 'library'" />
         </template>
         <template #pane-b>
           <div class="pane-b-stack">
-            <Timeline
-              v-if="showTimeline"
-              v-show="!showLibraryInPaneB"
-              ref="timelineRef"
-              :num-frets="numFrets"
-              :compact="isCompactView"
-              :library-panel-visible="false"
-              :transport-visible="transportVisible"
-              :external-undo-tick="timelineUndoTick"
-              :external-redo-tick="timelineRedoTick"
-              @update-transport-visible="(v) => (transportVisible = Boolean(v))"
-            />
+            <Timeline v-if="showTimeline" v-show="!showLibraryInPaneB" ref="timelineRef" :num-frets="numFrets"
+              :compact="isCompactView" :library-panel-visible="false" :transport-visible="transportVisible"
+              :external-undo-tick="timelineUndoTick" :external-redo-tick="timelineRedoTick"
+              @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
             <LibraryPanel v-show="showLibraryInPaneB" />
           </div>
         </template>
@@ -1088,21 +1065,19 @@ onBeforeUnmount(() => {
       <TransportBar :visible="transportVisible" :is-playing="timelineIsPlaying" :tempo="transport.tempo"
         :click-enabled="timelineSettings.clickEnabled" :count-in-enabled="timelineSettings.countInEnabled"
         :auto-follow-enabled="timelineSettings.autoFollowEnabled" :loop-enabled="timelineSettings.loopEnabled"
-        :shuffle-enabled="timelineSettings.shuffleEnabled"
-        :instrument-type="instrument.instrumentType"
-        :is-phone-view="isCompactView"
-        :phone-pane="phonePane"
-        :playhead="timelinePlayhead" :total-duration="timelineTotalDuration"
-        :practice-active="timelinePracticeActive" :practice-available="timelinePracticeAvailable"
-        :practice-target-label="timelinePracticeTargetLabel" :practice-detected-label="timelinePracticeDetectedLabel"
-        :practice-hint-text="timelinePracticeHintText" :practice-match-state="timelinePracticeMatchState"
-        :record-active="timelineRecordActive" @toggle-play="timelineTogglePlay" @seek-start="timelineSeekStart"
-        @seek-playhead="timelineSeekPlayhead" @update-tempo="transport.setTempo"
-        @update-click="timelineSettings.setClickEnabled" @update-count-in-enabled="timelineSettings.setCountInEnabled"
+        :shuffle-enabled="timelineSettings.shuffleEnabled" :instrument-type="instrument.instrumentType"
+        :is-phone-view="isCompactView" :phone-pane="phonePane" :playhead="timelinePlayhead"
+        :total-duration="timelineTotalDuration" :practice-active="timelinePracticeActive"
+        :practice-available="timelinePracticeAvailable" :practice-target-label="timelinePracticeTargetLabel"
+        :practice-detected-label="timelinePracticeDetectedLabel" :practice-hint-text="timelinePracticeHintText"
+        :practice-match-state="timelinePracticeMatchState" :record-active="timelineRecordActive"
+        @toggle-play="timelineTogglePlay" @seek-start="timelineSeekStart" @seek-playhead="timelineSeekPlayhead"
+        @update-tempo="transport.setTempo" @update-click="timelineSettings.setClickEnabled"
+        @update-count-in-enabled="timelineSettings.setCountInEnabled"
         @update-auto-follow="timelineSettings.setAutoFollowEnabled" @update-loop="timelineSettings.setLoopEnabled"
         @update-shuffle="timelineSettings.setShuffleEnabled"
-        @update-phone-pane="(v) => (phonePane = String(v || 'fretboard'))"
-        @toggle-practice="timelineTogglePractice" @toggle-record="timelineToggleRecord" />
+        @update-phone-pane="(v) => (phonePane = String(v || 'fretboard'))" @toggle-practice="timelineTogglePractice"
+        @toggle-record="timelineToggleRecord" />
     </div>
 
     <v-dialog v-model="saveAsNewOpen" max-width="520">
@@ -1113,40 +1088,19 @@ onBeforeUnmount(() => {
         </v-card-title>
 
         <v-card-text>
-          <v-text-field
-            v-model="saveAsNewTitle"
-            label="Title"
-            density="compact"
-            variant="outlined"
-            autofocus
-          />
-          <v-select
-            v-model="saveAsNewVisibility"
-            :items="[
-              { title: 'Private', value: 'private' },
-              { title: 'Connections', value: 'connections' },
-              { title: 'Public', value: 'public' },
-            ]"
-            label="Visibility"
-            density="compact"
-            variant="outlined"
-          />
-          <v-text-field
-            v-model="saveAsNewCategory"
-            label="Category"
-            density="compact"
-            variant="outlined"
-          />
+          <v-text-field v-model="saveAsNewTitle" label="Title" density="compact" variant="outlined" autofocus />
+          <v-select v-model="saveAsNewVisibility" :items="[
+            { title: 'Private', value: 'private' },
+            { title: 'Connections', value: 'connections' },
+            { title: 'Public', value: 'public' },
+          ]" label="Visibility" density="compact" variant="outlined" />
+          <v-text-field v-model="saveAsNewCategory" label="Category" density="compact" variant="outlined" />
         </v-card-text>
 
         <v-card-actions class="justify-end">
           <v-btn variant="text" @click="saveAsNewOpen = false">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :disabled="!hasNotes || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy"
-            @click="saveAsNewToCloud"
-          >
+          <v-btn color="primary" variant="flat"
+            :disabled="!hasNotes || !String(saveAsNewTitle ?? '').trim() || saveAsNewBusy" @click="saveAsNewToCloud">
             Save
           </v-btn>
         </v-card-actions>
@@ -1160,87 +1114,28 @@ onBeforeUnmount(() => {
           <v-btn icon="mdi-close" variant="text" @click="newSongOpen = false" />
         </v-card-title>
         <v-card-text class="d-flex flex-column ga-3">
-          <v-text-field
-            v-model="newSongTitle"
-            label="Title"
-            density="compact"
-            variant="outlined"
-            autofocus
-          />
+          <v-text-field v-model="newSongTitle" label="Title" density="compact" variant="outlined" autofocus />
           <div class="d-flex ga-2">
-            <v-text-field
-              v-model="newSongBeatTop"
-              label="Beat Top"
-              density="compact"
-              variant="outlined"
-              type="number"
-              min="1"
-              class="flex-1-1"
-            />
-            <v-select
-              v-model="newSongBeatBottom"
-              :items="[1, 2, 4, 8]"
-              label="Beat Bottom"
-              density="compact"
-              variant="outlined"
-              class="flex-1-1"
-            />
+            <v-text-field v-model="newSongBeatTop" label="Beat Top" density="compact" variant="outlined" type="number"
+              min="1" class="flex-1-1" />
+            <v-select v-model="newSongBeatBottom" :items="[1, 2, 4, 8]" label="Beat Bottom" density="compact"
+              variant="outlined" class="flex-1-1" />
           </div>
           <div class="d-flex ga-2">
-            <v-select
-              v-model="newSongKey"
-              :items="SONG_KEY_OPTIONS"
-              label="Key"
-              density="compact"
-              variant="outlined"
-              class="flex-1-1"
-            />
-            <v-text-field
-              v-model="newSongBars"
-              label="Bars"
-              density="compact"
-              variant="outlined"
-              type="number"
-              min="1"
-              class="flex-1-1"
-            />
+            <v-select v-model="newSongKey" :items="SONG_KEY_OPTIONS" label="Key" density="compact" variant="outlined"
+              class="flex-1-1" />
+            <v-text-field v-model="newSongBars" label="Bars" density="compact" variant="outlined" type="number" min="1"
+              class="flex-1-1" />
           </div>
           <div class="d-flex ga-2 align-center">
-            <v-switch
-              v-model="newSongPickupEnabled"
-              density="compact"
-              hide-details
-              inset
-              label="Pickup"
-            />
-            <v-text-field
-              v-model="newSongPickupBeats"
-              label="Pickup Beats"
-              density="compact"
-              variant="outlined"
-              type="number"
-              min="0"
-              class="flex-1-1"
-            />
+            <v-switch v-model="newSongPickupEnabled" density="compact" hide-details inset label="Pickup" />
+            <v-text-field v-model="newSongPickupBeats" label="Pickup Beats" density="compact" variant="outlined"
+              type="number" min="0" class="flex-1-1" />
           </div>
           <div class="d-flex ga-2 align-center">
-            <v-switch
-              v-model="newSongShuffleEnabled"
-              density="compact"
-              hide-details
-              inset
-              label="Shuffle"
-            />
-            <v-text-field
-              v-model="newSongBpm"
-              label="BPM"
-              density="compact"
-              variant="outlined"
-              type="number"
-              min="30"
-              max="260"
-              class="flex-1-1"
-            />
+            <v-switch v-model="newSongShuffleEnabled" density="compact" hide-details inset label="Shuffle" />
+            <v-text-field v-model="newSongBpm" label="BPM" density="compact" variant="outlined" type="number" min="30"
+              max="260" class="flex-1-1" />
           </div>
         </v-card-text>
         <v-card-actions class="justify-end">
@@ -1259,78 +1154,25 @@ onBeforeUnmount(() => {
           <v-btn icon="mdi-close" variant="text" @click="preferencesOpen = false" />
         </v-card-title>
         <v-card-text class="d-flex flex-column ga-3">
-          <v-text-field
-            v-model="preferenceToneDuration"
-            label="Tone duration"
-            density="compact"
-            variant="outlined"
-            type="number"
-            min="0.1"
-            step="0.1"
-          />
-          <v-switch
-            v-model="preferenceSoundPreview"
-            density="compact"
-            hide-details
-            inset
-            label="Sound preview"
-          />
-          <v-switch
-            v-model="preferenceDarkMode"
-            density="compact"
-            hide-details
-            inset
-            label="Dark mode"
-          />
-          <v-switch
-            v-model="preferenceIntervalsOnDots"
-            density="compact"
-            hide-details
-            inset
-            label="Intervals on dots"
-          />
-          <v-switch
-            v-model="preferenceLeftHanded"
-            density="compact"
-            hide-details
-            inset
-            label="Left handed"
-          />
-          <v-switch
-            :model-value="timelineSettings.idleDotConnectionsVisible"
-            density="compact"
-            hide-details
-            inset
+          <v-text-field v-model="preferenceToneDuration" label="Tone duration" density="compact" variant="outlined"
+            type="number" min="0.1" step="0.1" />
+          <v-switch v-model="preferenceSoundPreview" density="compact" hide-details inset label="Sound preview" />
+          <v-switch v-model="preferenceDarkMode" density="compact" hide-details inset label="Dark mode" />
+          <v-switch v-model="preferenceIntervalsOnDots" density="compact" hide-details inset
+            label="Intervals on dots" />
+          <v-switch v-model="preferenceLeftHanded" density="compact" hide-details inset label="Left handed" />
+          <v-switch :model-value="timelineSettings.idleDotConnectionsVisible" density="compact" hide-details inset
             label="Idle dot connections"
-            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsVisible(Boolean(v))"
-          />
-          <v-slider
-            :model-value="timelineSettings.idleDotConnectionsOpacity"
-            min="0"
-            max="1"
-            step="0.01"
-            thumb-label
-            hide-details
-            density="compact"
-            :disabled="!timelineSettings.idleDotConnectionsVisible"
+            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsVisible(Boolean(v))" />
+          <v-slider :model-value="timelineSettings.idleDotConnectionsOpacity" min="0" max="1" step="0.01" thumb-label
+            hide-details density="compact" :disabled="!timelineSettings.idleDotConnectionsVisible"
             label="Idle dot opacity"
-            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsOpacity(Number(v))"
-          />
-          <v-switch
-            density="compact"
-            hide-details
-            inset
-            label="Hand position track"
+            @update:model-value="(v) => timelineSettings.setIdleDotConnectionsOpacity(Number(v))" />
+          <v-switch density="compact" hide-details inset label="Hand position track"
             :model-value="timelineSettings.handPositionVisible"
-            @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))"
-          />
-          <v-select
-            v-model="preferenceLanguage"
-            :items="languageItems"
-            label="Language"
-            density="compact"
-            variant="outlined"
-          />
+            @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
+          <v-select v-model="preferenceLanguage" :items="languageItems" label="Language" density="compact"
+            variant="outlined" />
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn variant="text" @click="preferencesOpen = false">Close</v-btn>
@@ -1343,25 +1185,15 @@ onBeforeUnmount(() => {
     </footer>
 
     <div v-if="isDevMode" class="app-viewport-debug" :class="{ 'is-open': debugViewportOpen }">
-      <v-btn
-        size="x-small"
-        variant="tonal"
-        class="app-viewport-debug-toggle"
-        prepend-icon="mdi-cellphone-cog"
-        @click="debugViewportOpen = !debugViewportOpen"
-      >
+      <v-btn size="x-small" variant="tonal" class="app-viewport-debug-toggle" prepend-icon="mdi-cellphone-cog"
+        @click="debugViewportOpen = !debugViewportOpen">
         Viewport
       </v-btn>
       <div v-if="debugViewportOpen" class="app-viewport-debug-panel">
         <div class="app-viewport-debug-title">Device Landscape Preset</div>
-        <v-select
-          :model-value="debugViewportPreset"
-          :items="VIEWPORT_DEBUG_PRESETS.map((p) => ({ title: p.label, value: p.key }))"
-          density="compact"
-          hide-details
-          variant="outlined"
-          @update:model-value="(v) => applyViewportDebugPreset(v)"
-        />
+        <v-select :model-value="debugViewportPreset"
+          :items="VIEWPORT_DEBUG_PRESETS.map((p) => ({ title: p.label, value: p.key }))" density="compact" hide-details
+          variant="outlined" @update:model-value="(v) => applyViewportDebugPreset(v)" />
         <div class="app-viewport-debug-info">
           <div>effective width: {{ Math.round(effectiveViewportWidthPx) }}px</div>
           <div>effective: {{ Math.round(effectiveViewportHeightPx) }}px</div>
@@ -1544,7 +1376,7 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-.pane-b-stack > * {
+.pane-b-stack>* {
   min-height: 0;
   flex: 1 1 auto;
 }
@@ -1571,6 +1403,10 @@ onBeforeUnmount(() => {
 }
 
 .app-layout.is-compact-view :deep(.layout-sidebar) {
+  display: none;
+}
+
+.app-layout.is-compact-view :deep(.layout-sidebar-resizer) {
   display: none;
 }
 
@@ -1621,6 +1457,10 @@ onBeforeUnmount(() => {
 }
 
 .app-layout.is-sidebar-hidden :deep(.layout-sidebar) {
+  display: none;
+}
+
+.app-layout.is-sidebar-hidden :deep(.layout-sidebar-resizer) {
   display: none;
 }
 

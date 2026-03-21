@@ -25,6 +25,15 @@ function midiFromPitch(noteEl) {
   return (octave + 1) * 12 + base + alter
 }
 
+function midiFromTechnical(string, fret, openMidi) {
+  const s = Number(string)
+  const f = Number(fret)
+  if (!Number.isFinite(s) || !Number.isFinite(f) || !Array.isArray(openMidi)) return null
+  const open = Number(openMidi[s - 1])
+  if (!Number.isFinite(open)) return null
+  return open + f
+}
+
 export function parseMusicXmlToClip(xmlText, { openMidi = [], maxFret = 24 } = {}) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(String(xmlText || ''), 'application/xml')
@@ -94,9 +103,13 @@ export function parseMusicXmlToClip(xmlText, { openMidi = [], maxFret = 24 } = {
 
         let string = parseIntSafe(firstText(noteEl, 'notations technical string', ''), NaN)
         let fret = parseIntSafe(firstText(noteEl, 'notations technical fret', ''), NaN)
+        let midi = midiFromPitch(noteEl)
+
+        if (!Number.isFinite(midi)) {
+          midi = midiFromTechnical(string, fret, openMidi)
+        }
 
         if (!Number.isFinite(string) || !Number.isFinite(fret)) {
-          const midi = midiFromPitch(noteEl)
           const mapped = mapMidiToFretString(midi, openMidi, { maxFret })
           if (!mapped) continue
           string = mapped.string
@@ -105,6 +118,7 @@ export function parseMusicXmlToClip(xmlText, { openMidi = [], maxFret = 24 } = {
 
         notes.push({
           key: `mx_${absoluteTick + startTick}_${noteCount}`,
+          midi,
           string,
           fret,
           gridIndex: 1 + (absoluteTick + startTick) / safeDivisions,
