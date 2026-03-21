@@ -342,6 +342,8 @@ watch(categoryRows, () => {
 
 <style scoped>
 .library-panel {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -375,9 +377,10 @@ watch(categoryRows, () => {
 .library-shell {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.2fr);
+  flex: 1 1 auto;
   gap: 14px;
-  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .library-categories,
