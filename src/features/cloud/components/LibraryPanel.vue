@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/store/useAuth'
 import { useLibraryStore } from '@/store/useLibrary'
 import { useNotesStore } from '@/store/useNotes'
@@ -27,6 +27,7 @@ const listTab = ref('mine')
 const ownerNamesById = ref({})
 const search = ref('')
 const deletingItemId = ref('')
+const selectedCategory = ref('')
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -87,6 +88,41 @@ const filteredItems = computed(() => {
   })
 })
 
+const categoryRows = computed(() => {
+  const counts = new Map()
+  for (const item of filteredItems.value) {
+    const key = String(item?.category || 'Uncategorized').trim() || 'Uncategorized'
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1]
+      return a[0].localeCompare(b[0])
+    })
+    .map(([label, count]) => ({ label, count }))
+})
+
+const selectedCategoryItems = computed(() => {
+  const categories = categoryRows.value
+  if (!categories.length) return []
+  const activeCategory = String(selectedCategory.value || categories[0]?.label || '')
+  return filteredItems.value.filter((item) => {
+    const key = String(item?.category || 'Uncategorized').trim() || 'Uncategorized'
+    return key === activeCategory
+  })
+})
+
+function ensureSelectedCategory() {
+  const categories = categoryRows.value
+  if (!categories.length) {
+    selectedCategory.value = ''
+    return
+  }
+  const active = String(selectedCategory.value || '')
+  if (active && categories.some((row) => row.label === active)) return
+  selectedCategory.value = String(categories[0]?.label || '')
+}
+
 function applySnapshot(snap) {
   if (!snap) return
 
@@ -136,6 +172,7 @@ function applySnapshot(snap) {
 }
 
 function onLoad(item) {
+  if (!item) return
   library.setCurrentItem(item)
   applySnapshot(item?.content)
 }
@@ -197,7 +234,12 @@ function ownerDisplayNameFor(item) {
 onMounted(async () => {
   await library.refresh()
   await refreshOwnerNames()
+  ensureSelectedCategory()
 })
+
+watch(categoryRows, () => {
+  ensureSelectedCategory()
+}, { deep: true })
 </script>
 
 <template>
@@ -211,72 +253,89 @@ onMounted(async () => {
     </v-alert>
 
     <template v-if="auth.isSignedIn">
-      <div class="d-flex align-center justify-space-between mb-1">
-        <v-tabs v-model="listTab" density="compact">
+      <div class="library-header mb-3">
+        <v-tabs v-model="listTab" density="compact" class="library-header-tabs">
           <v-tab value="mine" class="px-2">{{ t('libraryDialog.mine') }}</v-tab>
           <v-tab value="connections" class="px-2">{{ t('libraryDialog.connections') }}</v-tab>
           <v-tab value="public" class="px-2">{{ t('libraryDialog.public') }}</v-tab>
           <v-tab value="shared" class="px-2">{{ t('libraryDialog.shared') }}</v-tab>
         </v-tabs>
-        <v-btn variant="tonal" size="small" @click="library.refresh">{{ t('libraryDialog.refresh') }}</v-btn>
+        <div class="library-header-actions">
+          <v-text-field
+            v-model="search"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="library-search"
+            prepend-inner-icon="mdi-magnify"
+            :label="t('recordingSelector.search')"
+          />
+          <v-btn variant="tonal" size="small" @click="library.refresh">{{ t('libraryDialog.refresh') }}</v-btn>
+        </div>
       </div>
 
-      <v-text-field
-        v-model="search"
-        density="compact"
-        variant="outlined"
-        hide-details
-        class="mb-2"
-        prepend-inner-icon="mdi-magnify"
-        label="Search"
-      />
+      <div class="library-shell">
+        <section class="library-categories">
+          <div v-if="categoryRows.length" class="library-list">
+            <button
+              v-for="row in categoryRows"
+              :key="row.label"
+              type="button"
+              class="library-list-item"
+              :class="{ 'is-active': selectedCategory === row.label }"
+              @click="selectedCategory = row.label"
+            >
+              <div class="library-list-top">
+                <div class="library-list-title">{{ row.label }}</div>
+                <v-chip size="x-small" variant="tonal">{{ row.count }}</v-chip>
+              </div>
+            </button>
+          </div>
 
-      <v-table density="compact" class="library-table">
-        <thead>
-          <tr>
-            <th>{{ t('libraryDialog.titleLabel') }}</th>
-            <th>{{ t('libraryDialog.type') }}</th>
-            <th>{{ t('libraryDialog.visibility') }}</th>
-            <th>{{ t('libraryDialog.category') }}</th>
-            <th>{{ t('libraryDialog.owner') }}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="item in filteredItems"
-            :key="item.id"
-            class="library-row"
-            :class="{ 'is-active': String(library.currentItem?.id || '') === String(item.id || '') }"
-            role="button"
-            tabindex="0"
-            @click="onLoad(item)"
-            @keydown.enter.prevent="onLoad(item)"
-            @keydown.space.prevent="onLoad(item)"
-          >
-            <td class="library-ellipsis">{{ item.title }}</td>
-            <td>{{ item.kind }}</td>
-            <td>{{ item.visibility }}</td>
-            <td class="library-ellipsis">{{ item.category || '—' }}</td>
-            <td class="text-medium-emphasis library-ellipsis">{{ ownerDisplayNameFor(item) }}</td>
-            <td class="text-right">
-              <v-btn
-                size="x-small"
-                variant="tonal"
-                color="error"
-                :disabled="!canDeleteItem(item)"
-                :loading="deletingItemId === String(item.id || '')"
-                @click.stop="onDelete(item)"
-              >
-                {{ t('libraryDialog.delete') }}
-              </v-btn>
-            </td>
-          </tr>
-          <tr v-if="filteredItems.length === 0">
-            <td colspan="6" class="text-medium-emphasis">{{ t('libraryDialog.noItems') }}</td>
-          </tr>
-        </tbody>
-      </v-table>
+          <div v-else class="text-medium-emphasis library-empty-state">
+            {{ t('libraryDialog.noItems') }}
+          </div>
+        </section>
+
+        <section class="library-items">
+          <div v-if="selectedCategoryItems.length" class="library-list">
+            <button
+              v-for="item in selectedCategoryItems"
+              :key="item.id"
+              type="button"
+              class="library-list-item"
+              :class="{ 'is-active': String(library.currentItem?.id || '') === String(item.id || '') }"
+              @click="onLoad(item)"
+            >
+              <div class="library-list-row">
+                <div class="library-list-title">{{ item.title || 'Untitled' }}</div>
+                <span>{{ ownerDisplayNameFor(item) }}</span>
+                <span>{{ item.kind }}</span>
+                <span
+                  v-if="String(library.currentItem?.id || '') === String(item.id || '')"
+                  class="library-current-indicator"
+                >
+                  {{ t('libraryDialog.load') }}
+                </span>
+                <span class="library-list-meta-spacer" />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  :disabled="!canDeleteItem(item)"
+                  :loading="deletingItemId === String(item.id || '')"
+                  @click.stop="onDelete(item)"
+                />
+              </div>
+            </button>
+          </div>
+
+          <div v-else class="text-medium-emphasis library-empty-state">
+            {{ t('libraryDialog.noItems') }}
+          </div>
+        </section>
+      </div>
     </template>
   </div>
 </template>
@@ -284,40 +343,144 @@ onMounted(async () => {
 <style scoped>
 .library-panel {
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.library-header-tabs {
+  min-width: 0;
+}
+
+.library-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 320px;
+  justify-content: flex-end;
+}
+
+.library-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.library-shell {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+.library-categories,
+.library-items {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.library-items {
+  border-left: 1px solid rgb(0 0 0 / 12%);
+  padding-left: 14px;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.library-list-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 85%);
+  min-height: 38px;
+  padding: 5px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.library-list-item:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, rgb(0 0 0 / 10%));
+  transform: translateY(-1px);
+}
+
+.library-list-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.library-list-item.is-active {
+  border-color: color-mix(in srgb, var(--color-primary) 65%, rgb(0 0 0 / 10%));
+  box-shadow: 0 10px 24px rgb(0 0 0 / 8%);
+  background: color-mix(in srgb, var(--color-primary) 8%, white);
+}
+
+.library-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.library-list-title {
+  font-weight: 700;
+  color: #1b1b1b;
+  line-height: 1.2;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-list-row span {
+  color: rgb(0 0 0 / 62%);
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.library-list-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.library-current-indicator {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.library-empty-state {
+  border: 1px dashed rgb(0 0 0 / 14%);
+  border-radius: 14px;
+  padding: 18px;
+  flex: 1 1 auto;
   overflow: auto;
 }
 
-.library-table {
-  table-layout: fixed;
-}
-
-.library-table :deep(th),
-.library-table :deep(td) {
-  padding-top: 6px !important;
-  padding-bottom: 6px !important;
-}
-
-.library-table :deep(.library-row) {
-  cursor: pointer;
-}
-
-.library-table :deep(.library-row:hover) {
-  background: color-mix(in srgb, var(--color-primary) 9%, transparent);
-}
-
-.library-table :deep(.library-row.is-active) {
-  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-}
-
-.library-table :deep(.library-row:focus-visible) {
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
-  outline-offset: -2px;
-}
-
-.library-ellipsis {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@media (max-width: 980px) {
+  .library-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
