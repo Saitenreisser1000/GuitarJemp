@@ -493,34 +493,42 @@ watch(categoryRows, () => {
   }
 
   .library-shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(96px, 116px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 10px;
   }
 
   .library-categories {
-    padding: 0 0 8px;
+    padding: 0;
   }
 
   .library-categories .library-list {
-    flex-direction: row;
+    flex-direction: column;
     gap: 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-right: 0;
-    padding-bottom: 4px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 2px;
+    padding-bottom: 0;
   }
 
   .library-categories .library-list-item {
-    flex: 0 0 auto;
-    min-width: 140px;
+    min-width: 0;
+    padding: 6px 8px;
   }
 
   .library-items {
-    border-left: 0;
-    border-top: 1px solid rgb(0 0 0 / 12%);
-    padding-left: 0;
-    padding-top: 10px;
+    border-left: 1px solid rgb(0 0 0 / 12%);
+    border-top: 0;
+    padding-left: 10px;
+    padding-top: 0;
+  }
+
+  .library-categories .library-list-top {
+    gap: 6px;
+  }
+
+  .library-categories .library-list-title {
+    font-size: 11px;
   }
 }
 </style>
