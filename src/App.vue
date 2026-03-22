@@ -84,8 +84,16 @@ const saveBusy = ref(false)
 const preferencesOpen = ref(false)
 const profileSaveBusy = ref(false)
 const songName = ref('')
+const DOT_GROUP_NAMES_STORAGE_KEY = 'guitarjemp.dotGroupNames.v1'
 const THEME_STORAGE_KEY = 'guitarjemp.ui.theme'
 const APP_VERSION_LABEL = 'v.1.2'
+const dotGroupNames = ref(readStoredDotGroupNames())
+const dotGroupMenu = ref({
+  open: false,
+  x: 0,
+  y: 0,
+  color: '',
+})
 
 const instrument = useInstrumentStore()
 const auth = useAuthStore()
@@ -131,6 +139,16 @@ const CHORD_TYPE_OPTIONS = [
   'add9',
   'major 6',
   'minor 6',
+]
+const DOT_LABEL_MODE_OPTIONS = [
+  { title: 'Rhythm', value: 'rhythm' },
+  { title: 'Intervals', value: 'intervals' },
+  { title: 'Play Order', value: 'play-order' },
+  { title: 'Fingering', value: 'fingering' },
+]
+const PLAY_ORDER_SCOPE_OPTIONS = [
+  { title: 'Per Song', value: 'song' },
+  { title: 'Per Dotgroup', value: 'dotgroup' },
 ]
 const SCALE_TYPE_OPTIONS = [
   'major (ionian)',
@@ -219,10 +237,137 @@ const preferenceIntervalsOnDots = computed({
   get: () => Boolean(timelineSettings.showIntervalsOnDots),
   set: (v) => timelineSettings.setShowIntervalsOnDots(Boolean(v)),
 })
+const fretboardDotLabelMode = computed({
+  get: () => String(timelineSettings.dotLabelMode || 'rhythm'),
+  set: (v) => timelineSettings.setDotLabelMode(String(v || 'rhythm')),
+})
+const fretboardPlayOrderScope = computed({
+  get: () => String(timelineSettings.playOrderScope || 'song'),
+  set: (v) => timelineSettings.setPlayOrderScope(String(v || 'song')),
+})
+const usedDotGroups = computed(() => {
+  const items = Array.isArray(notes.activeNotes) ? [...notes.activeNotes] : []
+  items.sort((a, b) => {
+    const ga = Number(a?.gridIndex) || 0
+    const gb = Number(b?.gridIndex) || 0
+    if (ga !== gb) return ga - gb
+    const ta = Number(a?.placedAtMs) || 0
+    const tb = Number(b?.placedAtMs) || 0
+    if (ta !== tb) return ta - tb
+    return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+  })
+
+  const seen = new Set()
+  const out = []
+  for (const note of items) {
+    const color = String(note?.color || '').trim()
+    if (!color || seen.has(color)) continue
+    seen.add(color)
+    const customLabel = String(dotGroupNames.value?.[color] || '').trim()
+    out.push({
+      id: `dot-group-${out.length + 1}`,
+      color,
+      label: customLabel || `#${out.length + 1}`,
+      defaultLabel: `#${out.length + 1}`,
+    })
+  }
+  return out
+})
+const allDotGroupsSelected = computed(
+  () => !String(timelineSettings.activeDotGroupColor || '').trim(),
+)
 const preferenceLeftHanded = computed({
   get: () => Boolean(timelineSettings.leftHanded),
   set: (v) => timelineSettings.setLeftHanded(Boolean(v)),
 })
+
+function readStoredDotGroupNames() {
+  try {
+    const raw = localStorage.getItem(DOT_GROUP_NAMES_STORAGE_KEY)
+    const parsed = JSON.parse(String(raw || '{}'))
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistDotGroupNames() {
+  try {
+    localStorage.setItem(DOT_GROUP_NAMES_STORAGE_KEY, JSON.stringify(dotGroupNames.value || {}))
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+function openDotGroupMenu(event, group) {
+  event?.preventDefault?.()
+  dotGroupMenu.value = {
+    open: true,
+    x: Number(event?.clientX) || 0,
+    y: Number(event?.clientY) || 0,
+    color: String(group?.color || ''),
+  }
+}
+
+function closeDotGroupMenu() {
+  dotGroupMenu.value = {
+    open: false,
+    x: 0,
+    y: 0,
+    color: '',
+  }
+}
+
+function renameDotGroup() {
+  const color = String(dotGroupMenu.value.color || '').trim()
+  if (!color) return
+  const group = usedDotGroups.value.find((item) => item.color === color)
+  const current = String(dotGroupNames.value?.[color] || group?.defaultLabel || '').trim()
+  const next = window.prompt('Tongroup umbenennen', current)
+  if (next == null) {
+    closeDotGroupMenu()
+    return
+  }
+  const trimmed = String(next).trim()
+  const updated = { ...(dotGroupNames.value || {}) }
+  if (!trimmed || trimmed === String(group?.defaultLabel || '').trim()) delete updated[color]
+  else updated[color] = trimmed
+  dotGroupNames.value = updated
+  persistDotGroupNames()
+  closeDotGroupMenu()
+}
+
+function onWindowPointerDown(event) {
+  if (!dotGroupMenu.value.open) return
+  const target = event?.target
+  if (target?.closest?.('.dot-group-context-menu')) return
+  closeDotGroupMenu()
+}
+
+function activateAllDotGroups() {
+  timelineSettings.setActiveDotGroupColor('')
+}
+
+function activateDotGroup(color) {
+  const nextColor = String(color || '').trim()
+  timelineSettings.setActiveDotGroupColor(nextColor)
+  if (!nextColor) return
+  const firstNote = (Array.isArray(notes.activeNotes) ? [...notes.activeNotes] : [])
+    .filter((note) => String(note?.color || '').trim() === nextColor)
+    .sort((a, b) => {
+      const ga = Number(a?.gridIndex) || 0
+      const gb = Number(b?.gridIndex) || 0
+      if (ga !== gb) return ga - gb
+      const ta = Number(a?.placedAtMs) || 0
+      const tb = Number(b?.placedAtMs) || 0
+      if (ta !== tb) return ta - tb
+      return String(a?.key || '').localeCompare(String(b?.key || ''))
+    })[0]
+  const firstGridIndex = Number(firstNote?.gridIndex)
+  if (Number.isFinite(firstGridIndex) && firstGridIndex > 0) {
+    timelineRef.value?.seekToGridIndex?.(firstGridIndex)
+  }
+}
 const languageItems = computed(() => languages.map((l) => ({ title: l.label, value: l.code })))
 const preferenceLanguage = computed({
   get: () => String(locale.value || 'en'),
@@ -900,6 +1045,7 @@ onMounted(async () => {
   }
   applyConfiguredDefaultTimelineLength()
   corePadResizePx.value = 0
+  window.addEventListener('pointerdown', onWindowPointerDown, true)
 })
 
 watch(
@@ -920,6 +1066,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('orientationchange', updateViewportHeightUnit)
   window.removeEventListener('resize', updateViewportOrientationFlag)
   window.removeEventListener('orientationchange', updateViewportOrientationFlag)
+  window.removeEventListener('pointerdown', onWindowPointerDown, true)
 })
 </script>
 
@@ -1134,6 +1281,13 @@ onBeforeUnmount(() => {
 
     </div>
 
+    <div v-if="dotGroupMenu.open" class="dot-group-context-menu"
+      :style="{ left: `${dotGroupMenu.x}px`, top: `${dotGroupMenu.y}px` }">
+      <button type="button" class="dot-group-context-item" @click="renameDotGroup">
+        Umbenennen
+      </button>
+    </div>
+
     <main v-if="!showPhoneRotateOverlay || mainView === 'dashboard'" class="app-content">
       <div v-if="mainView === 'dashboard'" class="app-dashboard-main">
         <UserDashboardMain :signed-in="auth.isSignedIn" :user="auth.user" :profile="auth.profile"
@@ -1144,7 +1298,8 @@ onBeforeUnmount(() => {
           @open-connections="connectionsOpen = true" @open-preferences="preferencesOpen = true"
           @select-panel="selectDashboardPanel" @close-dashboard="closeDashboard" />
         <div class="app-dashboard-right">
-          <LibraryPanel v-if="dashboardPanel === 'library'" />
+          <LibraryPanel v-if="dashboardPanel === 'library'"
+            @update-required-frets="(value) => { if (Number(value) > Number(numFrets) || 0) updateNumFrets(value) }" />
           <DashboardDetailPanel v-else :panel="dashboardPanel" :signed-in="auth.isSignedIn" :user="auth.user"
             :profile="auth.profile" :instrument-type="instrument.instrumentType" :library-items="library.items"
             :accepted="connections.accepted" :incoming="connections.incoming" :outgoing="connections.outgoing"
@@ -1161,31 +1316,52 @@ onBeforeUnmount(() => {
                   :style="fretboardStyleVars" />
               </div>
               <div class="fretboard-pane-side">
-                <v-menu location="bottom end" :close-on-content-click="false">
-                  <template #activator="{ props: menuProps }">
-                    <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
-                      class="fretboard-options-btn" aria-label="Options" />
-                  </template>
-                  <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
-                    <div class="d-flex ga-2">
-                      <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
-                        min="1" step="1" label="Strings" style="width: 96px"
-                        @update:model-value="(v) => instrument.setNumStrings(v)" />
-                      <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
-                        step="1" label="Frets" style="width: 96px"
-                        @update:model-value="updateNumFrets" />
+                <div class="fretboard-pane-side-stack">
+                  <v-menu location="bottom end" :close-on-content-click="false">
+                    <template #activator="{ props: menuProps }">
+                      <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
+                        class="fretboard-options-btn" aria-label="Options" />
+                    </template>
+                    <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
+                      <div class="d-flex ga-2">
+                        <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
+                          min="1" step="1" label="Strings" style="width: 96px"
+                          @update:model-value="(v) => instrument.setNumStrings(v)" />
+                        <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
+                          step="1" label="Frets" style="width: 96px"
+                          @update:model-value="updateNumFrets" />
+                      </div>
+                      <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
+                        hide-details label="Dot Labels" variant="outlined" />
+                      <v-select v-if="fretboardDotLabelMode === 'play-order'" v-model="fretboardPlayOrderScope"
+                        :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
+                        variant="outlined" />
+                      <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
+                        label="Left handed"
+                        @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                      <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
+                        label="Hand position track"
+                        @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
-                    <v-switch :model-value="timelineSettings.showIntervalsOnDots" density="compact" hide-details inset
-                      label="Show Intervals"
-                      @update:model-value="(v) => timelineSettings.setShowIntervalsOnDots(Boolean(v))" />
-                    <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
-                      label="Left handed"
-                      @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
-                    <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
-                      label="Hand position track"
-                      @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
+                  </v-menu>
+                  <div v-if="usedDotGroups.length" class="fretboard-dot-groups">
+                    <div class="fretboard-dot-groups-list">
+                      <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
+                        :class="{ 'is-active': allDotGroupsSelected }"
+                        @click="activateAllDotGroups">
+                        All
+                      </v-btn>
+                      <v-btn v-for="group in usedDotGroups" :key="group.id" variant="tonal" size="small"
+                        class="justify-start fretboard-dot-group-btn"
+                        :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
+                        :style="{ borderLeft: `12px solid ${group.color}` }"
+                        @contextmenu="openDotGroupMenu($event, group)"
+                        @click="activateDotGroup(group.color)">
+                        {{ group.label }}
+                      </v-btn>
+                    </div>
                   </div>
-                </v-menu>
+                </div>
               </div>
             </div>
           </div>
@@ -1197,31 +1373,52 @@ onBeforeUnmount(() => {
                   :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
               </div>
               <div class="fretboard-pane-side">
-                <v-menu location="bottom end" :close-on-content-click="false">
-                  <template #activator="{ props: menuProps }">
-                    <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
-                      class="fretboard-options-btn" aria-label="Options" />
-                  </template>
-                  <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
-                    <div class="d-flex ga-2">
-                      <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
-                        min="1" step="1" label="Strings" style="width: 96px"
-                        @update:model-value="(v) => instrument.setNumStrings(v)" />
-                      <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
-                        step="1" label="Frets" style="width: 96px"
-                        @update:model-value="updateNumFrets" />
+                <div class="fretboard-pane-side-stack">
+                  <v-menu location="bottom end" :close-on-content-click="false">
+                    <template #activator="{ props: menuProps }">
+                      <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
+                        class="fretboard-options-btn" aria-label="Options" />
+                    </template>
+                    <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
+                      <div class="d-flex ga-2">
+                        <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
+                          min="1" step="1" label="Strings" style="width: 96px"
+                          @update:model-value="(v) => instrument.setNumStrings(v)" />
+                        <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
+                          step="1" label="Frets" style="width: 96px"
+                          @update:model-value="updateNumFrets" />
+                      </div>
+                      <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
+                        hide-details label="Dot Labels" variant="outlined" />
+                      <v-select v-if="fretboardDotLabelMode === 'play-order'" v-model="fretboardPlayOrderScope"
+                        :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
+                        variant="outlined" />
+                      <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
+                        label="Left handed"
+                        @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                      <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
+                        label="Hand position track"
+                        @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
-                    <v-switch :model-value="timelineSettings.showIntervalsOnDots" density="compact" hide-details inset
-                      label="Show Intervals"
-                      @update:model-value="(v) => timelineSettings.setShowIntervalsOnDots(Boolean(v))" />
-                    <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
-                      label="Left handed"
-                      @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
-                    <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
-                      label="Hand position track"
-                      @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
+                  </v-menu>
+                  <div v-if="usedDotGroups.length" class="fretboard-dot-groups">
+                    <div class="fretboard-dot-groups-list">
+                      <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
+                        :class="{ 'is-active': allDotGroupsSelected }"
+                        @click="activateAllDotGroups">
+                        All
+                      </v-btn>
+                      <v-btn v-for="group in usedDotGroups" :key="group.id" variant="tonal" size="small"
+                        class="justify-start fretboard-dot-group-btn"
+                        :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
+                        :style="{ borderLeft: `12px solid ${group.color}` }"
+                        @contextmenu="openDotGroupMenu($event, group)"
+                        @click="activateDotGroup(group.color)">
+                        {{ group.label }}
+                      </v-btn>
+                    </div>
                   </div>
-                </v-menu>
+                </div>
               </div>
             </div>
           </div>
@@ -1229,7 +1426,8 @@ onBeforeUnmount(() => {
             :num-frets="numFrets" :compact="isCompactView" :library-panel-visible="false"
             :transport-visible="transportVisible" :external-undo-tick="timelineUndoTick"
             :external-redo-tick="timelineRedoTick" @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
-          <LibraryPanel v-else-if="isCompactView && phonePane === 'library'" />
+          <LibraryPanel v-else-if="isCompactView && phonePane === 'library'"
+            @update-required-frets="(value) => { if (Number(value) > Number(numFrets) || 0) updateNumFrets(value) }" />
         </template>
         <template #pane-b>
           <div class="pane-b-stack">
@@ -1779,11 +1977,76 @@ onBeforeUnmount(() => {
   padding: 8px 8px 0 4px;
 }
 
+.fretboard-pane-side-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .fretboard-options-menu {
   min-width: 220px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+}
+
+.fretboard-dot-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fretboard-dot-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fretboard-dot-group-btn {
+  min-width: 58px;
+  font-size: 0.67rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  transition: transform var(--ui-fast), box-shadow var(--ui-fast), border-color var(--ui-fast), background-color var(--ui-fast);
+}
+
+.fretboard-dot-group-btn.is-active {
+  border-color: color-mix(in srgb, var(--color-primary) 68%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
+  color: var(--color-text);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2), 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  transform: translateX(-1px);
+}
+
+.dot-group-context-menu {
+  position: fixed;
+  z-index: 1800;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 96%, black 4%);
+  box-shadow: 0 14px 30px rgb(15 23 42 / 0.18);
+}
+
+.dot-group-context-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dot-group-context-item:hover {
+  background: color-mix(in srgb, var(--color-surface-2) 68%, transparent);
 }
 
 .fretboard-pane-body > * {

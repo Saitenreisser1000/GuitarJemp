@@ -35,6 +35,7 @@
 <script setup>
 import NoteEvent from './NoteEvent.vue'
 import { computed, ref } from 'vue'
+import { useSelectionStore } from '@/store/useSelection'
 import { TIMELINE_SNAP_STEP_BLOCKS } from '@/features/timeline/config/grid'
 import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
 import { TIMELINE_THEME } from '@/features/timeline/config/timelineTheme'
@@ -76,6 +77,7 @@ const emit = defineEmits([
   'seek-playhead',
 ])
 const { t } = useI18n()
+const selection = useSelectionStore()
 
 const trackEl = ref(null)
 const isScrubbing = ref(false)
@@ -144,6 +146,7 @@ function onScrubPointerDown(e) {
   if (e?.target?.closest?.('.note-event')) return
   if (e?.button != null && e.button !== 0) return
   if (touchScrollEnabled.value && e?.pointerType === 'touch') return
+  selection.clearSelection()
   if (!props.isAuxTrack) emit('update-active-string', Number(props.string))
 
   const t = timeFromPointerEvent(e)

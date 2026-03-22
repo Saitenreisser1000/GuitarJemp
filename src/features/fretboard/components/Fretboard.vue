@@ -36,6 +36,9 @@
               <clipPath id="fb-core-clip">
                 <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
               </clipPath>
+              <clipPath id="fb-card-clip">
+                <rect :x="4" :y="boardY" :width="FB_WIDTH - 8" :height="boardH" />
+              </clipPath>
             </defs>
 
             <g class="fb-board-shell" data-part="board-shell">
@@ -45,6 +48,35 @@
                 opacity="0.9" />
               <rect :x="4" :y="boardY + 4" :width="FB_WIDTH - 8" :height="boardH - 8" rx="0" fill="transparent"
                 :stroke="FRETBOARD_THEME.svg.boardBorderStroke" stroke-width="2" />
+            </g>
+
+            <g v-if="activeToneDotGroupCards.length" class="fb-active-tone-group-cards" clip-path="url(#fb-card-clip)" style="pointer-events: none">
+              <rect
+                v-for="card in activeToneDotGroupCards"
+                :key="card.key"
+                :x="card.x"
+                :y="card.y"
+                :width="card.width"
+                :height="card.height"
+                :rx="card.rx"
+                :fill="card.color"
+                :stroke="card.color"
+                :opacity="card.opacity"
+                :style="{ strokeOpacity: card.strokeOpacity, strokeWidth: `${card.strokeWidth}px` }"
+              />
+            </g>
+
+            <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
+              <g class="fb-inlays" opacity="0.95">
+                <template v-for="dot in inlayDots" :key="dot.key">
+                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
+                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
+                    stroke-width="1" />
+                </template>
+              </g>
+            </g>
+
+            <g class="fb-board-hardware" data-part="board-hardware">
               <rect :x="displayRectX(0, NUT_WIDTH)" :y="boardY" :width="NUT_WIDTH" :height="boardH" :fill="FRETBOARD_THEME.svg.nutFill"
                 opacity="0.95" />
               <rect :x="displayRectX(NUT_WIDTH, 3)" :y="boardY" width="3" :height="boardH" :fill="FRETBOARD_THEME.svg.nutDividerFill"
@@ -63,15 +95,7 @@
               </g>
             </g>
 
-            <g class="fb-board-core" data-part="board-core" clip-path="url(#fb-core-clip)">
-              <g class="fb-inlays" opacity="0.95">
-                <template v-for="dot in inlayDots" :key="dot.key">
-                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="url(#inlay)" />
-                  <circle :cx="displayX(dot.x)" :cy="dot.y" :r="dot.r" fill="transparent" :stroke="FRETBOARD_THEME.svg.inlayOutlineStroke"
-                    stroke-width="1" />
-                </template>
-              </g>
-
+            <g class="fb-board-strings" data-part="board-strings" clip-path="url(#fb-core-clip)">
               <g class="fb-strings" opacity="0.9">
                 <line v-for="s in strings" :key="`string-${s.string}`" :x1="-STRING_OVERHANG" :y1="s.y" :x2="FB_WIDTH"
                   :y2="s.y" :stroke="FRETBOARD_THEME.svg.stringStroke" :stroke-width="s.w" stroke-linecap="round" />
@@ -93,11 +117,6 @@
                 </text>
               </g>
 
-              <g v-if="handPositionOverlayRect" class="fb-hand-position-overlay" style="pointer-events: none">
-                <rect :x="displayRectX(handPositionOverlayRect.x, handPositionOverlayRect.width)" :y="handPositionOverlayRect.y"
-                  :width="handPositionOverlayRect.width" :height="handPositionOverlayRect.height"
-                  :rx="handPositionOverlayRect.rx" />
-              </g>
               <g v-if="suggestedHandPositionOverlayRect" class="fb-hand-position-suggested"
                 style="pointer-events: none">
                 <rect :x="displayRectX(suggestedHandPositionOverlayRect.x, suggestedHandPositionOverlayRect.width)" :y="suggestedHandPositionOverlayRect.y"
@@ -169,7 +188,7 @@
                       :stroke="m.color" :style="{ opacity: m.lineOpacity }" />
                     <line class="fb-now-cross" :x1="m.x - m.crossHalf" :y1="m.y" :x2="m.x + m.crossHalf" :y2="m.y"
                       :stroke="m.color" />
-                    <circle class="fb-now-ring" :cx="m.x" :cy="m.y" :r="m.ringR" :stroke="m.color" />
+                    <ellipse class="fb-now-ring" :cx="m.x" :cy="m.y" :rx="dotRx(m.ringR)" :ry="m.ringR" :stroke="m.color" />
                   </g>
                 </g>
                 <g v-if="playbackSelfLoop" class="fb-playback-self-loop" style="pointer-events: none">
@@ -772,6 +791,8 @@ const toneDotsForRender = computed(() => {
           _stackCount: totalCount,
           _groupIndex: groupIndex,
           _groupCount: groups.length,
+          _groupSize: group.keys.length,
+          _groupItemIndex: group.keys.indexOf(key),
           _groupColorKey: group.colorKey,
           _groupActive: isActiveGroup,
           _kind: 'note',
@@ -789,6 +810,104 @@ const toneDotsForRender = computed(() => {
   }
 
   return out
+})
+
+const activeToneDotGroupCards = computed(() => {
+  const activeDots = toneDotsForRender.value.filter((dot) => isToneDotGroupActive(dot))
+  if (!activeDots.length) return []
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  let baseColor = '#ffffff'
+
+  for (const dot of activeDots) {
+    const r = toneDotR(dot)
+    const rx = dotRx(r)
+    const x = toneDotX(dot)
+    const y = toneDotY(dot)
+    minX = Math.min(minX, x - rx)
+    maxX = Math.max(maxX, x + rx)
+    minY = Math.min(minY, y - r)
+    maxY = Math.max(maxY, y + r)
+    if (baseColor === '#ffffff' && dot?.color) baseColor = String(dot.color)
+  }
+
+  const padX = 10
+  const padY = 6
+  const innerLeft = 4
+  const innerTop = Number(boardY.value)
+  const innerRight = Number(FB_WIDTH) - 4
+  const innerBottom = Number(boardY.value) + Number(boardH.value)
+  const x = Math.max(innerLeft, minX - padX)
+  const y = Math.max(innerTop, minY - padY)
+  const right = Math.min(innerRight, maxX + padX)
+  const bottom = Math.min(innerBottom, maxY + padY)
+  const width = Math.max(26, right - x)
+  const height = Math.max(22, bottom - y)
+
+  return [{
+    key: 'active-tone-group-card',
+    x,
+    y,
+    width,
+    height,
+    rx: Math.min(12, height / 2),
+    color: baseColor,
+    opacity: 0.5,
+    strokeOpacity: 0.42,
+    strokeWidth: 1.2,
+  }]
+})
+
+const activeGroupPlayOrderByNoteKey = computed(() => {
+  const map = new Map()
+  const scope = String(settings.playOrderScope || 'song')
+  const activeColor = String(settings.activeDotGroupColor || '').trim()
+  const sourceEntries =
+    scope === 'dotgroup' && activeColor
+      ? timelineNoteEntries.value.filter(
+        (entry) => String(entry?.note?.color || '').trim() === activeColor,
+      )
+      : timelineNoteEntries.value
+  let order = 0
+  let lastStartMs = NaN
+  for (const entry of sourceEntries) {
+    const key = String(entry?.key || '')
+    const startMs = Number(entry?.startMs)
+    if (!key || !Number.isFinite(startMs)) continue
+    if (!Number.isFinite(lastStartMs) || Math.abs(startMs - lastStartMs) > 1e-6) {
+      order += 1
+      lastStartMs = startMs
+    }
+    map.set(key, order)
+  }
+  return map
+})
+
+const activeGroupFingeringByNoteKey = computed(() => {
+  const entries = toneDotsForRender.value
+    .filter((dot) => isToneDotGroupActive(dot) && dot?._noteKey != null)
+    .map((dot) => ({
+      key: String(dot._noteKey),
+      fret: Number(dot?.fret) || 0,
+    }))
+
+  const fretted = [...new Set(entries.map((item) => item.fret).filter((fret) => fret > 0))].sort((a, b) => a - b)
+  const minFret = fretted[0] ?? 0
+  const map = new Map()
+
+  for (const item of entries) {
+    if (item.fret <= 0) {
+      map.set(item.key, '0')
+      continue
+    }
+    const finger = Math.max(1, Math.min(4, (item.fret - minFret) + 1))
+    map.set(item.key, String(finger))
+  }
+
+  return map
 })
 
 const noteByKey = computed(() => {
@@ -1530,6 +1649,7 @@ const activePreviewColorKey = computed(() => {
 
 const activeStackColorKey = computed(() => {
   if (isPlaying.value) return String(activePlaybackColorKey.value || '')
+  if (String(settings.activeDotGroupColor || '').trim()) return String(settings.activeDotGroupColor || '')
   if (Number(playheadMs.value) > 0) return String(activePlaybackColorKey.value || '')
   return String(activePreviewColorKey.value || '')
 })
@@ -2669,6 +2789,8 @@ function onToneDotClick(d, event) {
   if (Date.now() < suppressClicksUntilMs) return
   const noteKey = noteKeyForToneDot(d)
   if (!noteKey) return
+  const groupColor = String(d?._groupColorKey || d?.color || '').trim()
+  if (groupColor) settings.setActiveDotGroupColor(groupColor)
   if (settings.eraseMode) {
     event?.stopPropagation?.()
     store.removeNote(noteKey)
@@ -2965,8 +3087,17 @@ function intervalLabelForToneDot(d) {
 
 function toneDotSymbol(d) {
   if (!isToneDotGroupActive(d)) return ''
-  if (settings.showIntervalsOnDots) {
+  const mode = String(settings.dotLabelMode || (settings.showIntervalsOnDots ? 'intervals' : 'rhythm'))
+  if (mode === 'intervals') {
     return intervalLabelForToneDot(d)
+  }
+  if (mode === 'play-order') {
+    const nk = noteKeyForToneDot(d)
+    return nk ? String(activeGroupPlayOrderByNoteKey.value.get(nk) || '') : ''
+  }
+  if (mode === 'fingering') {
+    const nk = noteKeyForToneDot(d)
+    return nk ? String(activeGroupFingeringByNoteKey.value.get(nk) || '') : ''
   }
   const value = noteValueForToneDot(d)
   if (!value) return ''
@@ -2976,7 +3107,8 @@ function toneDotSymbol(d) {
 
 function toneDotIcon(d) {
   if (!isToneDotGroupActive(d)) return ''
-  if (settings.showIntervalsOnDots) return ''
+  const mode = String(settings.dotLabelMode || (settings.showIntervalsOnDots ? 'intervals' : 'rhythm'))
+  if (mode !== 'rhythm') return ''
   const value = noteValueForToneDot(d)
   if (!(value === '1/2' || value === '1')) return ''
   const item = noteValueItem(value)
@@ -3009,11 +3141,11 @@ function toneDotOpacity(d) {
   const activeGroup = isToneDotGroupActive(d)
 
   if (!isPlaying.value) {
-    return activeGroup ? 1 : 0.9
+    return activeGroup ? 1 : 0.58
   }
   if (!activeColorKey) return 1
   if (colorKey === activeColorKey) return 1
-  return 0.82
+  return 0.52
 }
 
 function toneDotStroke(d) {

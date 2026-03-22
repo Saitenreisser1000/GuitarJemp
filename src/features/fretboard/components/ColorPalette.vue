@@ -14,6 +14,8 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useNotesStore } from '@/store/useNotes'
+import { useSelectionStore } from '@/store/useSelection'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
 
 defineOptions({ name: 'ColorPalette' })
@@ -26,6 +28,8 @@ defineProps({
 })
 
 const settings = useTimelineSettingsStore()
+const notes = useNotesStore()
+const selection = useSelectionStore()
 
 const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
 
@@ -33,6 +37,9 @@ const selectedColor = computed(() => settings.selectedColor)
 
 function select(color) {
   settings.setSelectedColor(color)
+  const selectedKeys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  if (!selectedKeys.length) return
+  notes.setManyColors(selectedKeys.map((key) => ({ key, color })))
 }
 </script>
 

@@ -144,6 +144,7 @@ const {
   autoFollowEnabled,
   ghostNotesEnabled,
   timelineLengthBlocks,
+  activeDotGroupColor,
 } = storeToRefs(settings)
 const { numStrings } = storeToRefs(instrument)
 const { surfaceMode, surfacePolicy } = storeToRefs(uiMode)
@@ -278,6 +279,42 @@ const notesForRender = computed(() => {
     const subdivision = Number(note?.subdivision) === 3 ? 3 : 2
     return { key, fret, string, color, noteValue, gridIndex, lengthBlocks, subdivision }
   })
+})
+
+const filteredPlaybackNotes = computed(() => {
+  const activeColor = String(activeDotGroupColor.value || '').trim()
+  if (!activeColor) return store.activeNotes
+  return store.activeNotes.filter((note) => String(note?.color || '').trim() === activeColor)
+})
+
+const effectivePlaybackRangeMs = computed(() => {
+  const activeColor = String(activeDotGroupColor.value || '').trim()
+  if (!activeColor) {
+    const total = Number(totalDuration.value) || 0
+    return { start: 0, end: total }
+  }
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  const ranges = filteredPlaybackNotes.value
+    .map((note) => {
+      const startMs = playbackStartMsForNote(note, timePerBlock)
+      const lengthBlocks = Number(note?.lengthBlocks)
+      const len = Number.isFinite(lengthBlocks) && lengthBlocks > 0 ? lengthBlocks : 1
+      const durationMs = lengthBlocksToDurationMs(len, timePerBlock)
+      if (!Number.isFinite(startMs)) return null
+      return {
+        start: startMs,
+        end: startMs + durationMs,
+      }
+    })
+    .filter(Boolean)
+  if (!ranges.length) {
+    const total = Number(totalDuration.value) || 0
+    return { start: 0, end: total }
+  }
+  return {
+    start: Math.max(0, Math.min(...ranges.map((item) => Number(item.start) || 0))),
+    end: Math.max(0, Math.max(...ranges.map((item) => Number(item.end) || 0))),
+  }
 })
 
 function notesForString(s) {
@@ -658,9 +695,12 @@ function togglePlay() {
   selection.clearSelection()
   playbackVisuals.clear()
 
+  const playbackStartTargetMs = Math.max(0, Number(effectivePlaybackRangeMs.value.start) || 0)
+  const playbackEndTargetMs = Math.max(0, Number(effectivePlaybackRangeMs.value.end) || 0)
+
   // If we're at/after the end, restart from 0.
-  if (Number(playhead.value) >= Number(totalDuration.value || 0)) {
-    seekPlayhead(0)
+  if (Number(playhead.value) >= playbackEndTargetMs) {
+    seekPlayhead(playbackStartTargetMs)
     lastAudioTickMs = -Infinity
     lastClickTickMs = -Infinity
     triggeredNoteKeys = new Set()
@@ -726,6 +766,13 @@ function seekPlayhead(tMs) {
   playback.seek(t)
   playhead.value = t
   playbackVisuals.prune(t)
+}
+
+function seekToGridIndex(gridIndex) {
+  const idx = Number(gridIndex)
+  if (!Number.isFinite(idx)) return
+  const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
+  seekPlayhead(gridIndexToStartMs(idx, timePerBlock))
 }
 
 function seekToNoteEnd(noteKey, overrides = {}) {
@@ -837,6 +884,29 @@ const totalBlocks = computed(() => {
 })
 
 const loopRangeBlocks = computed(() => {
+  const activeColor = String(activeDotGroupColor.value || '').trim()
+  if (activeColor) {
+    const groupNotes = filteredPlaybackNotes.value
+      .map((note) => {
+        const start = Number(note?.gridIndex)
+        const len = Number(note?.lengthBlocks)
+        if (!Number.isFinite(start)) return null
+        const safeStart = start > 0 ? start - 1 : 0
+        const safeLen = Number.isFinite(len) && len > 0 ? len : 1
+        return {
+          start: safeStart,
+          end: safeStart + safeLen,
+        }
+      })
+      .filter(Boolean)
+    if (groupNotes.length) {
+      const start = Math.max(0, Math.min(...groupNotes.map((note) => Number(note.start) || 0)))
+      const total = Math.max(1, Number(totalBlocks.value) || 1)
+      const end = Math.min(total, Math.max(start + 0.01, Math.max(...groupNotes.map((note) => Number(note.end) || 0))))
+      return { start, end }
+    }
+  }
+
   const total = Math.max(1, Number(totalBlocks.value) || 1)
   const step = Math.max(0.01, Number(currentStep.value) || 1)
   const startRaw = Number(loopStartBlock.value)
@@ -1294,7 +1364,7 @@ function maybePlayNotesAt(tMs) {
   const tempoScale = 120 / tempoValue
   const timePerBlock = safeTimePerBlockMs(grid.grid.value.timePerBlock)
 
-  for (const note of store.activeNotes) {
+  for (const note of filteredPlaybackNotes.value) {
     const key = note?.key
     if (!key || triggeredNoteKeys.has(key)) continue
 
@@ -1382,6 +1452,17 @@ const playback = usePlayback({
       }
     }
 
+    if (!loopEnabled.value) {
+      const effectiveEndMs = Math.max(0, Number(effectivePlaybackRangeMs.value.end) || 0)
+      if (effectiveEndMs > 0 && t >= effectiveEndMs) {
+        playhead.value = effectiveEndMs
+        transport.setPlayheadMs(effectiveEndMs)
+        playback.pause()
+        playback.seek(effectiveEndMs)
+        return
+      }
+    }
+
     playhead.value = t
     transport.setPlayheadMs(t)
     playbackVisuals.prune(t)
@@ -1451,6 +1532,7 @@ defineExpose({
   togglePlay,
   seekStart,
   seekPlayhead,
+  seekToGridIndex,
   togglePractice,
   toggleRecord,
 })

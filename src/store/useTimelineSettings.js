@@ -67,6 +67,9 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   const selectedColor = ref(
     typeof stored.selectedColor === 'string' ? stored.selectedColor : '#FF6B6B',
   )
+  const activeDotGroupColor = ref(
+    typeof stored.activeDotGroupColor === 'string' ? stored.activeDotGroupColor : '',
+  )
 
   const activeString = ref(
     Number.isFinite(stored.activeString) && stored.activeString > 0
@@ -92,6 +95,14 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
   )
   const showIntervalsOnDots = ref(
     typeof stored.showIntervalsOnDots === 'boolean' ? stored.showIntervalsOnDots : false,
+  )
+  const dotLabelMode = ref(
+    ['rhythm', 'intervals', 'play-order', 'fingering'].includes(stored.dotLabelMode)
+      ? stored.dotLabelMode
+      : (typeof stored.showIntervalsOnDots === 'boolean' && stored.showIntervalsOnDots ? 'intervals' : 'rhythm'),
+  )
+  const playOrderScope = ref(
+    ['song', 'dotgroup'].includes(stored.playOrderScope) ? stored.playOrderScope : 'song',
   )
   const leftHanded = ref(
     typeof stored.leftHanded === 'boolean' ? stored.leftHanded : false,
@@ -217,6 +228,10 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     selectedColor.value = String(color)
   }
 
+  function setActiveDotGroupColor(color) {
+    activeDotGroupColor.value = String(color || '').trim()
+  }
+
   function setActiveString(v) {
     const n = Number.parseInt(String(v), 10)
     activeString.value = Number.isFinite(n) && n > 0 ? n : 1
@@ -245,6 +260,20 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
 
   function setShowIntervalsOnDots(v) {
     showIntervalsOnDots.value = Boolean(v)
+    dotLabelMode.value = showIntervalsOnDots.value ? 'intervals' : 'rhythm'
+  }
+
+  function setDotLabelMode(v) {
+    const next = String(v || '')
+    dotLabelMode.value = ['rhythm', 'intervals', 'play-order', 'fingering'].includes(next)
+      ? next
+      : 'rhythm'
+    showIntervalsOnDots.value = dotLabelMode.value === 'intervals'
+  }
+
+  function setPlayOrderScope(v) {
+    const next = String(v || '')
+    playOrderScope.value = ['song', 'dotgroup'].includes(next) ? next : 'song'
   }
 
   function setLeftHanded(v) {
@@ -291,6 +320,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     ghostNotesEnabled,
     timelineLengthBlocks,
     selectedColor,
+    activeDotGroupColor,
     activeString,
     activeTool,
     stringsCollapsed,
@@ -298,6 +328,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    dotLabelMode,
+    playOrderScope,
     leftHanded,
     idleDotConnectionsVisible,
     idleDotConnectionsOpacity,
@@ -326,6 +358,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     ghostNotesEnabled,
     timelineLengthBlocks,
     selectedColor,
+    activeDotGroupColor,
     activeString,
     activeTool,
     stringsCollapsed,
@@ -333,6 +366,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     handPositionVisible,
     showSuggestedPosition,
     showIntervalsOnDots,
+    dotLabelMode,
+    playOrderScope,
     leftHanded,
     idleDotConnectionsVisible,
     idleDotConnectionsOpacity,
@@ -357,6 +392,7 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setGhostNotesEnabled,
     setTimelineLengthBlocks,
     setSelectedColor,
+    setActiveDotGroupColor,
     setActiveString,
     setActiveTool,
     setStringsCollapsed,
@@ -364,6 +400,8 @@ export const useTimelineSettingsStore = defineStore('timelineSettings', () => {
     setHandPositionVisible,
     setShowSuggestedPosition,
     setShowIntervalsOnDots,
+    setDotLabelMode,
+    setPlayOrderScope,
     setLeftHanded,
     setIdleDotConnectionsVisible,
     setIdleDotConnectionsOpacity,

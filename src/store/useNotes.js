@@ -254,6 +254,39 @@ export const useNotesStore = defineStore('notes', () => {
     return changes.length
   }
 
+  function setNoteColor(key, color) {
+    const idx = findIndexByKey(String(key))
+    if (idx === -1) return
+    const nextColor = String(color || '').trim()
+    if (!nextColor) return
+    const prevColor = String(activeNotes.value[idx]?.color || '').trim()
+    if (prevColor === nextColor) return
+
+    pushUndoPoint('recolor')
+    activeNotes.value[idx].color = nextColor
+  }
+
+  function setManyColors(entries) {
+    if (!Array.isArray(entries) || !entries.length) return 0
+    const changes = []
+    for (const entry of entries) {
+      const key = String(entry?.key || '')
+      if (!key) continue
+      const idx = findIndexByKey(key)
+      if (idx === -1) continue
+      const nextColor = String(entry?.color || '').trim()
+      if (!nextColor) continue
+      const prevColor = String(activeNotes.value[idx]?.color || '').trim()
+      if (prevColor === nextColor) continue
+      changes.push({ idx, nextColor })
+    }
+    if (!changes.length) return 0
+
+    pushUndoPoint('recolorBatch')
+    for (const c of changes) activeNotes.value[c.idx].color = c.nextColor
+    return changes.length
+  }
+
   function setNotes(notesArray) {
     // Accept both legacy keys and note-objects; normalize to the canonical note shape.
     const normalized = []
@@ -325,6 +358,8 @@ export const useNotesStore = defineStore('notes', () => {
     setManyLengths,
     setNotePosition,
     setManyPositions,
+    setNoteColor,
+    setManyColors,
     getNoteDurationMs,
   }
 })

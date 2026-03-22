@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/store/useAuth'
 import { useLibraryStore } from '@/store/useLibrary'
 import { useNotesStore } from '@/store/useNotes'
@@ -12,6 +12,7 @@ import { useI18n } from '@/i18n'
 import { supabase, isSupabaseConfigured } from '@/infra/supabase/client'
 
 defineOptions({ name: 'LibraryPanel' })
+const emit = defineEmits(['update-required-frets'])
 
 const auth = useAuthStore()
 const library = useLibraryStore()
@@ -28,6 +29,7 @@ const ownerNamesById = ref({})
 const search = ref('')
 const deletingItemId = ref('')
 const selectedCategory = ref('')
+let dotGroupLoopTimer = null
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -68,6 +70,32 @@ const visibleItems = computed(() => {
       return myItems.value
   }
 })
+
+const tabItemsByKey = computed(() => ({
+  mine: myItems.value,
+  public: publicItems.value,
+  connections: connectionsItems.value,
+  shared: sharedItems.value,
+}))
+
+function firstAvailableTab() {
+  const order = ['mine', 'public', 'connections', 'shared']
+  for (const key of order) {
+    const items = tabItemsByKey.value?.[key]
+    if (Array.isArray(items) && items.length) return key
+  }
+  return 'mine'
+}
+
+function ensureUsableTab() {
+  if (!auth.isSignedIn) {
+    listTab.value = 'mine'
+    return
+  }
+  const currentItems = tabItemsByKey.value?.[listTab.value]
+  if (Array.isArray(currentItems) && currentItems.length) return
+  listTab.value = firstAvailableTab()
+}
 
 const filteredItems = computed(() => {
   const q = String(search.value || '').trim().toLowerCase()
@@ -123,6 +151,27 @@ function ensureSelectedCategory() {
   selectedCategory.value = String(categories[0]?.label || '')
 }
 
+function maxFretFromNotes(notesList) {
+  let max = 0
+  for (const note of Array.isArray(notesList) ? notesList : []) {
+    const fret = Number(note?.fret)
+    if (Number.isFinite(fret) && fret > max) max = fret
+  }
+  return max
+}
+
+function stopDotGroupLoop() {
+  if (dotGroupLoopTimer != null) {
+    window.clearInterval(dotGroupLoopTimer)
+    dotGroupLoopTimer = null
+  }
+}
+
+function startDotGroupLoop(notesList) {
+  stopDotGroupLoop()
+  timelineSettings.setActiveDotGroupColor('')
+}
+
 function applySnapshot(snap) {
   if (!snap) return
 
@@ -150,7 +199,15 @@ function applySnapshot(snap) {
     if (s.selectedColor) timelineSettings.setSelectedColor(s.selectedColor)
   }
 
-  if (Array.isArray(snap?.notes)) notes.setNotes(snap.notes)
+  if (Array.isArray(snap?.notes)) {
+    notes.setNotes(snap.notes)
+    const requiredFrets = maxFretFromNotes(snap.notes)
+    if (requiredFrets > 0) emit('update-required-frets', requiredFrets)
+    startDotGroupLoop(snap.notes)
+  } else {
+    stopDotGroupLoop()
+    timelineSettings.setActiveDotGroupColor('')
+  }
   fretboardOverlay.setTextItems(snap?.fretboardOverlay?.textItems)
   if (Array.isArray(snap?.notes) && snap.notes.length > 1) {
     const orderedKeys = [...snap.notes]
@@ -218,6 +275,13 @@ async function refreshOwnerNames() {
   ownerNamesById.value = next
 }
 
+async function handleRefresh() {
+  await library.refresh()
+  await refreshOwnerNames()
+  ensureUsableTab()
+  ensureSelectedCategory()
+}
+
 function ownerDisplayNameFor(item) {
   const ownerId = String(item?.owner_id ?? '')
   if (!ownerId) return '—'
@@ -232,10 +296,34 @@ function ownerDisplayNameFor(item) {
 }
 
 onMounted(async () => {
-  await library.refresh()
-  await refreshOwnerNames()
-  ensureSelectedCategory()
+  await handleRefresh()
 })
+
+onBeforeUnmount(() => {
+  stopDotGroupLoop()
+})
+
+watch(
+  () => auth.isSignedIn,
+  async (signedIn, wasSignedIn) => {
+    if (!signedIn) {
+      listTab.value = 'mine'
+      ownerNamesById.value = {}
+      selectedCategory.value = ''
+      return
+    }
+    if (!wasSignedIn || !Array.isArray(library.items) || library.items.length === 0) {
+      await library.refresh()
+    }
+    await refreshOwnerNames()
+    ensureUsableTab()
+    ensureSelectedCategory()
+  },
+)
+
+watch(tabItemsByKey, () => {
+  ensureUsableTab()
+}, { deep: true })
 
 watch(categoryRows, () => {
   ensureSelectedCategory()
@@ -270,7 +358,7 @@ watch(categoryRows, () => {
             prepend-inner-icon="mdi-magnify"
             :label="t('recordingSelector.search')"
           />
-          <v-btn variant="tonal" size="small" @click="library.refresh">{{ t('libraryDialog.refresh') }}</v-btn>
+          <v-btn variant="tonal" size="small" @click="handleRefresh">{{ t('libraryDialog.refresh') }}</v-btn>
         </div>
       </div>
 
