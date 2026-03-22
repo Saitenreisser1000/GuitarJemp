@@ -110,8 +110,18 @@ onBeforeUnmount(() => {
   padding: 10px;
   min-height: 0;
   overflow: auto;
-  cursor: col-resize;
+  cursor: default;
   position: relative;
+}
+
+.layout-sidebar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
 }
 
 .layout-sidebar-title {
