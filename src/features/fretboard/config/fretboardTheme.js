@@ -1,17 +1,17 @@
 export const FRETBOARD_THEME = {
   svg: {
     woodStops: [
-      { offset: '0', color: '#5a3a1e' },
-      { offset: '0.25', color: '#6a4222' },
-      { offset: '0.55', color: '#4f311a' },
-      { offset: '0.85', color: '#6a4222' },
-      { offset: '1', color: '#4a2d17' },
+      { offset: '0', color: '#8a6037' },
+      { offset: '0.25', color: '#a06f3f' },
+      { offset: '0.55', color: '#7a5430' },
+      { offset: '0.85', color: '#a27140' },
+      { offset: '1', color: '#714c2a' },
     ],
     shadeStops: [
-      { offset: '0', color: 'rgba(255,255,255,0.16)' },
+      { offset: '0', color: 'rgba(255,255,255,0.2)' },
       { offset: '0.35', color: 'rgba(255,255,255,0)' },
-      { offset: '0.72', color: 'rgba(0,0,0,0.18)' },
-      { offset: '1', color: 'rgba(0,0,0,0.32)' },
+      { offset: '0.72', color: 'rgba(0,0,0,0.14)' },
+      { offset: '1', color: 'rgba(0,0,0,0.24)' },
     ],
     metalStops: [
       { offset: '0', color: '#f2f2f2' },
@@ -66,12 +66,12 @@ export const FRETBOARD_THEME = {
     toneDotPitchStroke: 'rgba(20, 20, 20, 0.72)',
     nextNotePreviewStroke: 'rgba(255, 243, 186, 0.9)',
     nextNotePreviewShadow: 'drop-shadow(0 0 4px rgba(255, 230, 120, 0.75))',
-    fretNumberColor: 'rgba(34, 40, 48, 0.96)',
+    fretNumberColor: 'rgba(198, 208, 222, 0.96)',
     fretNumberShadow:
-      '0 1px 0 rgba(255, 255, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(0, 0, 0, 0.28)',
-    fretNumberMarkerColor: 'rgba(140, 114, 35, 0.98)',
+      '0 1px 0 rgba(12, 18, 26, 0.9), 0 0 4px rgba(11, 17, 24, 0.72), 0 1px 2px rgba(0, 0, 0, 0.38)',
+    fretNumberMarkerColor: 'rgba(236, 201, 105, 0.98)',
     fretNumberMarkerShadow:
-      '0 1px 0 rgba(255, 255, 255, 0.92), 0 0 2px rgba(255, 255, 255, 0.78), 0 1px 2px rgba(0, 0, 0, 0.3)',
+      '0 1px 0 rgba(48, 34, 8, 0.92), 0 0 4px rgba(43, 29, 7, 0.72), 0 1px 2px rgba(0, 0, 0, 0.42)',
     tooltipBg: 'rgba(20, 20, 20, 0.9)',
     tooltipText: 'white',
     handOverlayFill: 'rgba(165, 118, 55, 0.3)',

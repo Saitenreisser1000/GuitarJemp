@@ -290,6 +290,8 @@ function getNoteColor(fret) {
   height: var(--timeline-row-h, var(--timeline-row-h-default));
   margin-left: var(--timeline-track-start-offset-px, 6px);
   background: var(--timeline-track-base-bg);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
 }
 
 .timeline-track::after {
@@ -348,6 +350,7 @@ function getNoteColor(fret) {
   width: 3px;
   transform: translateX(-50%);
   background: var(--timeline-track-bar-line);
+  opacity: 0.9;
 }
 
 .bar-line.is-start {
@@ -377,7 +380,7 @@ function getNoteColor(fret) {
   z-index: 5;
   cursor: ew-resize;
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.9),
+    0 0 0 1px rgb(255 244 226 / 0.68),
     0 0 14px color-mix(in srgb, var(--timeline-track-playhead) 70%, white 30%);
 }
 </style>

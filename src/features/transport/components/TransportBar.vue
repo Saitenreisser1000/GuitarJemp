@@ -81,7 +81,7 @@ const { t } = useI18n()
 .timeline-transport-inner {
   width: 100%;
   max-width: none;
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: 0;
   background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
   box-shadow: none;

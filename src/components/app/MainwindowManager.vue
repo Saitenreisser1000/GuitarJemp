@@ -84,9 +84,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  border: 5px solid #000;
+  border: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
+  border-radius: 0;
   box-sizing: border-box;
-  background: #fff;
+  background: linear-gradient(180deg, var(--app-bg-panel, #202631), var(--app-bg-elevated, #1a1f27));
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.22);
 }
 
 .wm-pane {
@@ -95,7 +98,7 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  background: #fff;
+  background: linear-gradient(180deg, rgb(32 38 49 / 0.94), rgb(26 31 39 / 0.96));
 }
 
 .wm-divider {
@@ -104,7 +107,7 @@ onBeforeUnmount(() => {
   flex: 0 0 5px;
   border: 0;
   padding: 0;
-  background: #000;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(0 0 0 / 0.18));
   cursor: ns-resize;
   touch-action: none;
 }

@@ -102,16 +102,17 @@ onBeforeUnmount(() => {
 }
 
 .layout-sidebar {
-  border-top: 5px solid #000;
-  border-right: 5px solid #000;
-  border-bottom: 5px solid #000;
+  border-top: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
+  border-right: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
+  border-bottom: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
   border-left: 0;
-  background: #f6f6f6;
+  background: linear-gradient(180deg, var(--app-bg-panel, #202631), var(--app-bg-elevated, #1a1f27));
   padding: 10px;
   min-height: 0;
   overflow: auto;
   cursor: default;
   position: relative;
+  box-shadow: inset 1px 0 0 rgb(255 255 255 / 0.03);
 }
 
 .layout-sidebar::before {
@@ -127,6 +128,6 @@ onBeforeUnmount(() => {
 .layout-sidebar-title {
   font-size: 12px;
   font-weight: 700;
-  color: #333;
+  color: var(--app-text-muted, #9aa7bb);
 }
 </style>

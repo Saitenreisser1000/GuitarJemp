@@ -30,6 +30,7 @@ const search = ref('')
 const deletingItemId = ref('')
 const selectedCategory = ref('')
 let dotGroupLoopTimer = null
+const DOT_GROUP_PREVIEW_MS = 2000
 
 const userId = computed(() => auth.user?.id ?? null)
 
@@ -162,14 +163,57 @@ function maxFretFromNotes(notesList) {
 
 function stopDotGroupLoop() {
   if (dotGroupLoopTimer != null) {
-    window.clearInterval(dotGroupLoopTimer)
+    window.clearTimeout(dotGroupLoopTimer)
     dotGroupLoopTimer = null
   }
 }
 
 function startDotGroupLoop(notesList) {
   stopDotGroupLoop()
-  timelineSettings.setActiveDotGroupColor('')
+  const ordered = Array.isArray(notesList) ? [...notesList] : []
+  ordered.sort((a, b) => {
+    const ga = Number(a?.gridIndex) || 0
+    const gb = Number(b?.gridIndex) || 0
+    if (ga !== gb) return ga - gb
+    const ta = Number(a?.placedAtMs) || 0
+    const tb = Number(b?.placedAtMs) || 0
+    if (ta !== tb) return ta - tb
+    return String(a?.key ?? '').localeCompare(String(b?.key ?? ''))
+  })
+
+  const colors = []
+  const seen = new Set()
+  for (const note of ordered) {
+    const color = String(note?.color || '').trim()
+    if (!color || seen.has(color)) continue
+    seen.add(color)
+    colors.push(color)
+  }
+
+  if (!colors.length) {
+    timelineSettings.setActiveDotGroupColor('')
+    return
+  }
+
+  let index = 0
+  timelineSettings.setActiveDotGroupColor(colors[index])
+  if (colors.length === 1) return
+
+  const step = () => {
+    index += 1
+    if (index >= colors.length) {
+      dotGroupLoopTimer = null
+      return
+    }
+    timelineSettings.setActiveDotGroupColor(colors[index])
+    if (index < colors.length - 1) {
+      dotGroupLoopTimer = window.setTimeout(step, DOT_GROUP_PREVIEW_MS)
+    } else {
+      dotGroupLoopTimer = null
+    }
+  }
+
+  dotGroupLoopTimer = window.setTimeout(step, DOT_GROUP_PREVIEW_MS)
 }
 
 function applySnapshot(snap) {
@@ -435,6 +479,9 @@ watch(categoryRows, () => {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  padding: 8px;
+  gap: 8px;
+  background: transparent;
 }
 
 .library-header {
@@ -443,10 +490,39 @@ watch(categoryRows, () => {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgb(73 85 101 / 0.36), rgb(60 70 84 / 0.22));
+  box-shadow: none;
 }
 
 .library-header-tabs {
   min-width: 0;
+}
+
+.library-header-tabs :deep(.v-slide-group__content) {
+  gap: 6px;
+}
+
+.library-header-tabs :deep(.v-tab) {
+  min-height: 32px;
+  border: 1px solid rgb(255 255 255 / 0.05);
+  border-radius: 10px 10px 0 0;
+  background: rgb(255 255 255 / 0.03);
+  color: #8e9bb0;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.library-header-tabs :deep(.v-tab--selected) {
+  background: rgb(255 255 255 / 0.05);
+  color: #f7efe3;
+  border-color: rgb(255 255 255 / 0.1);
+}
+
+.library-header-tabs :deep(.v-tabs-slider) {
+  display: none;
 }
 
 .library-header-actions {
@@ -469,6 +545,7 @@ watch(categoryRows, () => {
   gap: 14px;
   min-height: 0;
   overflow: hidden;
+  background: linear-gradient(180deg, rgb(74 86 102 / 0.22), rgb(62 72 86 / 0.12));
 }
 
 .library-categories,
@@ -477,18 +554,21 @@ watch(categoryRows, () => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding: 4px 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgb(79 92 110 / 0.2), rgb(65 75 89 / 0.12));
+  box-shadow: none;
 }
 
 .library-items {
-  border-left: 1px solid rgb(0 0 0 / 12%);
-  padding-left: 14px;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .library-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
@@ -499,30 +579,32 @@ watch(categoryRows, () => {
   display: flex;
   align-items: center;
   width: 100%;
-  border: 1px solid rgb(0 0 0 / 10%);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 85%);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.04);
   min-height: 38px;
   padding: 5px 10px;
   text-align: left;
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  box-shadow: none;
 }
 
 .library-list-item:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 45%, rgb(0 0 0 / 10%));
+  border-color: rgb(208 138 67 / 0.32);
   transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.12);
 }
 
 .library-list-item:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline: 2px solid rgb(208 138 67 / 0.45);
   outline-offset: 2px;
 }
 
 .library-list-item.is-active {
-  border-color: color-mix(in srgb, var(--color-primary) 65%, rgb(0 0 0 / 10%));
-  box-shadow: 0 10px 24px rgb(0 0 0 / 8%);
-  background: color-mix(in srgb, var(--color-primary) 8%, white);
+  border-color: rgb(208 138 67 / 0.5);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.14);
+  background: rgb(208 138 67 / 0.12);
 }
 
 .library-list-row {
@@ -535,7 +617,7 @@ watch(categoryRows, () => {
 
 .library-list-title {
   font-weight: 700;
-  color: #1b1b1b;
+  color: #eef2f7;
   line-height: 1.2;
   font-size: 12px;
   white-space: nowrap;
@@ -544,7 +626,7 @@ watch(categoryRows, () => {
 }
 
 .library-list-row span {
-  color: rgb(0 0 0 / 62%);
+  color: rgb(157 170 189 / 0.82);
   font-size: 11px;
   line-height: 1.1;
   white-space: nowrap;
@@ -558,15 +640,17 @@ watch(categoryRows, () => {
 .library-current-indicator {
   font-size: 11px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: #f3c691;
 }
 
 .library-empty-state {
-  border: 1px dashed rgb(0 0 0 / 14%);
+  border: 1px dashed rgb(255 255 255 / 0.12);
   border-radius: 14px;
   padding: 18px;
   flex: 1 1 auto;
   overflow: auto;
+  color: rgb(157 170 189 / 0.82);
+  background: transparent;
 }
 
 @media (max-width: 980px) {
@@ -608,7 +692,7 @@ watch(categoryRows, () => {
   }
 
   .library-items {
-    border-left: 1px solid rgb(0 0 0 / 12%);
+    border-left: 1px solid rgb(255 255 255 / 0.06);
     border-top: 0;
     padding-left: 10px;
     padding-top: 0;

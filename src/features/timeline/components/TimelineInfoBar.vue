@@ -124,8 +124,7 @@
     </button>
 
     <div v-show="!isMobile || infoExpanded" class="timeline-info-shell">
-      <section class="timeline-group timeline-group-tools" :aria-label="t('timelineView.tools')">
-        <div class="timeline-group-label">Tool</div>
+      <section class="timeline-group timeline-group-flat" :aria-label="t('timelineView.tools')">
         <div class="timeline-group-row">
           <label class="timeline-tool timeline-tool-wide" :class="{ 'is-active': String(activeTool) === 'arrow' }"
             :title="t('timelineView.arrow')">
@@ -142,12 +141,6 @@
             <span class="timeline-tool-icon" aria-hidden="true">▭</span>
             <span class="timeline-tool-label">Select</span>
           </label>
-        </div>
-      </section>
-
-      <section class="timeline-group" aria-label="Edit actions">
-        <div class="timeline-group-label">Edit</div>
-        <div class="timeline-group-row">
           <button class="timeline-tool timeline-tool-wide" type="button" :title="t('timelineView.copy')"
             @click="emit('copy-selection')">
             <span class="timeline-tool-icon" aria-hidden="true">⧉</span>
@@ -162,8 +155,7 @@
         </div>
       </section>
 
-      <section class="timeline-group timeline-group-params" aria-label="Timeline settings">
-        <div class="timeline-group-label">Timeline</div>
+      <section class="timeline-group timeline-group-flat timeline-group-params" aria-label="Timeline settings">
         <div class="timeline-group-row timeline-group-row-params">
           <button class="timeline-chip" :class="{ 'is-active': snapEnabled }" type="button"
             :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
@@ -269,11 +261,12 @@ watch(
 
 <style scoped>
 .timeline-info {
-  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
+  background:
+    linear-gradient(180deg, rgb(33 40 50 / 0.96), rgb(25 31 39 / 0.98));
   border: 0;
   border-radius: 0;
-  min-height: 52px;
-  padding: 6px;
+  min-height: 40px;
+  padding: 4px 6px;
 }
 
 .timeline-info.is-sidebar {
@@ -421,22 +414,33 @@ watch(
 .timeline-info-shell {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .timeline-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
-  background: color-mix(in srgb, var(--color-surface-2) 48%, var(--color-surface) 52%);
-  min-height: 40px;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgb(42 50 63 / 0.92), rgb(31 38 47 / 0.95));
+  min-height: 32px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
 }
 
 .timeline-group-tools {
   min-width: 0;
+}
+
+.timeline-group-flat {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .timeline-group-params {
@@ -446,7 +450,7 @@ watch(
 .timeline-group-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
@@ -455,7 +459,7 @@ watch(
 }
 
 .timeline-group-label {
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -468,15 +472,15 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 46px;
-  height: 28px;
+  min-width: 42px;
+  height: 24px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface-2) 78%, var(--color-surface) 22%);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(56 66 81 / 0.82), rgb(40 47 58 / 0.88));
   cursor: pointer;
   user-select: none;
-  padding: 0 10px;
-  gap: 6px;
+  padding: 0 8px;
+  gap: 5px;
   transition:
     border-color var(--ui-fast),
     box-shadow var(--ui-fast),
@@ -485,18 +489,18 @@ watch(
 }
 
 .timeline-tool-wide {
-  min-width: 74px;
+  min-width: 68px;
 }
 
 .timeline-tool-segment,
 .timeline-tool-action {
   min-width: 0;
   width: 100%;
-  height: 34px;
+  height: 28px;
 }
 
 .timeline-tool:hover {
-  background: color-mix(in srgb, var(--color-surface-2) 64%, var(--color-surface) 36%);
+  background: linear-gradient(180deg, rgb(63 74 91 / 0.88), rgb(46 55 69 / 0.92));
 }
 
 .timeline-tool.is-active {
@@ -513,14 +517,14 @@ watch(
 }
 
 .timeline-tool-icon {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   opacity: 0.85;
   color: var(--color-text-muted);
 }
 
 .timeline-tool-label {
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
   font-weight: 700;
   color: var(--color-text-muted);
@@ -538,24 +542,24 @@ watch(
 .timeline-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-width: 88px;
-  height: 28px;
-  border: 1px solid var(--color-border);
+  gap: 6px;
+  min-width: 84px;
+  height: 24px;
+  border: 1px solid rgb(255 255 255 / 0.08);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-surface-2) 10%);
-  padding: 0 12px;
+  background: linear-gradient(180deg, rgb(55 65 80 / 0.82), rgb(39 46 57 / 0.88));
+  padding: 0 10px;
   color: var(--color-text);
 }
 
 .timeline-chip-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
 .timeline-chip-value {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -577,8 +581,8 @@ watch(
 .timeline-stepper {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 8px;
+  gap: 5px;
+  padding-left: 6px;
   border-left: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
 }
 
@@ -590,31 +594,41 @@ watch(
 }
 
 .timeline-stepper-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
 .bars-count-input {
-  width: 70px;
-  min-width: 70px;
+  width: 62px;
+  min-width: 62px;
 }
 
 .bars-adjust-btn {
-  min-width: 24px;
-  height: 24px;
+  min-width: 22px;
+  height: 22px;
   padding: 0;
 }
 
 .timeline-info :deep(.v-field) {
-  --v-input-control-height: 24px;
-  min-height: 24px;
+  --v-input-control-height: 22px;
+  min-height: 22px;
 }
 
 .timeline-info :deep(.v-field__input) {
-  min-height: 24px;
+  min-height: 22px;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.bars-count-input :deep(input[type='number']) {
+  -moz-appearance: textfield;
+}
+
+.bars-count-input :deep(input[type='number']::-webkit-outer-spin-button),
+.bars-count-input :deep(input[type='number']::-webkit-inner-spin-button) {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 @media (max-width: 860px) {

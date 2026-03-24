@@ -1263,11 +1263,14 @@ function incrementBarsNoPickup() {
   flex: 1 1 auto;
   min-height: 0;
   border-radius: 0;
-  border: 0;
+  border: 1px solid rgb(255 255 255 / 0.06);
   background: var(--tl-main-bg);
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 14px 30px rgb(0 0 0 / 0.18);
   overflow: hidden;
-  padding: 6px;
+  padding: 10px;
 }
 
 .timeline-workspace {
@@ -1296,6 +1299,12 @@ function incrementBarsNoPickup() {
   gap: 8px;
   padding: 6px;
   align-self: stretch;
+  border-radius: 0;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(78 90 107 / 0.68), rgb(65 75 90 / 0.74));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.03),
+    0 10px 20px rgb(0 0 0 / 0.12);
 }
 
 .timeline.is-collapsed :deep(.timeline-track) {
@@ -1317,9 +1326,26 @@ function incrementBarsNoPickup() {
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--tl-viewport-bg);
-  box-shadow: var(--tl-viewport-shadow);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    inset 0 -1px 0 rgb(0 0 0 / 0.24);
+  border-radius: 0;
+  border: 1px solid rgb(255 255 255 / 0.05);
   touch-action: var(--tl-scroll-touch-action, pan-x);
   overscroll-behavior: contain;
+}
+
+.timeline-scroll-viewport::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    inset 0 18px 18px -18px rgb(255 255 255 / 0.08),
+    inset 0 -20px 22px -18px rgb(0 0 0 / 0.42),
+    inset 18px 0 18px -18px rgb(0 0 0 / 0.28),
+    inset -18px 0 18px -18px rgb(0 0 0 / 0.28);
 }
 
 .timeline-columns {
@@ -1332,9 +1358,16 @@ function incrementBarsNoPickup() {
 }
 
 .timeline-column-card {
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(255 255 255 / 0.06);
   border-radius: 0;
   background: var(--tl-column-card-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.025),
+    inset 0 -1px 0 rgb(0 0 0 / 0.16);
+}
+
+.timeline-scroll-viewport.timeline-column-card {
+  border-radius: 0;
 }
 
 .timeline-string-names {
@@ -1342,10 +1375,11 @@ function incrementBarsNoPickup() {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 0 1px;
+  padding: 4px 2px;
   padding-top: var(--timeline-string-header-offset, 0px);
   border: 0;
   background: var(--tl-string-names-bg);
+  border-right: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .timeline-string-name {
@@ -1368,7 +1402,7 @@ function incrementBarsNoPickup() {
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 0;
+  border-radius: 10px;
   background: transparent;
   color: var(--color-text-muted);
   font-size: calc(9px * var(--tl-ui-scale));
@@ -1380,6 +1414,7 @@ function incrementBarsNoPickup() {
 
 .timeline-string-name-btn.is-active {
   color: var(--color-text);
+  background: rgb(255 255 255 / 0.06);
 }
 
 .timeline-options {
@@ -1400,13 +1435,15 @@ function incrementBarsNoPickup() {
 .timeline-marker {
   position: absolute;
   top: 0;
-  width: 2px;
+  width: 3px;
   height: var(--tl-marker-layer-h);
   transform: translateX(-50%);
   border: 0;
   padding: 0;
   background: var(--tl-marker-color);
   cursor: pointer;
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgb(208 138 67 / 0.22);
 }
 
 .timeline-marker-label {
@@ -1415,7 +1452,7 @@ function incrementBarsNoPickup() {
   left: 4px;
   font-size: calc(9px * var(--tl-ui-scale));
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: rgb(174 186 203 / 0.88);
   white-space: nowrap;
 }
 
@@ -1432,6 +1469,7 @@ function incrementBarsNoPickup() {
   display: flex;
   align-items: center;
   z-index: 16;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.18));
 }
 
 .loop-bracket-bar {
@@ -1444,7 +1482,7 @@ function incrementBarsNoPickup() {
 .loop-handle {
   width: 8px;
   height: 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(255 255 255 / 0.1);
   border-radius: 3px;
   background: var(--tl-loop-handle-bg);
   cursor: ew-resize;
@@ -1478,8 +1516,8 @@ function incrementBarsNoPickup() {
   z-index: 14;
   pointer-events: none;
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.9),
-    0 0 14px color-mix(in srgb, var(--tl-playhead-color, #ff5a36) 70%, white 30%);
+    0 0 0 1px rgb(255 244 226 / 0.72),
+    0 0 18px color-mix(in srgb, var(--tl-playhead-color, #ff5a36) 72%, white 28%);
 }
 
 .timeline-length-handle-wrap {
@@ -1507,16 +1545,16 @@ function incrementBarsNoPickup() {
 .timeline-bar-adjust-btn {
   width: 26px;
   height: 26px;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgb(255 255 255 / 0.08);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-surface-2) 8%);
-  color: var(--color-text);
+  background: linear-gradient(180deg, rgb(46 54 67 / 0.94), rgb(32 39 49 / 0.98));
+  color: rgb(235 242 247 / 0.94);
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
   padding: 0;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.18);
 }
 
 .timeline-bar-adjust-btn:disabled {
@@ -1558,7 +1596,7 @@ function incrementBarsNoPickup() {
 
 .marquee {
   position: absolute;
-  border: 2px dashed var(--color-primary);
+  border: 2px dashed #d08a43;
   background: var(--tl-marquee-bg);
   border-radius: 6px;
   pointer-events: none;

@@ -4,8 +4,7 @@
       <div ref="coreResizableEl" class="fb-core-resizable" :style="coreResizableStyle">
         <div class="fb-stack">
           <svg ref="overlayEl" class="fb-layer fb-overlay" :viewBox="`0 ${boardY} ${FB_WIDTH} ${boardH}`"
-            preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave"
-            @click="onClick">
+            preserveAspectRatio="none" style="overflow: visible" @mousemove="onMouseMove" @mouseleave="onMouseLeave">
             <defs>
               <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
                 <stop v-for="(s, idx) in FRETBOARD_THEME.svg.woodStops" :key="`wood-stop-${idx}`" :offset="s.offset"
@@ -32,6 +31,10 @@
                 <stop v-for="(s, idx) in FRETBOARD_THEME.svg.inlayStops" :key="`inlay-stop-${idx}`" :offset="s.offset"
                   :stop-color="s.color" />
               </radialGradient>
+
+              <filter id="fb-dotgroup-card-shadow" x="-8%" y="-12%" width="116%" height="124%">
+                <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#07111f" flood-opacity="0.28" />
+              </filter>
 
               <clipPath id="fb-core-clip">
                 <rect :x="0" :y="0" :width="FB_WIDTH" :height="FB_HEIGHT" />
@@ -62,7 +65,7 @@
                 :fill="card.color"
                 :stroke="card.color"
                 :opacity="card.opacity"
-                :style="{ strokeOpacity: card.strokeOpacity, strokeWidth: `${card.strokeWidth}px` }"
+                :style="{ strokeOpacity: card.strokeOpacity, strokeWidth: `${card.strokeWidth}px`, filter: 'url(#fb-dotgroup-card-shadow)' }"
               />
             </g>
 
@@ -106,7 +109,7 @@
             </g>
             <g class="fb-interaction-layer" data-part="interaction-layer">
               <!-- transparent hit-area incl. fretboard overhang -->
-              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" />
+              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" @pointerup="onBoardPointerUp" />
 
               <!-- String numbers -->
               <g class="fb-string-labels">
@@ -777,7 +780,9 @@ const toneDotsForRender = computed(() => {
     const totalCount = groups.reduce((sum, group) => sum + group.keys.length, 0)
     for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
       const group = groups[groupIndex]
-      const isActiveGroup = Boolean(activeColorKey) && group.colorKey === activeColorKey
+      const isActiveGroup = activeColorKey
+        ? group.colorKey === activeColorKey
+        : groupIndex === 0
       for (const rawKey of group.keys) {
         const key = String(rawKey ?? '')
         const note = byKey.get(key)
@@ -2606,7 +2611,7 @@ function hoveredPosFromEvent(event) {
   return { fret, string }
 }
 
-function onClick(event) {
+function onBoardPointerUp(event) {
   if (Date.now() < suppressClicksUntilMs) return
   if (isCommentMode.value) {
     const p = overlayClientToPercent(event?.clientX, event?.clientY)
@@ -3317,7 +3322,7 @@ watch(
   width: var(--fb-width-clamp, clamp(760px, 92vw, 1460px));
   max-width: 100%;
   margin-inline: auto;
-  padding-bottom: var(--fb-bottom-pad);
+  padding: 4px 0 var(--fb-bottom-pad);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -3327,6 +3332,7 @@ watch(
   min-width: 0;
   height: 100%;
   min-height: 0;
+  border-radius: 14px;
 }
 
 .fb-view-mask rect {
@@ -3337,9 +3343,9 @@ watch(
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding-left: var(--fb-side-pad-left);
-  padding-right: var(--fb-side-pad-right);
-  padding-top: var(--fb-top-pad);
+  padding-left: calc(var(--fb-side-pad-left) + 6px);
+  padding-right: calc(var(--fb-side-pad-right) + 6px);
+  padding-top: calc(var(--fb-top-pad) + 2px);
   padding-bottom: 0;
   margin-bottom: 0;
   box-sizing: border-box;
@@ -3366,6 +3372,7 @@ watch(
   max-height: var(--fb-stack-max-height-px, none);
   position: relative;
   overflow: visible;
+  border-radius: 14px;
 }
 
 .fb-layer {
@@ -3577,6 +3584,10 @@ watch(
   line-height: 1.25;
   white-space: pre-wrap;
   overflow: auto;
+}
+
+.fb-string-labels {
+  pointer-events: none;
 }
 
 .fb-playback-travel-line line {

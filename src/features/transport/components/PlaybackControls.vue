@@ -301,11 +301,12 @@ function onInputModeChange(v) {
 }
 
 .transport-controls {
-  min-height: 72px;
-  padding-top: 16px !important;
-  padding-bottom: 16px !important;
+  min-height: 58px;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
   background: color-mix(in srgb, var(--color-surface) 95%, var(--color-surface-2) 5%);
   border: 0;
+  border-radius: 0;
 }
 
 .transport-controls.is-phone-view {

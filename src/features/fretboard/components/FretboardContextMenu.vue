@@ -254,10 +254,11 @@ onBeforeUnmount(() => {
 .fb-context-menu {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 100%;
   height: 100%;
   box-sizing: border-box;
+  padding: 2px;
 }
 
 .fb-rail-controls {
@@ -278,6 +279,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px 8px 12px;
+  border: 0;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .fb-modifier-sections {
@@ -300,7 +307,7 @@ onBeforeUnmount(() => {
 .fb-modifier-divider {
   width: 1px;
   align-self: stretch;
-  background: rgba(70, 70, 70, 0.3);
+  background: rgb(255 255 255 / 0.08);
 }
 
 .fb-chord-heading {
@@ -313,7 +320,7 @@ onBeforeUnmount(() => {
   width: 44px;
   min-height: 44px !important;
   height: 44px !important;
-  border-radius: 6px !important;
+  border-radius: 10px !important;
   padding: 0 !important;
 }
 
@@ -321,7 +328,7 @@ onBeforeUnmount(() => {
   width: 100%;
   margin: 2px 0;
   border: 0;
-  border-top: 1px solid rgba(70, 70, 70, 0.25);
+  border-top: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .fb-fret-actions-erase {
@@ -331,13 +338,19 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   margin-top: auto;
   margin-bottom: 8px;
+  padding: 10px 8px 0;
+  border: 0;
+  border-top: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .fb-context-menu :deep(.fb-top-control) {
   min-height: 28px !important;
   height: 28px !important;
   min-width: 36px;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: 0 9px;
   font-size: 12px;
   font-weight: 700;
@@ -402,60 +415,68 @@ onBeforeUnmount(() => {
   height: 32px;
   min-height: 32px;
   padding: 0;
+  border-radius: 10px;
 }
 
 .fb-color-inline {
   width: 100%;
+  padding: 2px 8px 6px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .fb-shape-btn {
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid rgba(50, 58, 66, 0.35);
-  background: rgba(240, 240, 240, 0.85);
-  color: #20242a;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(43 52 66 / 0.9), rgb(33 39 49 / 0.92));
+  color: #e8edf5;
   font-size: 12px;
   font-weight: 700;
   padding: 0 12px;
   cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
 .fb-shape-btn:hover {
-  background: rgba(225, 230, 236, 0.95);
+  background: linear-gradient(180deg, rgb(51 61 76 / 0.92), rgb(37 44 55 / 0.96));
+  transform: translateY(-1px);
 }
 
 .fb-shape-btn.is-active {
-  background: rgba(120, 130, 140, 0.9);
-  color: #fff;
+  border-color: rgb(208 138 67 / 0.55);
+  background: linear-gradient(180deg, rgb(75 58 39 / 0.96), rgb(56 45 31 / 0.98));
+  color: #fff7eb;
 }
 
 .fb-shape-btn.is-danger {
-  color: #e08d8d;
+  color: #ffb4b4;
 }
 
 .fb-fret-actions-erase .fb-shape-btn {
-  border-color: #f1222e;
-  background: transparent;
-  color: #f1222e;
+  border-color: rgb(241 34 46 / 0.5);
+  background: linear-gradient(180deg, rgb(63 31 35 / 0.45), rgb(42 24 27 / 0.45));
+  color: #ff9aa0;
 }
 
 .fb-fret-actions-erase .fb-shape-btn:hover {
-  background: rgba(241, 34, 46, 0.12);
+  background: linear-gradient(180deg, rgb(91 35 41 / 0.62), rgb(58 26 31 / 0.62));
 }
 
 .fb-fret-actions-erase .fb-delete-toggle {
-  border-color: #f1222e;
-  background: transparent;
-  color: #f1222e;
+  border-color: rgb(241 34 46 / 0.5);
+  background: linear-gradient(180deg, rgb(63 31 35 / 0.45), rgb(42 24 27 / 0.45));
+  color: #ff9aa0;
 }
 
 .fb-fret-actions-erase .fb-delete-toggle:hover {
-  background: rgba(241, 34, 46, 0.12);
+  background: linear-gradient(180deg, rgb(91 35 41 / 0.62), rgb(58 26 31 / 0.62));
 }
 
 .fb-fret-actions-erase .fb-delete-toggle.is-active {
   border-color: #f1222e;
-  background: #f1222e;
+  background: linear-gradient(180deg, #f24b57, #cf2430);
   color: #fff;
 }
 
@@ -474,16 +495,16 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 8px;
   min-width: 250px;
-  border: 1px solid rgba(20, 24, 28, 0.2);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgb(38 45 56 / 0.98), rgb(30 36 45 / 0.98));
+  box-shadow: 0 14px 26px rgb(0 0 0 / 0.28);
 }
 
 .fb-clear-confirm-text {
   font-size: 12px;
   font-weight: 600;
-  color: #1f2328;
+  color: #e8edf5;
 }
 
 .fb-clear-confirm-actions {
@@ -494,10 +515,10 @@ onBeforeUnmount(() => {
 
 .fb-clear-confirm-btn {
   height: 26px;
-  border-radius: 6px;
-  border: 1px solid rgba(42, 48, 56, 0.2);
-  background: #f4f5f7;
-  color: #232a31;
+  border-radius: 8px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(47 56 69 / 0.94), rgb(34 40 50 / 0.98));
+  color: #e8edf5;
   font-size: 12px;
   font-weight: 700;
   padding: 0 10px;

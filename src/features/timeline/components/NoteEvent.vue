@@ -551,8 +551,8 @@ onBeforeUnmount(() => {
   height: 100%;
   top: 0;
   z-index: 4;
-  border-radius: 3px;
-  border: 1px solid color-mix(in srgb, var(--note-base-color) 78%, var(--color-surface) 22%);
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--note-base-color) 74%, rgb(16 20 26) 26%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -561,13 +561,16 @@ onBeforeUnmount(() => {
   cursor: grab;
   user-select: none;
   touch-action: none;
-  box-shadow: 0 1px 8px rgb(0 0 0 / 18%), inset 0 1px 0 rgb(255 255 255 / 16%);
+  box-shadow:
+    0 8px 18px rgb(0 0 0 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -1px 0 rgb(0 0 0 / 0.16);
   transition: box-shadow var(--ui-fast), border-color var(--ui-fast), transform var(--ui-fast), filter var(--ui-fast);
 }
 
 .note-event:hover {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
+  filter: brightness(1.06);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .note-label {
@@ -588,11 +591,11 @@ onBeforeUnmount(() => {
 }
 
 .note-event.is-selected {
-  border-color: color-mix(in srgb, var(--color-primary) 76%, var(--color-surface) 24%);
+  border-color: color-mix(in srgb, var(--color-primary) 76%, rgb(17 21 27) 24%);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 68%, transparent),
     0 0 0 2px color-mix(in srgb, var(--color-primary) 42%, transparent),
-    0 8px 18px rgb(0 0 0 / 24%);
+    0 12px 22px rgb(0 0 0 / 24%);
   z-index: 6;
 }
 
@@ -623,12 +626,14 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgb(0 0 0 / 75%);
-  color: #fff;
+  background: rgb(14 18 24 / 0.9);
+  color: #f7f4ef;
   font-size: 10px;
   line-height: 1.2;
   white-space: nowrap;
   pointer-events: none;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.24);
 }
 
 .pitch-label {
@@ -644,19 +649,19 @@ onBeforeUnmount(() => {
   width: 10px;
   height: 100%;
   cursor: ew-resize;
-  background: linear-gradient(to left, rgb(255 255 255 / 28%), rgb(255 255 255 / 5%));
-  border-top-right-radius: 3px;
-  border-bottom-right-radius: 3px;
+  background: linear-gradient(to left, rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.04));
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .note-context-menu {
   position: fixed;
   z-index: 1400;
   min-width: 136px;
-  background: color-mix(in srgb, var(--color-surface) 94%, #000 6%);
-  border: 1px solid color-mix(in srgb, var(--color-on-surface) 18%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 10px 22px rgb(0 0 0 / 28%);
+  background: linear-gradient(180deg, rgb(38 45 56 / 0.98), rgb(29 35 43 / 0.98));
+  border: 1px solid rgb(255 255 255 / 0.09);
+  border-radius: 10px;
+  box-shadow: 0 14px 26px rgb(0 0 0 / 28%);
   padding: 6px;
 }
 
@@ -664,7 +669,7 @@ onBeforeUnmount(() => {
   width: 100%;
   border: 0;
   background: transparent;
-  color: var(--color-on-surface);
+  color: #e8edf5;
   border-radius: 6px;
   padding: 6px 8px;
   text-align: left;
@@ -674,7 +679,7 @@ onBeforeUnmount(() => {
 }
 
 .note-context-item:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  background: rgb(255 255 255 / 0.06);
 }
 
 .note-context-item.is-danger {

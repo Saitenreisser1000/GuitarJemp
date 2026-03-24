@@ -276,6 +276,7 @@ const usedDotGroups = computed(() => {
 const allDotGroupsSelected = computed(
   () => !String(timelineSettings.activeDotGroupColor || '').trim(),
 )
+const hasDotGroups = computed(() => usedDotGroups.value.length > 0)
 const preferenceLeftHanded = computed({
   get: () => Boolean(timelineSettings.leftHanded),
   set: (v) => timelineSettings.setLeftHanded(Boolean(v)),
@@ -345,6 +346,7 @@ function onWindowPointerDown(event) {
 }
 
 function activateAllDotGroups() {
+  if (!hasDotGroups.value) return
   timelineSettings.setActiveDotGroupColor('')
 }
 
@@ -1332,10 +1334,11 @@ onBeforeUnmount(() => {
                           @update:model-value="updateNumFrets" />
                       </div>
                       <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
-                        hide-details label="Dot Labels" variant="outlined" />
+                        hide-details label="Dot Labels" variant="outlined"
+                        :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-select v-if="fretboardDotLabelMode === 'play-order'" v-model="fretboardPlayOrderScope"
                         :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
-                        variant="outlined" />
+                        variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
                         label="Left handed"
                         @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
@@ -1344,10 +1347,11 @@ onBeforeUnmount(() => {
                         @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
                   </v-menu>
-                  <div v-if="usedDotGroups.length" class="fretboard-dot-groups">
+                  <div class="fretboard-dot-groups" :class="{ 'is-empty': !hasDotGroups }">
                     <div class="fretboard-dot-groups-list">
                       <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
-                        :class="{ 'is-active': allDotGroupsSelected }"
+                        :class="{ 'is-active': hasDotGroups && allDotGroupsSelected, 'is-disabled': !hasDotGroups }"
+                        :disabled="!hasDotGroups"
                         @click="activateAllDotGroups">
                         All
                       </v-btn>
@@ -1355,6 +1359,7 @@ onBeforeUnmount(() => {
                         class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
                         :style="{ borderLeft: `12px solid ${group.color}` }"
+                        :title="group.label"
                         @contextmenu="openDotGroupMenu($event, group)"
                         @click="activateDotGroup(group.color)">
                         {{ group.label }}
@@ -1389,10 +1394,11 @@ onBeforeUnmount(() => {
                           @update:model-value="updateNumFrets" />
                       </div>
                       <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
-                        hide-details label="Dot Labels" variant="outlined" />
+                        hide-details label="Dot Labels" variant="outlined"
+                        :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-select v-if="fretboardDotLabelMode === 'play-order'" v-model="fretboardPlayOrderScope"
                         :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
-                        variant="outlined" />
+                        variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
                         label="Left handed"
                         @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
@@ -1401,10 +1407,11 @@ onBeforeUnmount(() => {
                         @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
                   </v-menu>
-                  <div v-if="usedDotGroups.length" class="fretboard-dot-groups">
+                  <div class="fretboard-dot-groups" :class="{ 'is-empty': !hasDotGroups }">
                     <div class="fretboard-dot-groups-list">
                       <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
-                        :class="{ 'is-active': allDotGroupsSelected }"
+                        :class="{ 'is-active': hasDotGroups && allDotGroupsSelected, 'is-disabled': !hasDotGroups }"
+                        :disabled="!hasDotGroups"
                         @click="activateAllDotGroups">
                         All
                       </v-btn>
@@ -1412,6 +1419,7 @@ onBeforeUnmount(() => {
                         class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
                         :style="{ borderLeft: `12px solid ${group.color}` }"
+                        :title="group.label"
                         @contextmenu="openDotGroupMenu($event, group)"
                         @click="activateDotGroup(group.color)">
                         {{ group.label }}
@@ -1465,41 +1473,59 @@ onBeforeUnmount(() => {
             <div class="app-sidebar-panel">
               <FretboardContextMenu v-if="sidebarTab === 'toolbar'" class="app-sidebar-menu" />
               <div v-else-if="sidebarTab === 'scale'" class="app-sidebar-form">
-                <v-switch :model-value="harmony.showScale" density="compact" hide-details inset color="primary"
-                  label="Show Scale" @update:model-value="(v) => (harmony.showScale = Boolean(v))" />
-                <v-select :model-value="harmony.scaleRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
-                  hide-details @update:model-value="(v) => (harmony.scaleRoot = String(v || 'C'))" />
-                <v-select :model-value="harmony.scaleType" :items="SCALE_TYPE_OPTIONS" label="Scale Type"
-                  density="compact" hide-details @update:model-value="(v) => (harmony.scaleType = String(v || SCALE_TYPE_OPTIONS[0]))" />
-                <v-select :model-value="harmony.position" :items="SCALE_POSITION_OPTIONS" label="Position"
-                  density="compact" hide-details @update:model-value="(v) => (harmony.position = String(v || 'Open'))" />
-                <v-select :model-value="harmony.pattern" :items="SCALE_PATTERN_OPTIONS" label="Pattern"
-                  density="compact" hide-details @update:model-value="(v) => (harmony.pattern = String(v || SCALE_PATTERN_OPTIONS[0]))" />
+                <section class="app-sidebar-section">
+                  <div class="app-sidebar-section-title">Scale Display</div>
+                  <v-switch :model-value="harmony.showScale" density="compact" hide-details inset color="primary"
+                    label="Show Scale" @update:model-value="(v) => (harmony.showScale = Boolean(v))" />
+                </section>
+                <section class="app-sidebar-section">
+                  <div class="app-sidebar-section-title">Scale Setup</div>
+                  <v-select :model-value="harmony.scaleRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
+                    hide-details @update:model-value="(v) => (harmony.scaleRoot = String(v || 'C'))" />
+                  <v-select :model-value="harmony.scaleType" :items="SCALE_TYPE_OPTIONS" label="Scale Type"
+                    density="compact" hide-details @update:model-value="(v) => (harmony.scaleType = String(v || SCALE_TYPE_OPTIONS[0]))" />
+                  <v-select :model-value="harmony.position" :items="SCALE_POSITION_OPTIONS" label="Position"
+                    density="compact" hide-details @update:model-value="(v) => (harmony.position = String(v || 'Open'))" />
+                  <v-select :model-value="harmony.pattern" :items="SCALE_PATTERN_OPTIONS" label="Pattern"
+                    density="compact" hide-details @update:model-value="(v) => (harmony.pattern = String(v || SCALE_PATTERN_OPTIONS[0]))" />
+                </section>
               </div>
               <div v-else class="app-sidebar-form">
-                <v-switch :model-value="harmony.showChord" density="compact" hide-details inset color="primary"
-                  label="Show Chord Shape" @update:model-value="(v) => (harmony.showChord = Boolean(v))" />
-                <v-select :model-value="harmony.chordRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
-                  hide-details @update:model-value="(v) => (harmony.chordRoot = String(v || 'C'))" />
-                <v-select :model-value="harmony.chordType" :items="CHORD_TYPE_OPTIONS" label="Chord Type"
-                  density="compact" hide-details @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
-                <v-switch :model-value="harmony.chordPosition === 'Open'" density="compact" hide-details inset
-                  color="primary" label="Open"
-                  @update:model-value="(v) => (harmony.chordPosition = Boolean(v) ? 'Open' : '5')" />
-                <v-select :model-value="harmony.chordRootString"
-                  :items="[
-                    { title: 'String E', value: 'string-e' },
-                    { title: 'String A', value: 'string-a' },
-                    { title: 'String D', value: 'string-d' },
-                  ]"
-                  label="Root String" density="compact" hide-details
-                  :disabled="harmony.chordPosition === 'Open'"
-                  @update:model-value="(v) => (harmony.chordRootString = String(v || 'string-e'))" />
-                <v-btn class="app-sidebar-action" color="primary" variant="tonal"
-                  :disabled="!(harmony.activeChordShape?.positions || []).length"
-                  @click="addActiveChordToTimeline">
-                  Add Chord
-                </v-btn>
+                <section class="app-sidebar-section">
+                  <div class="app-sidebar-section-title">Chord Display</div>
+                  <v-switch :model-value="harmony.showChord" density="compact" hide-details inset color="primary"
+                    label="Show Chord Shape" @update:model-value="(v) => (harmony.showChord = Boolean(v))" />
+                </section>
+                <section class="app-sidebar-section">
+                  <div class="app-sidebar-section-title">Chord Setup</div>
+                  <v-select :model-value="harmony.chordRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
+                    hide-details @update:model-value="(v) => (harmony.chordRoot = String(v || 'C'))" />
+                  <v-select :model-value="harmony.chordType" :items="CHORD_TYPE_OPTIONS" label="Chord Type"
+                    density="compact" hide-details @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
+                </section>
+                <section class="app-sidebar-section">
+                  <div class="app-sidebar-section-title">Voicing</div>
+                  <v-switch :model-value="harmony.chordPosition === 'Open'" density="compact" hide-details inset
+                    color="primary" label="Open"
+                    @update:model-value="(v) => (harmony.chordPosition = Boolean(v) ? 'Open' : '5')" />
+                  <v-select :model-value="harmony.chordRootString"
+                    :items="[
+                      { title: 'String E', value: 'string-e' },
+                      { title: 'String A', value: 'string-a' },
+                      { title: 'String D', value: 'string-d' },
+                    ]"
+                    label="Root String" density="compact" hide-details
+                    :disabled="harmony.chordPosition === 'Open'"
+                    @update:model-value="(v) => (harmony.chordRootString = String(v || 'string-e'))" />
+                </section>
+                <section class="app-sidebar-section app-sidebar-section-action">
+                  <div class="app-sidebar-section-title">Insert</div>
+                  <v-btn class="app-sidebar-action" color="primary" variant="tonal"
+                    :disabled="!(harmony.activeChordShape?.positions || []).length"
+                    @click="addActiveChordToTimeline">
+                    Add Chord
+                  </v-btn>
+                </section>
               </div>
             </div>
           </div>
@@ -1651,6 +1677,28 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-layout {
+  --app-bg: #1e242c;
+  --app-bg-elevated: #2a313b;
+  --app-bg-panel: #343d49;
+  --app-bg-panel-2: #404b58;
+  --app-bg-soft: #4b5868;
+  --app-border: rgb(255 255 255 / 0.11);
+  --app-border-strong: rgb(255 255 255 / 0.18);
+  --app-layer-0: #1e242c;
+  --app-layer-1: #2a313b;
+  --app-layer-2: #343d49;
+  --app-layer-3: #404b58;
+  --app-layer-4: #4b5868;
+  --app-layer-overlay: #566476;
+  --app-text: #edf2f7;
+  --app-text-muted: #b1bccd;
+  --app-text-dim: #94a0b3;
+  --app-accent: #d08a43;
+  --app-accent-soft: rgb(208 138 67 / 0.18);
+  --app-shadow-lg: 0 18px 40px rgb(0 0 0 / 0.22);
+  --app-shadow-md: 0 10px 24px rgb(0 0 0 / 0.18);
+  --app-radius-md: 12px;
+  --app-radius-lg: 16px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   height: calc((var(--app-vh, 1dvh) * 100) + var(--app-safe-bottom, 0px));
@@ -1659,7 +1707,10 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #f7f4ef;
+  background:
+    radial-gradient(circle at top, rgb(114 133 166 / 0.2), transparent 38%),
+    linear-gradient(180deg, #232a33 0%, var(--app-bg) 100%);
+  color: var(--app-text);
 }
 
 .app-layout.is-debug-viewport {
@@ -1675,8 +1726,8 @@ onBeforeUnmount(() => {
   align-items: center;
   height: 31px;
   padding: 0 14px;
-  background: #111;
-  color: #f3f3f3;
+  background: linear-gradient(180deg, rgb(37 44 53 / 0.98), rgb(29 35 43 / 0.98));
+  color: var(--app-text-muted);
 }
 
 .app-menu-bar {
@@ -1686,9 +1737,11 @@ onBeforeUnmount(() => {
   gap: 4px;
   min-height: 42px;
   padding: 6px 10px;
-  border-bottom: 1px solid #2f2f2f;
-  background: #111;
-  color: #f3f3f3;
+  border-bottom: 1px solid var(--app-border);
+  background:
+    linear-gradient(180deg, rgb(52 61 73 / 0.96), rgb(39 46 56 / 0.97));
+  color: var(--app-text);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .app-menu-brand {
@@ -1698,7 +1751,7 @@ onBeforeUnmount(() => {
   font-family: var(--font-display);
   padding-right: 8px;
   margin-right: 4px;
-  border-right: 1px solid rgb(255 255 255 / 18%);
+  border-right: 1px solid var(--app-border);
 }
 
 .app-version-label {
@@ -1706,7 +1759,7 @@ onBeforeUnmount(() => {
   line-height: 1;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: rgb(255 255 255 / 72%);
+  color: var(--app-text-dim);
   white-space: nowrap;
   margin-right: 4px;
 }
@@ -1732,6 +1785,10 @@ onBeforeUnmount(() => {
   max-height: min(60vh, 420px);
   overflow: auto;
   padding: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: linear-gradient(180deg, var(--app-bg-panel-2), var(--app-bg-panel));
+  box-shadow: var(--app-shadow-lg);
 }
 
 .app-menu-btn {
@@ -1740,11 +1797,13 @@ onBeforeUnmount(() => {
   text-transform: none;
   font-size: 12px;
   font-weight: 600;
-  color: #f3f3f3;
+  color: var(--app-text-muted);
+  border-radius: 10px;
 }
 
 .app-menu-btn:hover {
-  background: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 0.06);
+  color: var(--app-text);
 }
 
 .app-hamburger-btn {
@@ -1752,7 +1811,7 @@ onBeforeUnmount(() => {
 }
 
 .app-footer {
-  border-top: 1px solid #2f2f2f;
+  border-top: 1px solid var(--app-border);
 }
 
 .app-content {
@@ -1780,7 +1839,7 @@ onBeforeUnmount(() => {
 .app-dashboard-right {
   min-width: 0;
   min-height: 0;
-  border-left: 1px solid #d6d6d6;
+  border-left: 1px solid var(--app-border);
   overflow: hidden;
 }
 
@@ -1800,29 +1859,32 @@ onBeforeUnmount(() => {
 
 .app-sidebar-tabs {
   flex: 0 0 auto;
-  padding: 8px 0 0;
-  background: #f2f2f2;
+  padding: 6px 2px 0;
+  background: transparent;
   display: flex;
   gap: 6px;
 }
 
 .app-sidebar-tab {
-  min-height: 34px;
+  min-height: 31px;
   min-width: 0;
   flex: 1 1 0;
-  border: 1px solid #c8c8c8;
+  border: 1px solid rgb(255 255 255 / 0.05);
   border-bottom: 0;
-  border-radius: 12px 12px 0 0;
-  background: #e4e4e4;
-  color: #4c4c4c;
-  font-size: 13px;
+  border-radius: 10px 10px 0 0;
+  background: rgb(255 255 255 / 0.03);
+  color: var(--app-text-dim);
+  font-size: 12px;
   font-weight: 700;
   padding: 0 10px;
+  transition: background-color var(--ui-fast), color var(--ui-fast), border-color var(--ui-fast), transform var(--ui-fast);
 }
 
 .app-sidebar-tab.is-active {
-  background: #f6f6f6;
-  color: #1f1f1f;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--app-text);
+  border-color: rgb(255 255 255 / 0.1);
+  transform: translateY(1px);
 }
 
 .app-sidebar-panel {
@@ -1830,7 +1892,10 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #f6f6f6;
+  background: transparent;
+  border-top: 1px solid rgb(255 255 255 / 0.04);
+  padding: 8px 6px 6px;
+  gap: 8px;
 }
 
 .app-sidebar-menu {
@@ -1843,11 +1908,34 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  padding: 10px 0 0;
+  padding: 0;
+}
+
+.app-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  border-top: 1px solid rgb(255 255 255 / 0.05);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-sidebar-section-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-dim);
+}
+
+.app-sidebar-section-action {
+  margin-top: auto;
 }
 
 .app-sidebar-action {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .app-layout :deep(.timeline-main) {
@@ -1861,13 +1949,19 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  padding: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-layer-1) 88%, transparent), color-mix(in srgb, var(--app-layer-0) 92%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.035),
+    inset 0 -1px 0 rgb(0 0 0 / 0.24),
+    0 18px 38px rgb(0 0 0 / 0.12);
 }
 
 .pane-b-tabs {
   flex: 0 0 auto;
-  padding: 8px 8px 0;
+  padding: 6px 8px 0;
   border-bottom: 0;
-  background: #f2f2f2;
+  background: transparent;
 }
 
 .pane-b-tabs :deep(.browser-tabs) {
@@ -1880,17 +1974,17 @@ onBeforeUnmount(() => {
 }
 
 .pane-b-tabs :deep(.browser-tab) {
-  min-height: 34px;
+  min-height: 31px;
   min-width: 120px;
-  border: 1px solid #c8c8c8;
+  border: 1px solid rgb(255 255 255 / 0.05);
   border-bottom: 0;
-  border-radius: 12px 12px 0 0 !important;
-  background: #e4e4e4;
-  color: #4c4c4c;
+  border-radius: 10px 10px 0 0 !important;
+  background: rgb(255 255 255 / 0.03);
+  color: var(--app-text-dim);
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%);
+  box-shadow: none;
 }
 
 .pane-b-tabs :deep(.browser-tab .v-btn__overlay),
@@ -1904,10 +1998,10 @@ onBeforeUnmount(() => {
 
 .pane-b-tabs :deep(.browser-tab.v-tab--selected) {
   margin-bottom: -1px;
-  background: #f6f6f6;
-  color: #1f1f1f;
-  border-color: #b7b7b7;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 82%);
+  background: color-mix(in srgb, var(--app-layer-4) 26%, transparent);
+  color: var(--app-text);
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: none;
 }
 
 .pane-b-tabs :deep(.browser-tab.v-tab--selected::before) {
@@ -1916,8 +2010,8 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 2px;
-  background: #f6f6f6;
+  height: 1px;
+  background: rgb(255 255 255 / 0.08);
 }
 
 .pane-b-tabs :deep(.browser-tabs .v-tabs-slider) {
@@ -1929,7 +2023,8 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #f6f6f6;
+  background: transparent;
+  box-shadow: none;
 }
 
 .pane-b-content>* {
@@ -1946,6 +2041,13 @@ onBeforeUnmount(() => {
   width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  padding: 12px;
+  border-radius: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-layer-1) 88%, transparent), color-mix(in srgb, var(--app-layer-0) 92%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.035),
+    inset 0 -1px 0 rgb(0 0 0 / 0.24),
+    0 18px 38px rgb(0 0 0 / 0.12);
 }
 
 .fretboard-pane-row {
@@ -1954,47 +2056,135 @@ onBeforeUnmount(() => {
   align-items: stretch;
   min-height: 0;
   width: 100%;
+  gap: 12px;
 }
 
 .fretboard-options-btn {
-  min-width: 26px;
-  width: 26px;
-  height: 26px;
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
   padding: 0;
+  border-radius: 10px;
 }
 
 .fretboard-pane-body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  min-width: 0;
+  padding: 6px 8px 8px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-layer-3) 92%, transparent), color-mix(in srgb, var(--app-layer-2) 94%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.045),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 10px 20px rgb(0 0 0 / 0.12);
 }
 
 .fretboard-pane-side {
   flex: 0 0 auto;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
-  padding: 8px 8px 0 4px;
+  padding: 0;
+  min-height: 0;
 }
 
 .fretboard-pane-side-stack {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  justify-content: flex-start;
   gap: 8px;
+  padding: 8px;
+  min-height: 100%;
+  height: 100%;
+  border: 1px solid rgb(116 163 221 / 0.16);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-layer-4) 88%, transparent), color-mix(in srgb, var(--app-layer-3) 92%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 14px 28px rgb(5 10 18 / 0.18);
 }
 
 .fretboard-options-menu {
-  min-width: 220px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
+  min-width: 236px;
+  border: 1px solid rgb(124 175 233 / 0.18);
+  border-radius: var(--app-radius-lg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-layer-overlay) 92%, transparent), color-mix(in srgb, var(--app-layer-4) 96%, transparent));
+  box-shadow:
+    0 16px 36px rgb(3 8 15 / 0.42),
+    0 4px 12px rgb(0 0 0 / 0.24),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.fretboard-options-menu :deep(.v-input),
+.fretboard-options-menu :deep(.v-selection-control) {
+  color: var(--app-text);
+}
+
+.fretboard-options-menu :deep(.v-label),
+.fretboard-options-menu :deep(.v-field-label),
+.fretboard-options-menu :deep(.v-selection-control__label) {
+  color: rgb(229 236 245 / 0.9);
+}
+
+.fretboard-options-menu :deep(.v-field) {
+  background: rgb(20 26 35 / 0.7);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.fretboard-options-menu :deep(.v-field__input),
+.fretboard-options-menu :deep(.v-select__selection-text),
+.fretboard-options-menu :deep(input) {
+  color: rgb(244 248 252 / 0.98);
+}
+
+.fretboard-options-menu :deep(.v-field__append-inner),
+.fretboard-options-menu :deep(.v-field__clearable),
+.fretboard-options-menu :deep(.v-icon) {
+  color: rgb(220 228 238 / 0.9);
+}
+
+.fretboard-options-menu :deep(.v-field--variant-outlined .v-field__outline) {
+  --v-field-border-opacity: 1;
+  color: rgb(255 255 255 / 0.12);
+}
+
+:deep(.fretboard-options-select-menu) {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(45 54 68 / 0.99), rgb(31 37 47 / 0.99));
+  box-shadow: 0 14px 30px rgb(4 8 14 / 0.44);
+}
+
+:deep(.fretboard-options-select-menu .v-list) {
+  background: transparent;
+  color: rgb(241 246 252 / 0.98);
+}
+
+:deep(.fretboard-options-select-menu .v-list-item-title),
+:deep(.fretboard-options-select-menu .v-list-item__content) {
+  color: rgb(241 246 252 / 0.98);
+}
+
+:deep(.fretboard-options-select-menu .v-list-item--active) {
+  background: rgb(255 255 255 / 0.06);
 }
 
 .fretboard-dot-groups {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 112px;
+  min-width: 112px;
+  flex: 0 0 112px;
 }
 
 .fretboard-dot-groups-list {
@@ -2003,20 +2193,46 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
+.fretboard-dot-groups.is-empty {
+  opacity: 0.9;
+}
+
 .fretboard-dot-group-btn {
-  min-width: 58px;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
   font-size: 0.67rem;
-  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border: 1px solid var(--app-border);
+  background: linear-gradient(180deg, rgb(43 52 66 / 0.9), rgb(33 39 49 / 0.92));
+  color: var(--app-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: transform var(--ui-fast), box-shadow var(--ui-fast), border-color var(--ui-fast), background-color var(--ui-fast);
 }
 
+.fretboard-dot-group-btn :deep(.v-btn__content) {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  justify-content: flex-start;
+}
+
 .fretboard-dot-group-btn.is-active {
-  border-color: color-mix(in srgb, var(--color-primary) 68%, var(--color-border));
-  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
-  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--app-accent) 68%, var(--app-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-accent) 16%, var(--app-bg-soft)), color-mix(in srgb, var(--app-accent) 8%, var(--app-bg-panel)));
+  color: var(--app-text);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2), 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 0 0 2px color-mix(in srgb, var(--app-accent) 18%, transparent);
   transform: translateX(-1px);
+}
+
+.fretboard-dot-group-btn.is-disabled {
+  border-color: rgb(255 255 255 / 0.05);
+  background: linear-gradient(180deg, rgb(69 78 92 / 0.4), rgb(45 52 63 / 0.44));
+  color: rgb(189 198 210 / 0.42);
+  box-shadow: none;
 }
 
 .dot-group-context-menu {
@@ -2024,10 +2240,10 @@ onBeforeUnmount(() => {
   z-index: 1800;
   min-width: 168px;
   padding: 6px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--app-border);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--color-surface) 96%, black 4%);
-  box-shadow: 0 14px 30px rgb(15 23 42 / 0.18);
+  background: linear-gradient(180deg, var(--app-bg-panel-2), var(--app-bg-panel));
+  box-shadow: var(--app-shadow-lg);
 }
 
 .dot-group-context-item {
@@ -2039,14 +2255,82 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--color-text);
+  color: var(--app-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .dot-group-context-item:hover {
-  background: color-mix(in srgb, var(--color-surface-2) 68%, transparent);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.app-layout :deep(.v-btn) {
+  border-radius: 10px;
+}
+
+.app-layout :deep(.v-btn--variant-tonal) {
+  border: 1px solid var(--app-border);
+  background: linear-gradient(180deg, rgb(43 52 66 / 0.88), rgb(32 38 49 / 0.92));
+  color: var(--app-text);
+  box-shadow: none;
+}
+
+.app-layout :deep(.v-btn--variant-text) {
+  color: var(--app-text-muted);
+}
+
+.app-layout :deep(.v-btn--variant-flat) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-accent) 82%, #f5c27a 18%), color-mix(in srgb, var(--app-accent) 92%, #a85f24 8%));
+  color: #16130f;
+}
+
+.app-layout :deep(.v-field) {
+  border-radius: 12px;
+}
+
+.app-layout :deep(.v-field--variant-outlined .v-field__outline) {
+  color: var(--app-border);
+}
+
+.app-layout :deep(.v-field) {
+  background: linear-gradient(180deg, rgb(33 40 51 / 0.98), rgb(27 33 43 / 0.98));
+  color: var(--app-text);
+}
+
+.app-layout :deep(.v-field-label),
+.app-layout :deep(.v-select__selection),
+.app-layout :deep(.v-field__input),
+.app-layout :deep(.v-input input) {
+  color: var(--app-text) !important;
+}
+
+.app-layout :deep(.v-field--focused .v-field__outline) {
+  color: color-mix(in srgb, var(--app-accent) 78%, var(--app-border));
+}
+
+.app-layout :deep(.v-switch .v-label),
+.app-layout :deep(.v-input .v-label) {
+  color: var(--app-text-muted);
+}
+
+.app-layout :deep(.v-card) {
+  background: linear-gradient(180deg, var(--app-bg-panel-2), var(--app-bg-panel));
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-md);
+}
+
+.app-layout :deep(.v-list) {
+  background: linear-gradient(180deg, var(--app-bg-panel-2), var(--app-bg-panel));
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.app-layout :deep(.v-list-item-title),
+.app-layout :deep(.v-list-item__prepend),
+.app-layout :deep(.v-list-item__append) {
+  color: var(--app-text);
 }
 
 .fretboard-pane-body > * {
@@ -2057,6 +2341,18 @@ onBeforeUnmount(() => {
 .fretboard-main :deep(.fretboard-body) {
   width: 100%;
   height: 100%;
+}
+
+.fretboard-pane-body :deep(.fb-core-pad) {
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.12));
+}
+
+.fretboard-pane-body :deep(.fb-fret-numbers) {
+  opacity: 0.92;
+}
+
+.fretboard-pane-body :deep(.fb-hand-mode-info) {
+  margin-top: 6px;
 }
 
 .app-layout.is-compact-view :deep(.layout-manager) {
