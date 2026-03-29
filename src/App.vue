@@ -24,7 +24,7 @@ import { buildExchangeClip } from '@/domain/exchange/clipExchange'
 import { toMusicXml } from '@/domain/exchange/musicxml'
 import { toMidiBytes } from '@/domain/exchange/midi'
 import { toPdfBytes } from '@/domain/exchange/pdf'
-import { normalizeNoteValue } from '@/config/noteValues'
+import { NOTE_VALUE_ITEMS, normalizeNoteValue, noteValueFallbackSymbol } from '@/config/noteValues'
 import { parseMusicXmlToClip } from '@/domain/exchange/importMusicxml'
 import { planImportedFretboardLayout } from '@/domain/exchange/importFretboardLayout'
 import { getTuning } from '@/domain/music/tunings'
@@ -110,6 +110,27 @@ const fretboardOverlay = useFretboardOverlayStore()
 const uiMode = useUiModeStore()
 const theme = useTheme()
 const { locale, languages, setLocale, t } = useI18n()
+const leftRailNoteValue = computed({
+  get: () =>
+    timelineSettings.selectedMode === 'sim'
+      ? String(timelineSettings.lastRhythmMode || '1/4')
+      : String(timelineSettings.selectedMode || '1/4'),
+  set: (value) => {
+    timelineSettings.setSelectedMode(String(value || '1/4'))
+  },
+})
+const leftRailNoteItems = computed(() =>
+  NOTE_VALUE_ITEMS.map((item) => ({
+    ...item,
+    title: t(`noteValues.${item.value.replace('/', '_')}`, item.title),
+    glyph: noteValueFallbackSymbol(item.value),
+  })),
+)
+const leftRailModifier = computed({
+  get: () => String(timelineSettings.simGroupMode || ''),
+  set: (value) => timelineSettings.setSimGroupMode(String(value || '')),
+})
+const leftRailChordEnabled = computed(() => timelineSettings.selectedMode === 'sim')
 const SONG_KEY_OPTIONS = [
   { title: 'C', value: 'C' },
   { title: 'C#/Db', value: 'C#' },
@@ -1291,6 +1312,61 @@ onBeforeUnmount(() => {
     </div>
 
     <main v-if="!showPhoneRotateOverlay || mainView === 'dashboard'" class="app-content">
+      <aside v-if="mainView !== 'dashboard' && !isCompactView" class="app-left-rail" aria-label="Note value rail">
+        <div class="app-left-rail-inner">
+          <button
+            v-for="item in leftRailNoteItems"
+            :key="item.value"
+            type="button"
+            class="app-left-rail-note-btn"
+            :class="{ 'is-active': leftRailNoteValue === item.value }"
+            :title="item.title"
+            @click="leftRailNoteValue = item.value"
+          >
+            <span class="app-left-rail-note-glyph" aria-hidden="true">{{ item.glyph }}</span>
+          </button>
+
+          <div class="app-left-rail-divider" aria-hidden="true"></div>
+
+          <button
+            type="button"
+            class="app-left-rail-note-btn app-left-rail-small-btn"
+            :class="{ 'is-active': leftRailModifier === 'dotted' }"
+            :title="t('modeSelector.dotted')"
+            @click="leftRailModifier = leftRailModifier === 'dotted' ? '' : 'dotted'"
+          >
+            <span class="app-left-rail-note-glyph" aria-hidden="true">.</span>
+          </button>
+
+          <button
+            type="button"
+            class="app-left-rail-note-btn app-left-rail-small-btn"
+            :class="{ 'is-active': leftRailModifier === '3' }"
+            :title="t('modeSelector.triplets')"
+            @click="leftRailModifier = leftRailModifier === '3' ? '' : '3'"
+          >
+            <span class="app-left-rail-note-glyph" aria-hidden="true">3</span>
+          </button>
+
+          <div class="app-left-rail-divider" aria-hidden="true"></div>
+
+          <button
+            type="button"
+            class="app-left-rail-note-btn app-left-rail-chord-btn"
+            :class="{ 'is-active': leftRailChordEnabled }"
+            :title="leftRailChordEnabled ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
+            @click="timelineSettings.setSelectedMode(leftRailChordEnabled ? String(timelineSettings.lastRhythmMode || '1/4') : 'sim')"
+          >
+            <span class="app-left-rail-chord-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                <line x1="7.75" y1="2" x2="7.75" y2="22" />
+                <ellipse cx="12.4" cy="7.1" rx="5.1" ry="3.6" transform="rotate(-34 12.4 7.1)" />
+                <ellipse cx="12.4" cy="15.4" rx="5.1" ry="3.6" transform="rotate(-34 12.4 15.4)" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      </aside>
       <div v-if="mainView === 'dashboard'" class="app-dashboard-main">
         <UserDashboardMain :signed-in="auth.isSignedIn" :user="auth.user" :profile="auth.profile"
           :instrument-type="instrument.instrumentType" :library-items="library.items"
@@ -1440,7 +1516,7 @@ onBeforeUnmount(() => {
         <template #pane-b>
           <div class="pane-b-stack">
             <div class="pane-b-tabs">
-              <v-tabs v-model="workspacePanelTab" density="compact" class="browser-tabs" grow>
+              <v-tabs v-model="workspacePanelTab" density="compact" class="browser-tabs">
                 <v-tab value="timeline" class="browser-tab">Timeline</v-tab>
                 <v-tab value="library" class="browser-tab">Library</v-tab>
               </v-tabs>
@@ -1677,6 +1753,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-layout {
+  --app-left-rail-w: 56px;
   --app-bg: #1e242c;
   --app-bg-elevated: #2a313b;
   --app-bg-panel: #343d49;
@@ -1801,6 +1878,100 @@ onBeforeUnmount(() => {
   border-radius: 10px;
 }
 
+.app-left-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--app-left-rail-w);
+  background:
+    linear-gradient(180deg, rgb(39 47 58 / 0.98), rgb(28 34 43 / 0.98));
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset -1px 0 0 rgb(0 0 0 / 0.26),
+    inset 1px 0 0 rgb(255 255 255 / 0.03);
+  z-index: 2;
+}
+
+.app-left-rail-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 8px 8px 12px;
+  box-sizing: border-box;
+}
+
+.app-left-rail-divider {
+  width: 24px;
+  height: 1px;
+  background: rgb(255 255 255 / 0.08);
+  margin: 2px 0;
+}
+
+.app-left-rail-note-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgb(56 66 81 / 0.82), rgb(40 47 58 / 0.88));
+  color: var(--app-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color var(--ui-fast),
+    box-shadow var(--ui-fast),
+    background-color var(--ui-fast),
+    transform var(--ui-fast);
+}
+
+.app-left-rail-note-btn:hover {
+  background: linear-gradient(180deg, rgb(63 74 91 / 0.88), rgb(46 55 69 / 0.92));
+}
+
+.app-left-rail-note-btn.is-active {
+  border-color: var(--color-primary);
+  background: linear-gradient(180deg, rgb(247 241 232 / 0.96), rgb(233 223 210 / 0.94));
+  color: rgb(39 45 54 / 0.96);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 58%, transparent),
+    0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.app-left-rail-note-glyph {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.app-left-rail-small-btn {
+  height: 32px;
+}
+
+.app-left-rail-chord-btn {
+  padding: 0;
+}
+
+.app-left-rail-chord-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-left-rail-chord-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .app-menu-btn:hover {
   background: rgb(255 255 255 / 0.06);
   color: var(--app-text);
@@ -1820,6 +1991,9 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   overscroll-behavior: none;
+  padding-left: var(--app-left-rail-w);
+  position: relative;
+  z-index: 1;
 }
 
 .app-transport-wrap {
@@ -1827,6 +2001,8 @@ onBeforeUnmount(() => {
   min-height: 0;
   width: 100%;
   padding-bottom: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .app-dashboard-main {
@@ -1855,11 +2031,16 @@ onBeforeUnmount(() => {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-layer-1) 88%, transparent), color-mix(in srgb, var(--app-layer-0) 92%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.035),
+    inset 0 -1px 0 rgb(0 0 0 / 0.24),
+    0 18px 38px rgb(0 0 0 / 0.12);
 }
 
 .app-sidebar-tabs {
   flex: 0 0 auto;
-  padding: 6px 2px 0;
+  padding: 8px 10px 0;
   background: transparent;
   display: flex;
   gap: 6px;
@@ -1881,10 +2062,11 @@ onBeforeUnmount(() => {
 }
 
 .app-sidebar-tab.is-active {
-  background: rgb(255 255 255 / 0.05);
+  background: #3D4854;
   color: var(--app-text);
-  border-color: rgb(255 255 255 / 0.1);
-  transform: translateY(1px);
+  border-color: color-mix(in srgb, #3D4854 70%, rgb(255 255 255 / 0.08));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  transform: translateY(0);
 }
 
 .app-sidebar-panel {
@@ -1892,10 +2074,17 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: transparent;
-  border-top: 1px solid rgb(255 255 255 / 0.04);
-  padding: 8px 6px 6px;
-  gap: 8px;
+  min-width: 0;
+  margin: 0 10px 10px;
+  padding: 10px;
+  gap: 10px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-layer-3) 92%, transparent), color-mix(in srgb, var(--app-layer-2) 94%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.045),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 10px 20px rgb(0 0 0 / 0.12);
 }
 
 .app-sidebar-menu {
@@ -1906,7 +2095,7 @@ onBeforeUnmount(() => {
 .app-sidebar-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
   padding: 0;
 }
@@ -1914,18 +2103,18 @@ onBeforeUnmount(() => {
 .app-sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 8px;
-  border-top: 1px solid rgb(255 255 255 / 0.05);
+  gap: 10px;
+  padding: 12px 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
   border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.028), rgb(255 255 255 / 0.01));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
 }
 
 .app-sidebar-section-title {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--app-text-dim);
 }
@@ -1936,6 +2125,32 @@ onBeforeUnmount(() => {
 
 .app-sidebar-action {
   margin-top: 0;
+  min-height: 36px;
+}
+
+.app-sidebar-panel :deep(.v-input) {
+  margin-top: 0;
+}
+
+.app-sidebar-panel :deep(.v-field) {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgb(45 54 68 / 0.94), rgb(36 43 54 / 0.98));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+}
+
+.app-sidebar-panel :deep(.v-field__outline) {
+  opacity: 0.7;
+}
+
+.app-sidebar-panel :deep(.v-field__input),
+.app-sidebar-panel :deep(.v-select__selection-text),
+.app-sidebar-panel :deep(.v-label),
+.app-sidebar-panel :deep(.v-selection-control__label) {
+  color: var(--app-text);
+}
+
+.app-sidebar-panel :deep(.v-btn) {
+  border-radius: 10px;
 }
 
 .app-layout :deep(.timeline-main) {
@@ -1950,16 +2165,16 @@ onBeforeUnmount(() => {
   min-height: 0;
   height: 100%;
   padding: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--app-layer-1) 88%, transparent), color-mix(in srgb, var(--app-layer-0) 92%, transparent));
+  background: #1E232C;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.035),
-    inset 0 -1px 0 rgb(0 0 0 / 0.24),
-    0 18px 38px rgb(0 0 0 / 0.12);
+    inset 0 1px 0 rgb(255 255 255 / 0.045),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 10px 20px rgb(0 0 0 / 0.12);
 }
 
 .pane-b-tabs {
   flex: 0 0 auto;
-  padding: 6px 8px 0;
+  padding: 0 8px 0;
   border-bottom: 0;
   background: transparent;
 }
@@ -1975,7 +2190,7 @@ onBeforeUnmount(() => {
 
 .pane-b-tabs :deep(.browser-tab) {
   min-height: 31px;
-  min-width: 120px;
+  min-width: 88px;
   border: 1px solid rgb(255 255 255 / 0.05);
   border-bottom: 0;
   border-radius: 10px 10px 0 0 !important;
@@ -1985,6 +2200,13 @@ onBeforeUnmount(() => {
   text-transform: none;
   letter-spacing: 0;
   box-shadow: none;
+  padding-inline: 10px;
+  transition:
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pane-b-tabs :deep(.browser-tab .v-btn__overlay),
@@ -1998,10 +2220,11 @@ onBeforeUnmount(() => {
 
 .pane-b-tabs :deep(.browser-tab.v-tab--selected) {
   margin-bottom: -1px;
-  background: color-mix(in srgb, var(--app-layer-4) 26%, transparent);
+  background: #3D4854;
   color: var(--app-text);
-  border-color: rgb(255 255 255 / 0.08);
-  box-shadow: none;
+  border-color: color-mix(in srgb, #3D4854 70%, rgb(255 255 255 / 0.08));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  transform: translateY(1px);
 }
 
 .pane-b-tabs :deep(.browser-tab.v-tab--selected::before) {
@@ -2011,7 +2234,7 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: -1px;
   height: 1px;
-  background: rgb(255 255 255 / 0.08);
+  background: #3D4854;
 }
 
 .pane-b-tabs :deep(.browser-tabs .v-tabs-slider) {
@@ -2019,6 +2242,7 @@ onBeforeUnmount(() => {
 }
 
 .pane-b-content {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -2122,6 +2346,8 @@ onBeforeUnmount(() => {
     0 4px 12px rgb(0 0 0 / 0.24),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
   backdrop-filter: blur(18px);
+  transform-origin: top right;
+  animation: fretboardOptionsMenuIn 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fretboard-options-menu :deep(.v-input),
@@ -2185,12 +2411,20 @@ onBeforeUnmount(() => {
   width: 112px;
   min-width: 112px;
   flex: 0 0 112px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .fretboard-dot-groups-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
 }
 
 .fretboard-dot-groups.is-empty {
@@ -2200,15 +2434,25 @@ onBeforeUnmount(() => {
 .fretboard-dot-group-btn {
   width: 100%;
   min-width: 0;
-  min-height: 30px;
+  min-height: 28px;
   font-size: 0.67rem;
-  border: 1px solid var(--app-border);
-  background: linear-gradient(180deg, rgb(43 52 66 / 0.9), rgb(33 39 49 / 0.92));
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgb(56 66 81 / 0.82), rgb(40 47 58 / 0.88));
   color: var(--app-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: transform var(--ui-fast), box-shadow var(--ui-fast), border-color var(--ui-fast), background-color var(--ui-fast);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fretboard-dot-group-btn:hover:not(.is-disabled) {
+  background: linear-gradient(180deg, rgb(63 74 91 / 0.88), rgb(46 55 69 / 0.92));
 }
 
 .fretboard-dot-group-btn :deep(.v-btn__content) {
@@ -2220,12 +2464,13 @@ onBeforeUnmount(() => {
 }
 
 .fretboard-dot-group-btn.is-active {
-  border-color: color-mix(in srgb, var(--app-accent) 68%, var(--app-border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--app-accent) 16%, var(--app-bg-soft)), color-mix(in srgb, var(--app-accent) 8%, var(--app-bg-panel)));
-  color: var(--app-text);
+  border-color: var(--color-primary);
+  background: linear-gradient(180deg, rgb(247 241 232 / 0.96), rgb(233 223 210 / 0.94));
+  color: rgb(39 45 54 / 0.96);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 0 0 2px color-mix(in srgb, var(--app-accent) 18%, transparent);
-  transform: translateX(-1px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 58%, transparent),
+    0 1px 0 rgb(255 255 255 / 0.14);
 }
 
 .fretboard-dot-group-btn.is-disabled {
@@ -2233,6 +2478,18 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, rgb(69 78 92 / 0.4), rgb(45 52 63 / 0.44));
   color: rgb(189 198 210 / 0.42);
   box-shadow: none;
+}
+
+@keyframes fretboardOptionsMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dot-group-context-menu {
@@ -2384,6 +2641,10 @@ onBeforeUnmount(() => {
 .app-layout.is-compact-view .app-menu-bar {
   min-height: 38px;
   padding: 4px 8px;
+}
+
+.app-layout.is-compact-view .app-left-rail {
+  display: none;
 }
 
 .app-layout.is-compact-view .app-transport-wrap {

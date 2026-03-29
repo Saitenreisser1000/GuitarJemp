@@ -755,7 +755,6 @@ function seekPlayhead(tMs) {
   const t = Math.min(total, Math.max(0, Number(tMs) || 0))
 
   // Keep audio triggering consistent after scrubbing/auto-seeking.
-  // Set these *before* calling playback.seek(), because seek triggers onTick().
   lastAudioTickMs = t
   lastClickTickMs = t
   triggeredNoteKeys = new Set()
@@ -763,7 +762,7 @@ function seekPlayhead(tMs) {
 
   transport.setPlayheadMs(t)
 
-  playback.seek(t)
+  playback.seek(t, { emitTick: false })
   playhead.value = t
   playbackVisuals.prune(t)
 }
@@ -1442,11 +1441,9 @@ const playback = usePlayback({
           lastClickTickMs = loopStartMs - 0.0001
           triggeredNoteKeys = new Set()
           playbackVisuals.clear()
-          // Keep local/store playhead in sync before seek, so the next onTick is not
-          // interpreted as a generic backward jump (which would re-trigger old notes).
+          playback.seek(loopStartMs, { emitTick: false })
           playhead.value = loopStartMs
           transport.setPlayheadMs(loopStartMs)
-          playback.seek(loopStartMs)
           return
         }
       }
@@ -1458,7 +1455,6 @@ const playback = usePlayback({
         playhead.value = effectiveEndMs
         transport.setPlayheadMs(effectiveEndMs)
         playback.pause()
-        playback.seek(effectiveEndMs)
         return
       }
     }
@@ -1487,7 +1483,7 @@ watch(
     triggeredNoteKeys = new Set()
     playbackVisuals.clear()
 
-    playback.seek(t)
+    playback.seek(t, { emitTick: false })
     playhead.value = t
     playbackVisuals.prune(t)
   },

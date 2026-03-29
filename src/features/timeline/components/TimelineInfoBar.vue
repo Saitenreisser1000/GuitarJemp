@@ -1,5 +1,5 @@
 <template>
-  <div class="timeline-info ui-panel" :class="{ 'is-mobile': isMobile, 'is-sidebar': isSidebar }">
+  <div class="timeline-info" :class="{ 'is-mobile': isMobile, 'is-sidebar': isSidebar }">
     <div v-if="isSidebar" class="timeline-sidebar-shell">
       <section class="timeline-sidebar-section" :aria-label="t('timelineView.tools')">
         <div class="timeline-sidebar-head">
@@ -157,12 +157,6 @@
 
       <section class="timeline-group timeline-group-flat timeline-group-params" aria-label="Timeline settings">
         <div class="timeline-group-row timeline-group-row-params">
-          <button class="timeline-chip" :class="{ 'is-active': snapEnabled }" type="button"
-            :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
-            <span class="timeline-chip-label">Snap</span>
-            <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
-          </button>
-
           <div class="timeline-stepper" :aria-label="'Bars'">
             <span class="timeline-stepper-label">Bars</span>
             <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" :title="'Bars -1'"
@@ -177,6 +171,60 @@
               +
             </v-btn>
           </div>
+
+          <v-menu location="top end" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="timeline-options-inline-btn"
+                :title="t('modeSelector.options')">
+                <v-icon icon="mdi-cog-outline" size="16" />
+              </v-btn>
+            </template>
+
+            <div class="timeline-inline-options-menu pa-3 d-flex flex-column ga-3">
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Zoom</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" title="Zoom -"
+                    @click="emit('zoom-left')">
+                    &lt;
+                  </v-btn>
+                  <v-btn size="x-small" variant="tonal" class="bars-adjust-btn" title="Zoom +"
+                    @click="emit('zoom-right')">
+                    &gt;
+                  </v-btn>
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">{{ t('modeSelector.beat') }}</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 72px"
+                    :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
+                  <v-select density="compact" hide-details style="width: 72px" :items="beatBottomItems"
+                    :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Pickup</span>
+                <div class="timeline-sidebar-inline-controls">
+                  <v-switch density="compact" hide-details inset
+                    :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
+                  <v-text-field density="compact" hide-details type="number" min="0" :max="pickupMax" step="1"
+                    style="width: 72px" :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
+                </div>
+              </div>
+
+              <div class="timeline-sidebar-options-row">
+                <span class="timeline-sidebar-options-label">Snap</span>
+                <button class="timeline-chip timeline-chip-sidebar-toggle" :class="{ 'is-active': snapEnabled }" type="button"
+                  :title="'Snap on/off'" @click="emit('update-snap', !snapEnabled)">
+                  <span class="timeline-chip-label">Snap</span>
+                  <span class="timeline-chip-value">{{ snapEnabled ? 'On' : 'Off' }}</span>
+                </button>
+              </div>
+            </div>
+          </v-menu>
         </div>
       </section>
     </div>
@@ -261,12 +309,12 @@ watch(
 
 <style scoped>
 .timeline-info {
-  background:
-    linear-gradient(180deg, rgb(33 40 50 / 0.96), rgb(25 31 39 / 0.98));
+  background: #3D4854;
   border: 0;
   border-radius: 0;
+  box-shadow: none;
   min-height: 40px;
-  padding: 4px 6px;
+  padding: 4px 6px 0;
 }
 
 .timeline-info.is-sidebar {
@@ -332,6 +380,14 @@ watch(
   border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--color-surface) 97%, var(--color-surface-2) 3%);
+}
+
+.timeline-inline-options-menu {
+  min-width: 188px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 97%, var(--color-surface-2) 3%);
+  box-shadow: 0 16px 32px rgb(8 10 14 / 0.34);
 }
 
 .timeline-sidebar-options-row {
@@ -597,6 +653,13 @@ watch(
   font-size: 10px;
   font-weight: 700;
   color: var(--color-text-muted);
+}
+
+.timeline-options-inline-btn {
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
 }
 
 .bars-count-input {

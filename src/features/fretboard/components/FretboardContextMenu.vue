@@ -254,11 +254,11 @@ onBeforeUnmount(() => {
 .fb-context-menu {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-height: 100%;
   height: 100%;
   box-sizing: border-box;
-  padding: 2px;
+  padding: 2px 0;
 }
 
 .fb-rail-controls {
@@ -278,13 +278,12 @@ onBeforeUnmount(() => {
 .fb-note-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 8px 12px;
-  border: 0;
-  border-bottom: 1px solid rgb(255 255 255 / 0.06);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  gap: 10px;
+  padding: 12px 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.028), rgb(255 255 255 / 0.01));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
 }
 
 .fb-modifier-sections {
@@ -326,9 +325,9 @@ onBeforeUnmount(() => {
 
 .fb-tool-separator {
   width: 100%;
-  margin: 2px 0;
+  margin: 0;
   border: 0;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
+  border-top: 1px solid rgb(255 255 255 / 0.06);
 }
 
 .fb-fret-actions-erase {
@@ -337,13 +336,12 @@ onBeforeUnmount(() => {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: auto;
-  margin-bottom: 8px;
-  padding: 10px 8px 0;
-  border: 0;
-  border-top: 1px solid rgb(255 255 255 / 0.06);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  margin-bottom: 4px;
+  padding: 12px 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.008));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.024);
 }
 
 .fb-context-menu :deep(.fb-top-control) {
@@ -420,14 +418,11 @@ onBeforeUnmount(() => {
 
 .fb-color-inline {
   width: 100%;
-  padding: 2px 8px 6px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 2px 2px 0;
 }
 
 .fb-shape-btn {
-  height: 30px;
+  height: 32px;
   border-radius: 10px;
   border: 1px solid rgb(255 255 255 / 0.08);
   background: linear-gradient(180deg, rgb(43 52 66 / 0.9), rgb(33 39 49 / 0.92));
@@ -436,7 +431,11 @@ onBeforeUnmount(() => {
   font-weight: 700;
   padding: 0 12px;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  transition:
+    background-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fb-shape-btn:hover {

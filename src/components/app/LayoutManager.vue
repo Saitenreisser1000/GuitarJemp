@@ -106,8 +106,8 @@ onBeforeUnmount(() => {
   border-right: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
   border-bottom: 1px solid var(--app-border, rgb(255 255 255 / 0.09));
   border-left: 0;
-  background: linear-gradient(180deg, var(--app-bg-panel, #202631), var(--app-bg-elevated, #1a1f27));
-  padding: 10px;
+  background: transparent;
+  padding: 0;
   min-height: 0;
   overflow: auto;
   cursor: default;

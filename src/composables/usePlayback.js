@@ -65,12 +65,12 @@ export function usePlayback({ onTick } = {}) {
     loopEnabled.value = Boolean(v)
   }
 
-  function seek(tMs) {
+  function seek(tMs, { emitTick = true } = {}) {
     const t = Math.max(0, Number(tMs) || 0)
     playhead.value = t
     baseTime = t
     startTs = performance.now()
-    if (onTick) onTick(t)
+    if (emitTick && onTick) onTick(t)
   }
 
   function pause() {

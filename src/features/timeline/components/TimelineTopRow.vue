@@ -1,17 +1,7 @@
 <template>
   <div class="timeline-top-row" :class="{ 'is-sidebar': sidebar }">
-    <div v-if="transportVisible || timelineVisible" class="timeline-options-btn-wrap" :class="{ 'is-sidebar': sidebar }">
-      <div v-if="timelineVisible && !sidebar" class="timeline-top-zoom d-flex align-center ga-1">
-        <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom -'" @click="emit('zoom-left')">
-          &lt;
-        </v-btn>
-        <div class="text-caption zoom-value">zoom</div>
-        <v-btn size="x-small" variant="tonal" class="zoom-adjust-btn" :title="'Zoom +'" @click="emit('zoom-right')">
-          &gt;
-        </v-btn>
-      </div>
-
-      <div v-if="sidebar" class="timeline-options-sidebar" :style="optionsMenuStyle">
+    <div v-if="sidebar && (transportVisible || timelineVisible)" class="timeline-options-btn-wrap is-sidebar">
+      <div class="timeline-options-sidebar" :style="optionsMenuStyle">
         <section class="timeline-sidebar-section">
           <div class="timeline-sidebar-title">Setup</div>
 
@@ -54,32 +44,6 @@
 
         </section>
       </div>
-
-      <v-menu v-else location="bottom end" :close-on-content-click="false">
-        <template #activator="{ props: menuProps }">
-          <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="timeline-options-btn"
-            :title="t('modeSelector.options')">
-            <v-icon icon="mdi-cog-outline" size="16" />
-          </v-btn>
-        </template>
-
-        <div class="timeline-options-menu pa-3 d-flex flex-column ga-2" :style="optionsMenuStyle">
-          <div class="text-caption zoom-label">{{ t('modeSelector.beat') }}</div>
-          <div class="d-flex ga-2">
-            <v-text-field density="compact" hide-details type="number" min="1" step="1" style="width: 84px"
-              :model-value="beatTop" @update:model-value="updateBeatTopFromOptions" />
-            <v-select density="compact" hide-details style="width: 84px" :items="beatBottomItems"
-              :model-value="beatBottom" @update:model-value="updateBeatBottomFromOptions" />
-          </div>
-          <div class="d-flex align-center ga-2">
-            <v-switch density="compact" hide-details inset :label="t('modeSelector.pickup')"
-              :model-value="pickupEnabled" @update:model-value="(v) => emit('update-pickup-enabled', Boolean(v))" />
-            <v-text-field density="compact" hide-details type="number" min="0" :max="pickupMax" step="1"
-              style="width: 84px" :label="t('modeSelector.beats')"
-              :model-value="pickupBeats" @update:model-value="updatePickupBeatsFromOptions" />
-          </div>
-        </div>
-      </v-menu>
     </div>
   </div>
 </template>
@@ -176,11 +140,6 @@ function updatePickupBeatsFromOptions(v) {
   min-height: 0;
 }
 
-.timeline-options-btn {
-  min-width: 26px;
-  padding-inline: 0;
-}
-
 .zoom-label {
   color: var(--color-text-muted);
   font-weight: 600;
@@ -196,13 +155,6 @@ function updatePickupBeatsFromOptions(v) {
   min-width: 22px;
   height: 22px;
   padding: 0;
-}
-
-.timeline-options-menu {
-  min-width: var(--timeline-options-menu-min-w, 220px);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-surface-2) 4%);
 }
 
 .timeline-options-sidebar {

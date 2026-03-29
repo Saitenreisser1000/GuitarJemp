@@ -109,7 +109,14 @@
             </g>
             <g class="fb-interaction-layer" data-part="interaction-layer">
               <!-- transparent hit-area incl. fretboard overhang -->
-              <rect :x="0" :y="boardY" :width="FB_WIDTH" :height="boardH" fill="transparent" @pointerup="onBoardPointerUp" />
+              <rect
+                :x="0"
+                :y="boardY"
+                :width="FB_WIDTH"
+                :height="boardH"
+                fill="transparent"
+                @pointerdown="onBoardPointerDown"
+                @pointerup="onBoardPointerUp" />
 
               <!-- String numbers -->
               <g class="fb-string-labels">
@@ -212,7 +219,7 @@
                   :stroke="FRETBOARD_THEME.svg.hoverPreviewStroke" stroke-width="3" style="pointer-events: none" />
 
                 <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
-                  <ellipse :cx="toneDotX(d)" :cy="toneDotY(d)" :rx="dotRx(toneDotR(d))" :ry="toneDotR(d)" :fill="toneDotFill(d)"
+                  <ellipse class="fb-tone-dot" :cx="toneDotX(d)" :cy="toneDotY(d)" :rx="dotRx(toneDotR(d))" :ry="toneDotR(d)" :fill="toneDotFill(d)"
                     :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
                     :style="toneDotStyle(d)"
                     @mouseenter="onToneDotEnter(d, $event)" @mouseleave="onToneDotLeave(d)"
@@ -338,10 +345,6 @@
         </div>
       </div>
     </div>
-    <div v-if="handModeInfoText || handModeWarningText" class="fb-hand-mode-info">
-      <span v-if="handModeInfoText">{{ handModeInfoText }}</span>
-      <span v-if="handModeWarningText" class="is-warning">{{ handModeWarningText }}</span>
-    </div>
     <div v-if="settings.showChordShapePanel" class="fb-chord-shape-panel">
       <span class="fb-chord-detected">{{ t('fretboardShow.chord') }}: {{ detectedChordLabel }}</span>
       <button class="fb-shape-btn" type="button" :disabled="!canNudgeSelection" @click="() => nudgeSelection(1, 0)">
@@ -384,7 +387,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import FretboardToneDotContextMenu from './FretboardToneDotContextMenu.vue'
 import { storeToRefs } from 'pinia'
 import { useNotesStore } from '@/store/useNotes'
@@ -2611,6 +2614,47 @@ function hoveredPosFromEvent(event) {
   return { fret, string }
 }
 
+async function debugLogToneDotPlacement(source, note, meta = {}) {
+  const noteKey = String(note?.key || '')
+  if (!noteKey) {
+    console.debug('[FretboardDebug]', source, 'missing-note-key', meta)
+    return
+  }
+
+  await nextTick()
+
+  const storedNote = noteByKey.value.get(noteKey) ?? null
+  const renderedDot = renderedToneDotByNoteKey.value.get(noteKey) ?? null
+  const samePosDots = toneDotsForRender.value.filter(
+    (d) => Number(d?.fret) === Number(note?.fret) && Number(d?.string) === Number(note?.string),
+  )
+
+  console.debug('[FretboardDebug]', source, {
+    meta,
+    noteKey,
+    note,
+    storedNote,
+    activeNotesCount: Array.isArray(store.activeNotes) ? store.activeNotes.length : -1,
+    toneDotsForRenderCount: Array.isArray(toneDotsForRender.value) ? toneDotsForRender.value.length : -1,
+    rendered: Boolean(renderedDot),
+    renderedDot,
+    renderedFill: renderedDot ? toneDotFill(renderedDot) : null,
+    renderedOpacity: renderedDot ? toneDotOpacity(renderedDot) : null,
+    renderedStroke: renderedDot ? toneDotStroke(renderedDot) : null,
+    activeDotGroupColor: String(settings.activeDotGroupColor || ''),
+    selectedColor: String(settings.selectedColor || ''),
+    samePosDots: samePosDots.map((d) => ({
+      noteKey: String(d?._noteKey || ''),
+      color: String(d?.color || ''),
+      groupColorKey: String(d?._groupColorKey || ''),
+      groupActive: Boolean(d?._groupActive),
+      stackIndex: Number(d?._stackIndex),
+      fill: toneDotFill(d),
+      opacity: toneDotOpacity(d),
+    })),
+  })
+}
+
 function onBoardPointerUp(event) {
   if (Date.now() < suppressClicksUntilMs) return
   if (isCommentMode.value) {
@@ -2633,38 +2677,6 @@ function onBoardPointerUp(event) {
   const { fret, string } = pos
 
   if (noteEditingEnabled.value) {
-    if (settings.eraseMode) {
-      const existing = toneDotByPosKey.value.get(`${string}-${fret}`)
-      const noteKey = String(existing?._noteKey || '')
-      if (noteKey) {
-        store.removeNote(noteKey)
-        const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
-        const next = keys.filter((k) => String(k) !== noteKey)
-        if (next.length) selection.setSelectedNotes(next)
-        else if (selection.selectedNoteKey === noteKey) selection.clearSelection()
-      }
-      return
-    }
-    const note = store.addNote(`${fret}-${string}`)
-    if (note?.key) selection.selectNote(note.key)
-
-    if (!settings.soundPreviewEnabled) return
-    const t = tuning.value
-    const midi = midiForFretString({ fret, string }, t)
-    if (Number.isFinite(Number(midi))) {
-      const durationPlayheadMs = store.getNoteDurationMs(note)
-
-      const tempoValue = Number(transport.tempo) || 120
-      const tempoScale = 120 / tempoValue
-      const durScale = Number(settings.soundDurationScale)
-      const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
-      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
-
-      void playMidi(midi, {
-        durationMs: durationAudioMs,
-        instrumentType: instrument.instrumentType,
-      })
-    }
     return
   }
 
@@ -2687,6 +2699,55 @@ function onBoardPointerUp(event) {
     const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
 
     void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+  }
+}
+
+function onBoardPointerDown(event) {
+  if (event?.button != null && event.button !== 0) return
+  if (Date.now() < suppressClicksUntilMs) return
+  if (isCommentMode.value) return
+  if (!noteEditingEnabled.value) return
+  if (isPlaying.value) return
+
+  const pos = hoveredPosFromEvent(event)
+  if (!pos) return
+  const { fret, string } = pos
+
+  if (noteEditingEnabled.value) {
+    if (settings.eraseMode) {
+      const existing = toneDotByPosKey.value.get(`${string}-${fret}`)
+      const noteKey = String(existing?._noteKey || '')
+      if (noteKey) {
+        store.removeNote(noteKey)
+        const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+        const next = keys.filter((k) => String(k) !== noteKey)
+        if (next.length) selection.setSelectedNotes(next)
+        else if (selection.selectedNoteKey === noteKey) selection.clearSelection()
+      }
+      return
+    }
+    const note = store.addNote(`${fret}-${string}`)
+    if (note?.key) selection.selectNote(note.key)
+    void debugLogToneDotPlacement('board-pointerdown-add', note, { fret, string })
+
+    if (!settings.soundPreviewEnabled) return
+    const t = tuning.value
+    const midi = midiForFretString({ fret, string }, t)
+    if (Number.isFinite(Number(midi))) {
+      const durationPlayheadMs = store.getNoteDurationMs(note)
+
+      const tempoValue = Number(transport.tempo) || 120
+      const tempoScale = 120 / tempoValue
+      const durScale = Number(settings.soundDurationScale)
+      const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+      const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+
+      void playMidi(midi, {
+        durationMs: durationAudioMs,
+        instrumentType: instrument.instrumentType,
+      })
+    }
+    return
   }
 }
 
@@ -2808,10 +2869,36 @@ function onToneDotClick(d, event) {
 
   const isShift = Boolean(event?.shiftKey)
 
-  // In edit mode, a normal click should still add a new note (stacking), so we let it bubble.
   // Shift-click toggles selection without creating a note.
   // In show mode, clicking a ToneDot should always address exactly this dot.
   if (!props.editable || isShift) event?.stopPropagation?.()
+
+  if (props.editable && !isShift) {
+    const fret = Number(d?.fret)
+    const string = Number(d?.string)
+    const added = store.addNote(`${fret}-${string}`)
+    if (added?.key) selection.selectNote(added.key)
+    void debugLogToneDotPlacement('tone-dot-click-stack-add', added, {
+      fret,
+      string,
+      sourceNoteKey: noteKey,
+    })
+
+    if (!settings.soundPreviewEnabled) return
+    const t = tuning.value
+    const midi = midiForFretString({ fret, string }, t)
+    if (!Number.isFinite(Number(midi))) return
+
+    const durationPlayheadMs = store.getNoteDurationMs(added)
+    const tempoValue = Number(transport.tempo) || 120
+    const tempoScale = 120 / tempoValue
+    const durScale = Number(settings.soundDurationScale)
+    const safeScale = Number.isFinite(durScale) && durScale > 0 ? durScale : 1
+    const durationAudioMs = Math.max(30, durationPlayheadMs * tempoScale * safeScale)
+
+    void playMidi(midi, { durationMs: durationAudioMs, instrumentType: instrument.instrumentType })
+    return
+  }
 
   if (isShift) selection.toggleNoteInSelection(noteKey)
   else selection.selectNote(noteKey)
@@ -3634,6 +3721,23 @@ watch(
 
 .fb-harmony-guides circle {
   opacity: 0.95;
+  transition:
+    opacity 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    fill 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fb-tone-dot {
+  transition:
+    cx 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    cy 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    rx 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    ry 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    fill 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-width 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fb-tone-dot-symbol {
@@ -3647,11 +3751,18 @@ watch(
   font-size: 14px;
   font-weight: 800;
   user-select: none;
+  transition:
+    opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    fill 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fb-tone-dot-symbol-icon {
   pointer-events: none;
   user-select: none;
+  transition:
+    opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fb-tone-dot-pitch {
@@ -3665,6 +3776,9 @@ watch(
   font-size: 9px;
   font-weight: 700;
   user-select: none;
+  transition:
+    opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .fb-next-note-preview {
@@ -3674,6 +3788,17 @@ watch(
   stroke-dasharray: 5 3;
   filter: var(--fb-next-note-preview-shadow);
   pointer-events: none;
+  animation: fb-next-note-pulse 1100ms ease-in-out infinite;
+}
+
+@keyframes fb-next-note-pulse {
+  0%, 100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .fb-hand-position-overlay rect {

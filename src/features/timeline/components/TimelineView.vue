@@ -5,15 +5,6 @@
     </div>
 
     <section class="timeline-body" :aria-label="t('timelineView.mainArea')">
-      <TimelineTopRow v-if="!showCompactLandscapeSidebar" :timeline-visible="timelineVisible" :transport-visible="transportVisible" :beat-top="beatTop"
-        :beat-bottom="beatBottom" :pickup-enabled="pickupEnabled" :pickup-beats="pickupBeats"
-        :snap-enabled="snapEnabled" :strings-collapsed="stringsCollapsed"
-        @update-timeline-visible="(v) => emit('update-timeline-visible', v)"
-        @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
-        @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
-        @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @update-snap="(v) => emit('update-snap', v)"
-        @update-strings-collapsed="(v) => emit('update-strings-collapsed', v)" @zoom-left="incrementZoom"
-        @zoom-right="decrementZoom" />
       <div v-if="timelineVisible" class="timeline ui-panel" :class="{ 'is-collapsed': stringsCollapsed }">
         <div class="timeline-workspace" :class="{ 'has-mobile-sidebar': showCompactLandscapeSidebar }">
           <div class="timeline-canvas">
@@ -150,9 +141,17 @@
         </div>
         <TimelineInfoBar v-if="!showCompactLandscapeSidebar" :active-tool="activeTool" :bars-no-pickup-local="barsNoPickupLocal"
           :compact="compact"
+          :beat-top="beatTop"
+          :beat-bottom="beatBottom"
+          :pickup-enabled="pickupEnabled"
+          :pickup-beats="pickupBeats"
           :snap-enabled="snapEnabled"
           @update-active-tool="(v) => emit('update-active-tool', v)" @copy-selection="emit('copy-selection')"
           @paste-at-playhead="emit('paste-at-playhead')" @loop-to-selection="emit('loop-to-selection')"
+          @update-beat-top="(v) => emit('update-beat-top', v)" @update-beat-bottom="(v) => emit('update-beat-bottom', v)"
+          @update-pickup-enabled="(v) => emit('update-pickup-enabled', v)"
+          @update-pickup-beats="(v) => emit('update-pickup-beats', v)" @zoom-left="incrementZoom"
+          @zoom-right="decrementZoom"
           @update-snap="(v) => emit('update-snap', v)"
           @update-bars-no-pickup="(v) => (barsNoPickupLocal = v)" @decrement-bars-no-pickup="decrementBarsNoPickup"
           @increment-bars-no-pickup="incrementBarsNoPickup" />
@@ -190,7 +189,6 @@
 <script setup>
 import TimelineInfoBar from './TimelineInfoBar.vue'
 import TimelineCommentEvent from './TimelineCommentEvent.vue'
-import TimelineTopRow from './TimelineTopRow.vue'
 import TimelineTrack from './TimelineTrack.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -1143,6 +1141,7 @@ function incrementBarsNoPickup() {
   gap: var(--space-4);
   padding-bottom: var(--space-1);
   margin-right: 0;
+  background: #3D4854;
 }
 
 .count-in-lightbox {
@@ -1263,8 +1262,8 @@ function incrementBarsNoPickup() {
   flex: 1 1 auto;
   min-height: 0;
   border-radius: 0;
-  border: 1px solid rgb(255 255 255 / 0.06);
-  background: var(--tl-main-bg);
+  border: 0;
+  background: #3D4854;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.04),
     inset 0 -1px 0 rgb(0 0 0 / 0.2),
@@ -1326,26 +1325,15 @@ function incrementBarsNoPickup() {
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--tl-viewport-bg);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.04),
-    inset 0 -1px 0 rgb(0 0 0 / 0.24);
+  box-shadow: none;
   border-radius: 0;
-  border: 1px solid rgb(255 255 255 / 0.05);
+  border: 0;
   touch-action: var(--tl-scroll-touch-action, pan-x);
   overscroll-behavior: contain;
 }
 
 .timeline-scroll-viewport::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.04),
-    inset 0 18px 18px -18px rgb(255 255 255 / 0.08),
-    inset 0 -20px 22px -18px rgb(0 0 0 / 0.42),
-    inset 18px 0 18px -18px rgb(0 0 0 / 0.28),
-    inset -18px 0 18px -18px rgb(0 0 0 / 0.28);
+  content: none;
 }
 
 .timeline-columns {
@@ -1368,6 +1356,8 @@ function incrementBarsNoPickup() {
 
 .timeline-scroll-viewport.timeline-column-card {
   border-radius: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .timeline-string-names {
