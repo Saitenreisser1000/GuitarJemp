@@ -58,20 +58,6 @@
           </div>
         </div>
       </div>
-      <hr class="fb-tool-separator" />
-
-      <div class="fb-color-inline" :title="t('modeSelector.symbols', { color: settings.selectedColor })">
-        <ColorPalette orientation="horizontal" />
-      </div>
-
-      <button
-        class="fb-shape-btn"
-        :class="{ 'is-active': isCommentMode }"
-        type="button"
-        @click="toggleCommentMode"
-      >
-        Comment
-      </button>
     </div>
 
     <div class="fb-fret-actions-erase">
@@ -83,45 +69,21 @@
       >
         Delete
       </button>
-      <div ref="clearWrapEl" class="fb-clear-wrap">
-        <button class="fb-shape-btn is-danger" type="button" @click="onClearFretboardClick">
-          Clear Fretboard
-        </button>
-        <div v-if="clearConfirmOpen" class="fb-clear-confirm-menu" @click.stop>
-          <div class="fb-clear-confirm-text">
-            {{ clearDeleteCount }} Elemente löschen?
-          </div>
-          <div class="fb-clear-confirm-actions">
-            <button class="fb-clear-confirm-btn" type="button" @click="clearConfirmOpen = false">Abbrechen</button>
-            <button class="fb-clear-confirm-btn is-danger" type="button" @click="confirmEraseAllNotes">Löschen</button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from '@/i18n'
 import { NOTE_VALUE_ITEMS } from '@/config/noteValues'
 import { useTimelineSettingsStore } from '@/store/useTimelineSettings'
-import { useNotesStore } from '@/store/useNotes'
-import { useSelectionStore } from '@/store/useSelection'
-import { useUiModeStore, SURFACE_MODES } from '@/store/useUiMode'
-import { TIMELINE_LAYOUT } from '@/features/timeline/config/timelineLayout'
-import ColorPalette from './ColorPalette.vue'
 
 defineOptions({ name: 'FretboardContextMenu' })
 
 const settings = useTimelineSettingsStore()
-const notes = useNotesStore()
-const selection = useSelectionStore()
-const uiMode = useUiModeStore()
 const { t } = useI18n()
 const iconErrorBySrc = ref({})
-const clearConfirmOpen = ref(false)
-const clearWrapEl = ref(null)
 
 const modeItems = computed(() =>
   NOTE_VALUE_ITEMS.map((item) => ({
@@ -171,10 +133,6 @@ watch(noteModifierLocal, (val) => {
 })
 
 const isSimOn = computed(() => settings.selectedMode === 'sim')
-const isCommentMode = computed(() => uiMode.surfaceMode === SURFACE_MODES.COMMENT)
-const clearDeleteCount = computed(() =>
-  Array.isArray(notes.activeNotes) ? notes.activeNotes.length : 0,
-)
 
 function hasNoteIcon(item) {
   const src = String(item?.icon || '').trim()
@@ -205,49 +163,6 @@ function toggleEraseMode() {
   settings.setEraseMode(!settings.eraseMode)
 }
 
-function eraseAllNotes() {
-  notes.clearNotes()
-  selection.clearSelection()
-  const top = Number(settings.beatTop) || 4
-  const bottom = Number(settings.beatBottom) || 4
-  const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
-  const bars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
-  settings.setTimelineLengthBlocks(Number((blocksPerBar * bars).toFixed(3)))
-}
-
-function onClearFretboardClick() {
-  if (clearDeleteCount.value > 15) {
-    clearConfirmOpen.value = true
-    return
-  }
-  eraseAllNotes()
-}
-
-function confirmEraseAllNotes() {
-  clearConfirmOpen.value = false
-  eraseAllNotes()
-}
-
-function onWindowPointerDown(event) {
-  if (!clearConfirmOpen.value) return
-  const wrap = clearWrapEl.value
-  const target = event?.target
-  if (!wrap || !target) return
-  if (wrap.contains(target)) return
-  clearConfirmOpen.value = false
-}
-
-function toggleCommentMode() {
-  uiMode.setSurfaceMode(isCommentMode.value ? SURFACE_MODES.COMPOSE : SURFACE_MODES.COMMENT)
-}
-
-onMounted(() => {
-  window.addEventListener('pointerdown', onWindowPointerDown, true)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('pointerdown', onWindowPointerDown, true)
-})
 </script>
 
 <style scoped>
@@ -414,11 +329,6 @@ onBeforeUnmount(() => {
   min-height: 32px;
   padding: 0;
   border-radius: 10px;
-}
-
-.fb-color-inline {
-  width: 100%;
-  padding: 2px 2px 0;
 }
 
 .fb-shape-btn {

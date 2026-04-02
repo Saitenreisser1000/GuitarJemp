@@ -219,6 +219,17 @@
                   :stroke="FRETBOARD_THEME.svg.hoverPreviewStroke" stroke-width="3" style="pointer-events: none" />
 
                 <g v-for="d in toneDotsForRender" :key="`tone-dot-${d._noteKey ?? `${d.string}-${d.fret}`}`">
+                  <ellipse
+                    v-if="isToneDotSelected(d)"
+                    class="fb-tone-dot-selection-ring"
+                    :cx="toneDotX(d)"
+                    :cy="toneDotY(d)"
+                    :rx="dotRx(toneDotSelectionRingR(d))"
+                    :ry="toneDotSelectionRingR(d)"
+                    :stroke="toneDotSelectionRingStroke(d)"
+                    :stroke-width="toneDotSelectionRingStrokeWidth(d)"
+                    :style="toneDotSelectionRingStyle(d)"
+                  />
                   <ellipse class="fb-tone-dot" :cx="toneDotX(d)" :cy="toneDotY(d)" :rx="dotRx(toneDotR(d))" :ry="toneDotR(d)" :fill="toneDotFill(d)"
                     :opacity="toneDotOpacity(d)" :stroke="toneDotStroke(d)" :stroke-width="toneDotStrokeWidth(d)"
                     :style="toneDotStyle(d)"
@@ -550,6 +561,18 @@ function posKeyForNote(note) {
 const highlightedNoteKeySet = computed(() => {
   const keys = Array.isArray(highlightedNoteKeys.value) ? highlightedNoteKeys.value : []
   return new Set(keys.map((k) => String(k)))
+})
+
+const selectedNoteKeySet = computed(() => {
+  const out = new Set()
+  const keys = Array.isArray(selection.selectedNoteKeys) ? selection.selectedNoteKeys : []
+  for (const key of keys) {
+    const normalized = String(key || '')
+    if (normalized) out.add(normalized)
+  }
+  const primary = String(selection.selectedNoteKey || '')
+  if (primary) out.add(primary)
+  return out
 })
 
 const pulseStartedAtByNoteKey = computed(() => {
@@ -3102,9 +3125,18 @@ function isToneDotGroupActive(d) {
   return Boolean(d?._groupActive)
 }
 
+function isToneDotSelected(d) {
+  const nk = noteKeyForToneDot(d)
+  return Boolean(nk && selectedNoteKeySet.value.has(String(nk)))
+}
+
 function toneDotFill(d) {
+  const base = String(d?.color || 'white')
+  if (isToneDotSelected(d)) {
+    return `color-mix(in srgb, ${base} 72%, white 28%)`
+  }
   if (!isToneDotGroupActive(d)) return 'transparent'
-  return d?.color ?? 'white'
+  return base
 }
 
 function deriveNoteValueFromLength(note) {
@@ -3232,6 +3264,7 @@ function toneDotOpacity(d) {
   const activeColorKey = String(activePlaybackColorKey.value || '')
   const activeGroup = isToneDotGroupActive(d)
 
+  if (isToneDotSelected(d)) return 1
   if (!isPlaying.value) {
     return activeGroup ? 1 : 0.58
   }
@@ -3241,6 +3274,7 @@ function toneDotOpacity(d) {
 }
 
 function toneDotStroke(d) {
+  if (isToneDotSelected(d)) return 'rgba(17, 21, 28, 0.96)'
   if (!isToneDotGroupActive(d)) {
     const nk = noteKeyForToneDot(d)
     if (nk && String(selection.selectedNoteKey || '') === nk) return FRETBOARD_THEME.toneDots.strokeHover
@@ -3260,6 +3294,11 @@ function toneDotStroke(d) {
 }
 
 function toneDotStrokeWidth(d) {
+  if (isToneDotSelected(d)) {
+    let w = 2.25
+    if (isToneDotHovered(d)) w = Math.max(w, 2.45)
+    return w
+  }
   if (!isToneDotGroupActive(d)) {
     const nk = noteKeyForToneDot(d)
     let w = 1.7
@@ -3309,15 +3348,34 @@ function toneDotR(d) {
   return pulseR
 }
 
+function toneDotSelectionRingR(d) {
+  return toneDotR(d) + 3.8
+}
+
+function toneDotSelectionRingStroke() {
+  return 'rgba(248, 242, 229, 0.98)'
+}
+
+function toneDotSelectionRingStrokeWidth(d) {
+  return isToneDotHovered(d) ? 2.8 : 2.35
+}
+
+function toneDotSelectionRingStyle(d) {
+  const color = String(d?.color || '#ffffff')
+  return {
+    filter: `drop-shadow(0 0 7px color-mix(in srgb, ${color} 46%, white 54%)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.42))`,
+  }
+}
+
 function toneDotStyle(d) {
   const nk = noteKeyForToneDot(d)
   if (!nk) return null
-  const selected = String(selection.selectedNoteKey || '') === nk
+  const selected = selectedNoteKeySet.value.has(String(nk))
   const highlighted = highlightedNoteKeySet.value.has(nk)
   if (!selected && !highlighted) return null
   return {
     filter: selected
-      ? 'drop-shadow(0 0 5px rgba(255, 235, 170, 0.92)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))'
+      ? 'drop-shadow(0 0 8px rgba(255, 239, 189, 0.98)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.48))'
       : 'drop-shadow(0 0 4px rgba(255, 220, 120, 0.86)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.42))',
   }
 }
@@ -3735,6 +3793,19 @@ watch(
     ry 180ms cubic-bezier(0.22, 1, 0.36, 1),
     fill 160ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-width 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fb-tone-dot-selection-ring {
+  fill: none;
+  pointer-events: none;
+  transition:
+    cx 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    cy 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    rx 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    ry 180ms cubic-bezier(0.22, 1, 0.36, 1),
     stroke 160ms cubic-bezier(0.22, 1, 0.36, 1),
     stroke-width 160ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 180ms cubic-bezier(0.22, 1, 0.36, 1);

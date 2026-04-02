@@ -5,6 +5,7 @@ import Fretboard from '@/features/fretboard'
 import Timeline from '@/features/timeline'
 import { TransportBar } from '@/features/transport'
 import FretboardContextMenu from '@/features/fretboard/components/FretboardContextMenu.vue'
+import ColorPalette from '@/features/fretboard/components/ColorPalette.vue'
 import { AuthDialog, ConnectionsDialog, LibraryPanel, DashboardDetailPanel, UserDashboardMain } from '@/features/cloud'
 import { useInstrumentStore } from '@/store/useInstrument'
 import { useAuthStore } from '@/store/useAuth'
@@ -50,7 +51,7 @@ const showFretboard = ref(true)
 const showTimeline = ref(true)
 const showTransportBar = ref(true)
 const workspacePanelTab = ref('timeline')
-const sidebarTab = ref('toolbar')
+const sidebarTab = ref('shapes')
 const sidebarVisible = ref(true)
 const mainView = ref('workspace')
 const dashboardPanel = ref('library')
@@ -131,6 +132,9 @@ const leftRailModifier = computed({
   set: (value) => timelineSettings.setSimGroupMode(String(value || '')),
 })
 const leftRailChordEnabled = computed(() => timelineSettings.selectedMode === 'sim')
+const leftRailClearCount = computed(() =>
+  Array.isArray(notes.activeNotes) ? notes.activeNotes.length : 0,
+)
 const SONG_KEY_OPTIONS = [
   { title: 'C', value: 'C' },
   { title: 'C#/Db', value: 'C#' },
@@ -976,6 +980,20 @@ function resetEditorToDefaultLength() {
   applyConfiguredDefaultTimelineLength()
 }
 
+function clearFretboardFromLeftRail() {
+  if (leftRailClearCount.value > 15) {
+    const confirmed = window.confirm(`${leftRailClearCount.value} Elemente löschen?`)
+    if (!confirmed) return
+  }
+  notes.clearNotes()
+  selection.clearSelection()
+  const top = Number(timelineSettings.beatTop) || 4
+  const bottom = Number(timelineSettings.beatBottom) || 4
+  const blocksPerBar = Math.max(1, Number((top * (4 / bottom)).toFixed(3)))
+  const bars = Math.max(1, Number(TIMELINE_LAYOUT.bars.defaultCount) || 2)
+  timelineSettings.setTimelineLengthBlocks(Number((blocksPerBar * bars).toFixed(3)))
+}
+
 function currentTimelineInsertConfig() {
   let gridIndex = nextGridIndexFromNotes(notes.activeNotes, { mode: timelineSettings.selectedMode })
 
@@ -1104,14 +1122,9 @@ onBeforeUnmount(() => {
   }">
     <AuthDialog v-model="authOpen" />
     <ConnectionsDialog v-model="connectionsOpen" />
-    <input
-      ref="importFilesInputEl"
-      type="file"
-      accept=".musicxml,.xml,application/vnd.recordare.musicxml+xml,text/xml,application/xml"
-      multiple
-      hidden
-      @change="onImportFilesChange"
-    />
+    <input ref="importFilesInputEl" type="file"
+      accept=".musicxml,.xml,application/vnd.recordare.musicxml+xml,text/xml,application/xml" multiple hidden
+      @change="onImportFilesChange" />
 
     <div class="app-menu-bar" aria-label="Main menu">
       <div class="app-menu-brand">GuitarJemp</div>
@@ -1314,49 +1327,32 @@ onBeforeUnmount(() => {
     <main v-if="!showPhoneRotateOverlay || mainView === 'dashboard'" class="app-content">
       <aside v-if="mainView !== 'dashboard' && !isCompactView" class="app-left-rail" aria-label="Note value rail">
         <div class="app-left-rail-inner">
-          <button
-            v-for="item in leftRailNoteItems"
-            :key="item.value"
-            type="button"
-            class="app-left-rail-note-btn"
-            :class="{ 'is-active': leftRailNoteValue === item.value }"
-            :title="item.title"
-            @click="leftRailNoteValue = item.value"
-          >
+          <button v-for="item in leftRailNoteItems" :key="item.value" type="button" class="app-left-rail-note-btn"
+            :class="{ 'is-active': leftRailNoteValue === item.value }" :title="item.title"
+            @click="leftRailNoteValue = item.value">
             <span class="app-left-rail-note-glyph" aria-hidden="true">{{ item.glyph }}</span>
           </button>
 
           <div class="app-left-rail-divider" aria-hidden="true"></div>
 
-          <button
-            type="button"
-            class="app-left-rail-note-btn app-left-rail-small-btn"
-            :class="{ 'is-active': leftRailModifier === 'dotted' }"
-            :title="t('modeSelector.dotted')"
-            @click="leftRailModifier = leftRailModifier === 'dotted' ? '' : 'dotted'"
-          >
+          <button type="button" class="app-left-rail-note-btn app-left-rail-small-btn"
+            :class="{ 'is-active': leftRailModifier === 'dotted' }" :title="t('modeSelector.dotted')"
+            @click="leftRailModifier = leftRailModifier === 'dotted' ? '' : 'dotted'">
             <span class="app-left-rail-note-glyph" aria-hidden="true">.</span>
           </button>
 
-          <button
-            type="button"
-            class="app-left-rail-note-btn app-left-rail-small-btn"
-            :class="{ 'is-active': leftRailModifier === '3' }"
-            :title="t('modeSelector.triplets')"
-            @click="leftRailModifier = leftRailModifier === '3' ? '' : '3'"
-          >
+          <button type="button" class="app-left-rail-note-btn app-left-rail-small-btn"
+            :class="{ 'is-active': leftRailModifier === '3' }" :title="t('modeSelector.triplets')"
+            @click="leftRailModifier = leftRailModifier === '3' ? '' : '3'">
             <span class="app-left-rail-note-glyph" aria-hidden="true">3</span>
           </button>
 
           <div class="app-left-rail-divider" aria-hidden="true"></div>
 
-          <button
-            type="button"
-            class="app-left-rail-note-btn app-left-rail-chord-btn"
+          <button type="button" class="app-left-rail-note-btn app-left-rail-chord-btn"
             :class="{ 'is-active': leftRailChordEnabled }"
             :title="leftRailChordEnabled ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-            @click="timelineSettings.setSelectedMode(leftRailChordEnabled ? String(timelineSettings.lastRhythmMode || '1/4') : 'sim')"
-          >
+            @click="timelineSettings.setSelectedMode(leftRailChordEnabled ? String(timelineSettings.lastRhythmMode || '1/4') : 'sim')">
             <span class="app-left-rail-chord-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="presentation" focusable="false">
                 <line x1="7.75" y1="2" x2="7.75" y2="22" />
@@ -1364,6 +1360,19 @@ onBeforeUnmount(() => {
                 <ellipse cx="12.4" cy="15.4" rx="5.1" ry="3.6" transform="rotate(-34 12.4 15.4)" />
               </svg>
             </span>
+          </button>
+
+          <div class="app-left-rail-spacer" aria-hidden="true"></div>
+
+          <button type="button" class="app-left-rail-note-btn app-left-rail-comment-btn"
+            :class="{ 'is-active': isCommentMode }" title="Comment"
+            @click="uiMode.setSurfaceMode(isCommentMode ? SURFACE_MODES.COMPOSE : SURFACE_MODES.COMMENT)">
+            <span class="app-left-rail-clear-label">Comment</span>
+          </button>
+
+          <button type="button" class="app-left-rail-note-btn app-left-rail-clear-btn" :title="'Clear'"
+            @click="clearFretboardFromLeftRail">
+            <span class="app-left-rail-clear-label">Clear</span>
           </button>
         </div>
       </aside>
@@ -1390,15 +1399,13 @@ onBeforeUnmount(() => {
           <div v-if="!isCompactView && showFretboard" ref="fretboardMainEl" class="fretboard-main">
             <div class="fretboard-pane-row">
               <div class="fretboard-pane-body">
-                <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx" :is-phone-view="false"
-                  :style="fretboardStyleVars" />
-              </div>
-              <div class="fretboard-pane-side">
-                <div class="fretboard-pane-side-stack">
+                <div class="fretboard-pane-corner-tools">
                   <v-menu location="bottom end" :close-on-content-click="false">
                     <template #activator="{ props: menuProps }">
-                      <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
-                        class="fretboard-options-btn" aria-label="Options" />
+                      <v-btn v-bind="menuProps" class="fretboard-options-btn" size="small" variant="tonal"
+                        title="Options" aria-label="Options">
+                        <v-icon icon="mdi-cog-outline" size="16" />
+                      </v-btn>
                     </template>
                     <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
                       <div class="d-flex ga-2">
@@ -1406,8 +1413,7 @@ onBeforeUnmount(() => {
                           min="1" step="1" label="Strings" style="width: 96px"
                           @update:model-value="(v) => instrument.setNumStrings(v)" />
                         <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
-                          step="1" label="Frets" style="width: 96px"
-                          @update:model-value="updateNumFrets" />
+                          step="1" label="Frets" style="width: 96px" @update:model-value="updateNumFrets" />
                       </div>
                       <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
                         hide-details label="Dot Labels" variant="outlined"
@@ -1416,28 +1422,42 @@ onBeforeUnmount(() => {
                         :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
                         variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
-                        label="Left handed"
-                        @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                        label="Left handed" @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
                       <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
                         label="Hand position track"
                         @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
                   </v-menu>
+                </div>
+                <Fretboard :num-frets="numFrets" :editable="true" :core-resize-px="corePadResizePx"
+                  :is-phone-view="false" :style="fretboardStyleVars" />
+              </div>
+              <div class="fretboard-pane-side">
+                <div class="fretboard-pane-side-stack">
+                  <div class="fretboard-side-toolbar">
+                    <v-menu location="bottom end" :close-on-content-click="false">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="fretboard-color-btn">
+                          Color
+                        </v-btn>
+                      </template>
+                      <div class="fretboard-color-menu pa-2">
+                        <ColorPalette orientation="horizontal" />
+                      </div>
+                    </v-menu>
+                  </div>
                   <div class="fretboard-dot-groups" :class="{ 'is-empty': !hasDotGroups }">
                     <div class="fretboard-dot-groups-list">
                       <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': hasDotGroups && allDotGroupsSelected, 'is-disabled': !hasDotGroups }"
-                        :disabled="!hasDotGroups"
-                        @click="activateAllDotGroups">
+                        :disabled="!hasDotGroups" @click="activateAllDotGroups">
                         All
                       </v-btn>
                       <v-btn v-for="group in usedDotGroups" :key="group.id" variant="tonal" size="small"
                         class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
-                        :style="{ borderLeft: `12px solid ${group.color}` }"
-                        :title="group.label"
-                        @contextmenu="openDotGroupMenu($event, group)"
-                        @click="activateDotGroup(group.color)">
+                        :style="{ borderLeft: `12px solid ${group.color}` }" :title="group.label"
+                        @contextmenu="openDotGroupMenu($event, group)" @click="activateDotGroup(group.color)">
                         {{ group.label }}
                       </v-btn>
                     </div>
@@ -1450,15 +1470,13 @@ onBeforeUnmount(() => {
             class="fretboard-main">
             <div class="fretboard-pane-row">
               <div class="fretboard-pane-body">
-                <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx"
-                  :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
-              </div>
-              <div class="fretboard-pane-side">
-                <div class="fretboard-pane-side-stack">
+                <div class="fretboard-pane-corner-tools">
                   <v-menu location="bottom end" :close-on-content-click="false">
                     <template #activator="{ props: menuProps }">
-                      <v-btn v-bind="menuProps" size="x-small" variant="tonal" icon="mdi-tune-variant"
-                        class="fretboard-options-btn" aria-label="Options" />
+                      <v-btn v-bind="menuProps" class="fretboard-options-btn" size="small" variant="tonal"
+                        title="Options" aria-label="Options">
+                        <v-icon icon="mdi-cog-outline" size="16" />
+                      </v-btn>
                     </template>
                     <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
                       <div class="d-flex ga-2">
@@ -1466,8 +1484,7 @@ onBeforeUnmount(() => {
                           min="1" step="1" label="Strings" style="width: 96px"
                           @update:model-value="(v) => instrument.setNumStrings(v)" />
                         <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
-                          step="1" label="Frets" style="width: 96px"
-                          @update:model-value="updateNumFrets" />
+                          step="1" label="Frets" style="width: 96px" @update:model-value="updateNumFrets" />
                       </div>
                       <v-select v-model="fretboardDotLabelMode" :items="DOT_LABEL_MODE_OPTIONS" density="compact"
                         hide-details label="Dot Labels" variant="outlined"
@@ -1476,28 +1493,42 @@ onBeforeUnmount(() => {
                         :items="PLAY_ORDER_SCOPE_OPTIONS" density="compact" hide-details label="Count Scope"
                         variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
                       <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
-                        label="Left handed"
-                        @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
+                        label="Left handed" @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
                       <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
                         label="Hand position track"
                         @update:model-value="(v) => timelineSettings.setHandPositionVisible(Boolean(v))" />
                     </div>
                   </v-menu>
+                </div>
+                <Fretboard :num-frets="numFrets" :editable="!isWatchView" :core-resize-px="corePadResizePx"
+                  :is-phone-view="isPhoneView" :style="fretboardStyleVars" />
+              </div>
+              <div class="fretboard-pane-side">
+                <div class="fretboard-pane-side-stack">
+                  <div class="fretboard-side-toolbar">
+                    <v-menu location="bottom end" :close-on-content-click="false">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn v-bind="menuProps" size="x-small" variant="tonal" class="fretboard-color-btn">
+                          Color
+                        </v-btn>
+                      </template>
+                      <div class="fretboard-color-menu pa-2">
+                        <ColorPalette orientation="horizontal" />
+                      </div>
+                    </v-menu>
+                  </div>
                   <div class="fretboard-dot-groups" :class="{ 'is-empty': !hasDotGroups }">
                     <div class="fretboard-dot-groups-list">
                       <v-btn variant="tonal" size="small" class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': hasDotGroups && allDotGroupsSelected, 'is-disabled': !hasDotGroups }"
-                        :disabled="!hasDotGroups"
-                        @click="activateAllDotGroups">
+                        :disabled="!hasDotGroups" @click="activateAllDotGroups">
                         All
                       </v-btn>
                       <v-btn v-for="group in usedDotGroups" :key="group.id" variant="tonal" size="small"
                         class="justify-start fretboard-dot-group-btn"
                         :class="{ 'is-active': String(timelineSettings.activeDotGroupColor || '') === group.color }"
-                        :style="{ borderLeft: `12px solid ${group.color}` }"
-                        :title="group.label"
-                        @contextmenu="openDotGroupMenu($event, group)"
-                        @click="activateDotGroup(group.color)">
+                        :style="{ borderLeft: `12px solid ${group.color}` }" :title="group.label"
+                        @contextmenu="openDotGroupMenu($event, group)" @click="activateDotGroup(group.color)">
                         {{ group.label }}
                       </v-btn>
                     </div>
@@ -1522,9 +1553,10 @@ onBeforeUnmount(() => {
               </v-tabs>
             </div>
             <div class="pane-b-content">
-              <Timeline v-if="showTimeline" v-show="workspacePanelTab === 'timeline'" ref="timelineRef" :num-frets="numFrets"
-                :compact="isCompactView" :library-panel-visible="false" :transport-visible="transportVisible"
-                :external-undo-tick="timelineUndoTick" :external-redo-tick="timelineRedoTick"
+              <Timeline v-if="showTimeline" v-show="workspacePanelTab === 'timeline'" ref="timelineRef"
+                :num-frets="numFrets" :compact="isCompactView" :library-panel-visible="false"
+                :transport-visible="transportVisible" :external-undo-tick="timelineUndoTick"
+                :external-redo-tick="timelineRedoTick"
                 @update-transport-visible="(v) => (transportVisible = Boolean(v))" />
               <LibraryPanel v-show="workspacePanelTab === 'library'" />
             </div>
@@ -1533,9 +1565,9 @@ onBeforeUnmount(() => {
         <template #sidebar>
           <div class="app-sidebar-content">
             <div class="app-sidebar-tabs">
-              <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'toolbar' }"
-                @click="sidebarTab = 'toolbar'">
-                Toolbar
+              <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'shapes' }"
+                @click="sidebarTab = 'shapes'">
+                Shapes
               </button>
               <button type="button" class="app-sidebar-tab" :class="{ 'is-active': sidebarTab === 'scale' }"
                 @click="sidebarTab = 'scale'">
@@ -1547,7 +1579,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="app-sidebar-panel">
-              <FretboardContextMenu v-if="sidebarTab === 'toolbar'" class="app-sidebar-menu" />
+              <div v-if="sidebarTab === 'shapes'" class="app-sidebar-menu app-sidebar-empty" />
               <div v-else-if="sidebarTab === 'scale'" class="app-sidebar-form">
                 <section class="app-sidebar-section">
                   <div class="app-sidebar-section-title">Scale Display</div>
@@ -1559,11 +1591,14 @@ onBeforeUnmount(() => {
                   <v-select :model-value="harmony.scaleRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
                     hide-details @update:model-value="(v) => (harmony.scaleRoot = String(v || 'C'))" />
                   <v-select :model-value="harmony.scaleType" :items="SCALE_TYPE_OPTIONS" label="Scale Type"
-                    density="compact" hide-details @update:model-value="(v) => (harmony.scaleType = String(v || SCALE_TYPE_OPTIONS[0]))" />
+                    density="compact" hide-details
+                    @update:model-value="(v) => (harmony.scaleType = String(v || SCALE_TYPE_OPTIONS[0]))" />
                   <v-select :model-value="harmony.position" :items="SCALE_POSITION_OPTIONS" label="Position"
-                    density="compact" hide-details @update:model-value="(v) => (harmony.position = String(v || 'Open'))" />
+                    density="compact" hide-details
+                    @update:model-value="(v) => (harmony.position = String(v || 'Open'))" />
                   <v-select :model-value="harmony.pattern" :items="SCALE_PATTERN_OPTIONS" label="Pattern"
-                    density="compact" hide-details @update:model-value="(v) => (harmony.pattern = String(v || SCALE_PATTERN_OPTIONS[0]))" />
+                    density="compact" hide-details
+                    @update:model-value="(v) => (harmony.pattern = String(v || SCALE_PATTERN_OPTIONS[0]))" />
                 </section>
               </div>
               <div v-else class="app-sidebar-form">
@@ -1577,28 +1612,25 @@ onBeforeUnmount(() => {
                   <v-select :model-value="harmony.chordRoot" :items="SONG_KEY_OPTIONS" label="Root" density="compact"
                     hide-details @update:model-value="(v) => (harmony.chordRoot = String(v || 'C'))" />
                   <v-select :model-value="harmony.chordType" :items="CHORD_TYPE_OPTIONS" label="Chord Type"
-                    density="compact" hide-details @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
+                    density="compact" hide-details
+                    @update:model-value="(v) => (harmony.chordType = String(v || CHORD_TYPE_OPTIONS[0]))" />
                 </section>
                 <section class="app-sidebar-section">
                   <div class="app-sidebar-section-title">Voicing</div>
                   <v-switch :model-value="harmony.chordPosition === 'Open'" density="compact" hide-details inset
                     color="primary" label="Open"
                     @update:model-value="(v) => (harmony.chordPosition = Boolean(v) ? 'Open' : '5')" />
-                  <v-select :model-value="harmony.chordRootString"
-                    :items="[
-                      { title: 'String E', value: 'string-e' },
-                      { title: 'String A', value: 'string-a' },
-                      { title: 'String D', value: 'string-d' },
-                    ]"
-                    label="Root String" density="compact" hide-details
-                    :disabled="harmony.chordPosition === 'Open'"
+                  <v-select :model-value="harmony.chordRootString" :items="[
+                    { title: 'String E', value: 'string-e' },
+                    { title: 'String A', value: 'string-a' },
+                    { title: 'String D', value: 'string-d' },
+                  ]" label="Root String" density="compact" hide-details :disabled="harmony.chordPosition === 'Open'"
                     @update:model-value="(v) => (harmony.chordRootString = String(v || 'string-e'))" />
                 </section>
                 <section class="app-sidebar-section app-sidebar-section-action">
                   <div class="app-sidebar-section-title">Insert</div>
                   <v-btn class="app-sidebar-action" color="primary" variant="tonal"
-                    :disabled="!(harmony.activeChordShape?.positions || []).length"
-                    @click="addActiveChordToTimeline">
+                    :disabled="!(harmony.activeChordShape?.positions || []).length" @click="addActiveChordToTimeline">
                     Add Chord
                   </v-btn>
                 </section>
@@ -1910,6 +1942,10 @@ onBeforeUnmount(() => {
   margin: 2px 0;
 }
 
+.app-left-rail-spacer {
+  flex: 1 1 auto;
+}
+
 .app-left-rail-note-btn {
   width: 38px;
   height: 38px;
@@ -1930,6 +1966,7 @@ onBeforeUnmount(() => {
 
 .app-left-rail-note-btn:hover {
   background: linear-gradient(180deg, rgb(63 74 91 / 0.88), rgb(46 55 69 / 0.92));
+  transform: scale(1.06);
 }
 
 .app-left-rail-note-btn.is-active {
@@ -1952,6 +1989,39 @@ onBeforeUnmount(() => {
 
 .app-left-rail-chord-btn {
   padding: 0;
+}
+
+.app-left-rail-clear-btn {
+  height: 34px;
+  width: 38px;
+  padding: 0;
+  border-color: rgb(207 86 86 / 0.82);
+  background: linear-gradient(180deg, rgb(196 76 76 / 0.96), rgb(148 43 43 / 0.98));
+  color: rgb(255 241 241 / 0.98);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 8px 14px rgb(83 15 15 / 0.18);
+}
+
+.app-left-rail-comment-btn {
+  height: 34px;
+  width: 38px;
+  padding: 0;
+}
+
+.app-left-rail-clear-btn:hover {
+  background: linear-gradient(180deg, rgb(208 88 88 / 0.98), rgb(161 51 51 / 0.99));
+}
+
+.app-left-rail-clear-btn:active {
+  background: linear-gradient(180deg, rgb(171 59 59 / 0.98), rgb(129 34 34 / 0.99));
+}
+
+.app-left-rail-clear-label {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .app-left-rail-chord-icon {
@@ -2090,6 +2160,12 @@ onBeforeUnmount(() => {
 .app-sidebar-menu {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.app-sidebar-empty {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .app-sidebar-form {
@@ -2284,11 +2360,39 @@ onBeforeUnmount(() => {
 }
 
 .fretboard-options-btn {
-  min-width: 30px;
-  width: 30px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding-inline: 0;
+}
+
+.fretboard-color-btn {
+  width: 100%;
+  min-width: 0;
   height: 30px;
-  padding: 0;
   border-radius: 10px;
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fretboard-side-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+
+.fretboard-color-menu {
+  min-width: 184px;
+  border: 1px solid rgb(124 175 233 / 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-layer-overlay) 96%, transparent), color-mix(in srgb, var(--app-layer-4) 94%, transparent));
+  box-shadow:
+    0 14px 30px rgb(4 8 14 / 0.44),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .fretboard-pane-body {
@@ -2296,6 +2400,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   min-width: 0;
+  position: relative;
   padding: 6px 8px 8px;
   border: 1px solid rgb(255 255 255 / 0.08);
   border-radius: 0;
@@ -2305,6 +2410,16 @@ onBeforeUnmount(() => {
     inset 0 1px 0 rgb(255 255 255 / 0.045),
     inset 0 -1px 0 rgb(0 0 0 / 0.2),
     0 10px 20px rgb(0 0 0 / 0.12);
+}
+
+.fretboard-pane-corner-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .fretboard-pane-side {
@@ -2590,7 +2705,7 @@ onBeforeUnmount(() => {
   color: var(--app-text);
 }
 
-.fretboard-pane-body > * {
+.fretboard-pane-body>* {
   flex: 1 1 auto;
   min-height: 0;
 }
