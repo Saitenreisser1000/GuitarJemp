@@ -400,7 +400,7 @@ watch(
 .timeline-sidebar-options-label {
   font-size: 11px;
   line-height: 1;
-  color: var(--color-text-muted);
+  color: rgb(230 236 244 / 0.88);
   font-weight: 700;
 }
 
@@ -575,15 +575,15 @@ watch(
 .timeline-tool-icon {
   font-size: 12px;
   line-height: 1;
-  opacity: 0.85;
-  color: var(--color-text-muted);
+  opacity: 0.92;
+  color: rgb(224 231 240 / 0.72);
 }
 
 .timeline-tool-label {
   font-size: 10px;
   line-height: 1;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: rgb(224 231 240 / 0.72);
 }
 
 .timeline-tool.is-active .timeline-tool-icon {
@@ -611,7 +611,7 @@ watch(
 .timeline-chip-label {
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: rgb(230 236 244 / 0.88);
 }
 
 .timeline-chip-value {
@@ -638,8 +638,8 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding-left: 6px;
-  border-left: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  padding-left: 0;
+  border-left: 0;
 }
 
 .timeline-stepper-sidebar {
@@ -652,7 +652,7 @@ watch(
 .timeline-stepper-label {
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: rgb(230 236 244 / 0.88);
 }
 
 .timeline-options-inline-btn {
@@ -682,6 +682,13 @@ watch(
   min-height: 22px;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.bars-adjust-btn :deep(.v-btn__content),
+.timeline-options-inline-btn :deep(.v-btn__content),
+.bars-count-input :deep(.v-field__input),
+.bars-count-input :deep(input[type='number']) {
+  color: rgb(230 236 244 / 0.88);
 }
 
 .bars-count-input :deep(input[type='number']) {

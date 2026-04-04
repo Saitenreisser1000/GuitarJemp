@@ -1,49 +1,32 @@
 <template>
   <aside class="app-left-rail" aria-label="Note value rail">
     <div class="app-left-rail-inner">
-      <button
-        v-for="item in leftRailNoteItems"
-        :key="item.value"
-        type="button"
-        class="app-left-rail-note-btn"
-        :class="{ 'is-active': leftRailNoteValue === item.value }"
-        :title="item.title"
-        @click="leftRailNoteValue = item.value"
-      >
+      <button v-for="item in leftRailNoteItems" :key="item.value" type="button" class="app-left-rail-note-btn"
+        :class="{ 'is-active': leftRailNoteValue === item.value }" :title="item.title"
+        @click="leftRailNoteValue = item.value">
         <span class="app-left-rail-note-glyph" aria-hidden="true">{{ item.glyph }}</span>
       </button>
 
       <div class="app-left-rail-divider" aria-hidden="true"></div>
 
-      <button
-        type="button"
-        class="app-left-rail-note-btn app-left-rail-small-btn"
-        :class="{ 'is-active': leftRailModifier === 'dotted' }"
-        :title="t('modeSelector.dotted')"
-        @click="leftRailModifier = leftRailModifier === 'dotted' ? '' : 'dotted'"
-      >
+      <button type="button" class="app-left-rail-note-btn app-left-rail-small-btn"
+        :class="{ 'is-active': leftRailModifier === 'dotted' }" :title="t('modeSelector.dotted')"
+        @click="leftRailModifier = leftRailModifier === 'dotted' ? '' : 'dotted'">
         <span class="app-left-rail-note-glyph" aria-hidden="true">.</span>
       </button>
 
-      <button
-        type="button"
-        class="app-left-rail-note-btn app-left-rail-small-btn"
-        :class="{ 'is-active': leftRailModifier === '3' }"
-        :title="t('modeSelector.triplets')"
-        @click="leftRailModifier = leftRailModifier === '3' ? '' : '3'"
-      >
+      <button type="button" class="app-left-rail-note-btn app-left-rail-small-btn"
+        :class="{ 'is-active': leftRailModifier === '3' }" :title="t('modeSelector.triplets')"
+        @click="leftRailModifier = leftRailModifier === '3' ? '' : '3'">
         <span class="app-left-rail-note-glyph" aria-hidden="true">3</span>
       </button>
 
       <div class="app-left-rail-divider" aria-hidden="true"></div>
 
-      <button
-        type="button"
-        class="app-left-rail-note-btn app-left-rail-chord-btn"
+      <button type="button" class="app-left-rail-note-btn app-left-rail-chord-btn"
         :class="{ 'is-active': leftRailChordEnabled }"
         :title="leftRailChordEnabled ? t('modeSelector.disableChord') : t('modeSelector.enableChord')"
-        @click="timelineSettings.setSelectedMode(leftRailChordEnabled ? String(timelineSettings.lastRhythmMode || '1/4') : 'sim')"
-      >
+        @click="timelineSettings.setSelectedMode(leftRailChordEnabled ? String(timelineSettings.lastRhythmMode || '1/4') : 'sim')">
         <span class="app-left-rail-chord-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="presentation" focusable="false">
             <line x1="7.75" y1="2" x2="7.75" y2="22" />
@@ -55,14 +38,10 @@
 
       <div class="app-left-rail-spacer" aria-hidden="true"></div>
 
-      <button
-        type="button"
-        class="app-left-rail-note-btn app-left-rail-comment-btn"
-        :class="{ 'is-active': isCommentMode }"
-        title="Comment"
-        @click="uiMode.setSurfaceMode(isCommentMode ? SURFACE_MODES.COMPOSE : SURFACE_MODES.COMMENT)"
-      >
-        <span class="app-left-rail-clear-label">Comment</span>
+      <button type="button" class="app-left-rail-note-btn app-left-rail-comment-btn"
+        :class="{ 'is-active': isCommentMode }" title="Comment"
+        @click="uiMode.setSurfaceMode(isCommentMode ? SURFACE_MODES.COMPOSE : SURFACE_MODES.COMMENT)">
+        <span class="app-left-rail-comment-label app-left-rail-clear-label">Comment</span>
       </button>
 
       <button type="button" class="app-left-rail-note-btn app-left-rail-clear-btn" title="Clear" @click="emit('clear')">
@@ -226,6 +205,11 @@ const isCommentMode = computed(() => uiMode.surfaceMode === SURFACE_MODES.COMMEN
   font-weight: 800;
   letter-spacing: 0.02em;
 }
+
+.app-left-rail-comment-label {
+  font-size: 6px;
+}
+
 
 .app-left-rail-chord-icon {
   width: 18px;

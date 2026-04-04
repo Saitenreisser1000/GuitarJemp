@@ -1,7 +1,7 @@
 <template>
   <div class="pane-b-stack">
     <div class="pane-b-tabs">
-      <v-tabs :model-value="workspacePanelTab" density="compact" class="browser-tabs"
+      <v-tabs :model-value="workspacePanelTab" density="compact" :height="28" class="browser-tabs"
         @update:model-value="(v) => emit('update:workspacePanelTab', String(v || 'timeline'))">
         <v-tab value="timeline" class="browser-tab">Timeline</v-tab>
         <v-tab value="library" class="browser-tab">Library</v-tab>
@@ -117,22 +117,28 @@ defineExpose({
 
 .pane-b-tabs {
   flex: 0 0 auto;
-  padding: 0 8px 0;
+  padding: 0 6px 0;
   border-bottom: 0;
   background: transparent;
 }
 
 .pane-b-tabs :deep(.browser-tabs) {
   min-height: 0;
+  --v-tabs-height: 28px;
+}
+
+.pane-b-tabs :deep(.browser-tabs .v-slide-group__container) {
+  min-height: 28px;
 }
 
 .pane-b-tabs :deep(.browser-tabs .v-slide-group__content) {
+  min-height: 28px;
   gap: 6px;
   align-items: end;
 }
 
 .pane-b-tabs :deep(.browser-tab) {
-  min-height: 31px;
+  min-height: 28px;
   min-width: 88px;
   border: 1px solid rgb(255 255 255 / 0.05);
   border-bottom: 0;
@@ -143,7 +149,7 @@ defineExpose({
   text-transform: none;
   letter-spacing: 0;
   box-shadow: none;
-  padding-inline: 10px;
+  padding-inline: 7px;
   transition:
     background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),

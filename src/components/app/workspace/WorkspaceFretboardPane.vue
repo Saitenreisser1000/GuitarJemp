@@ -5,25 +5,24 @@
         <div class="fretboard-pane-corner-tools">
           <v-menu location="bottom end" :close-on-content-click="false">
             <template #activator="{ props: menuProps }">
-              <v-btn v-bind="menuProps" class="fretboard-options-btn" size="small" variant="tonal"
-                title="Options" aria-label="Options">
+              <v-btn v-bind="menuProps" class="fretboard-options-btn" size="small" variant="tonal" title="Options"
+                aria-label="Options">
                 <v-icon icon="mdi-cog-outline" size="16" />
               </v-btn>
             </template>
             <div class="fretboard-options-menu pa-3 d-flex flex-column ga-2">
               <div class="d-flex ga-2">
-                <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number"
-                  min="1" step="1" label="Strings" style="width: 96px"
+                <v-text-field :model-value="instrument.numStrings" density="compact" hide-details type="number" min="1"
+                  step="1" label="Strings" style="width: 96px"
                   @update:model-value="(v) => instrument.setNumStrings(v)" />
-                <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1"
-                  step="1" label="Frets" style="width: 96px" @update:model-value="(v) => emit('update-num-frets', v)" />
+                <v-text-field :model-value="numFrets" density="compact" hide-details type="number" min="1" step="1"
+                  label="Frets" style="width: 96px" @update:model-value="(v) => emit('update-num-frets', v)" />
               </div>
-              <v-select v-model="dotLabelModeModel" :items="dotLabelModeOptions" density="compact"
-                hide-details label="Dot Labels" variant="outlined"
-                :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
+              <v-select v-model="dotLabelModeModel" :items="dotLabelModeOptions" density="compact" hide-details
+                label="Dot Labels" variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
               <v-select v-if="dotLabelModeModel === 'play-order'" v-model="playOrderScopeModel"
-                :items="playOrderScopeOptions" density="compact" hide-details label="Count Scope"
-                variant="outlined" :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
+                :items="playOrderScopeOptions" density="compact" hide-details label="Count Scope" variant="outlined"
+                :menu-props="{ contentClass: 'fretboard-options-select-menu' }" />
               <v-switch :model-value="timelineSettings.leftHanded" density="compact" hide-details inset
                 label="Left handed" @update:model-value="(v) => timelineSettings.setLeftHanded(Boolean(v))" />
               <v-switch :model-value="timelineSettings.handPositionVisible" density="compact" hide-details inset
@@ -179,6 +178,9 @@ const playOrderScopeModel = computed({
   justify-content: center;
   padding: 0;
   min-height: 0;
+  width: 178px;
+  min-width: 178px;
+  max-width: 178px;
 }
 
 .fretboard-pane-side-stack {
@@ -188,6 +190,9 @@ const playOrderScopeModel = computed({
   justify-content: flex-start;
   gap: 8px;
   padding: 8px;
+  width: 178px;
+  min-width: 178px;
+  max-width: 178px;
   min-height: 100%;
   height: 100%;
   border: 1px solid rgb(116 163 221 / 0.16);

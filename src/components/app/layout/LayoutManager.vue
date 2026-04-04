@@ -18,7 +18,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
-import MainwindowManager from '@/components/app/MainwindowManager.vue'
+import MainwindowManager from '@/components/app/layout/MainwindowManager.vue'
 
 const SIDEBAR_WIDTH_KEY = 'guitarjemp.layout.sidebarWidthPx'
 const SIDEBAR_MIN_WIDTH = 220
